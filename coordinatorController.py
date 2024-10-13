@@ -17,6 +17,7 @@ def main():
         else:
             coordinator_mqtt.send_probe_command(probe_id = "probe1", command = "role: Server")
             coordinator_mqtt.send_probe_command(probe_id = "probe2", command = "role: Client")
+    print("test commit")
 
 if __name__ == "__main__":
     main()
