@@ -30,7 +30,8 @@ class mqttClient:
         self.client.connect(broker_ip, broker_port, keep_alive)
         self.client.loop_start()
 
-    def connection_success_event_handler(self, client, userdata, flags, rc): # If the broker accepts the connection...
+    def connection_success_event_handler(self, client, userdata, flags, rc): 
+        # Invoked when the connection to broker has success
         if(self.client is None):
             return
         print(f"The broker has accepted the connection...")
@@ -39,19 +40,23 @@ class mqttClient:
             print(f"Subscription to topic [{topic}]")
 
     def new_message_event_handler(self, client, userdata, message):
+        # Invoked when a new message has arrived from the broker
         if(self.client is None):
             return        
         print(f"Message pusblished on topic: {message.topic} -> {message.payload.decode('utf-8')}")
 
     def publish_message(self, topic, message):
+        # Invoked when you want publish a message on a topic
         if(self.client is None):
             return
         self.client.publish(topic, message)
 
     def send_probe_command(self, probe_id, command):
+        # Invoked when you want to send a command to one probe
         self.publish_message("probes/" + probe_id + "/" + self.probes_command_topic, command)        
 
     def disconnect(self):
+        # Invoked to inform the broker to release the allocated resources
         if(self.client is None):
             return
         self.client.loop_stop()
