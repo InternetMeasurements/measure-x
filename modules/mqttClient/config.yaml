@@ -1,0 +1,23 @@
+#Configuration file for the MQTT module
+mqtt_client:
+  client_id: coordinator
+
+  broker:
+    host: 192.168.1.51
+    port: 1883
+    keep_alive: 60
+    login: False # per l'utilizzo delle credenziali, metti a True. L'ESP32 non supporta le credenziali!
+
+  credentials:
+    username: coordinator
+    password: Penna3mg$
+
+  subscription_topics:
+    - "probes//+//status"
+    - "probes//+//error"
+    - "probes//+//msg"
+
+  publishing:
+    probes_command_topic: commands
+    qos: 0
+    retain: False
