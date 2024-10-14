@@ -17,39 +17,63 @@ class mqttClient(mqtt.Client):
         with open("./modules/mqttModule/coordinatorConfig.yaml") as file:
             self.config = yaml.safe_load(file)
 
-        mqtt_config = self.config['mqtt_client']
-        client_id = mqtt_config['client_id']
-        broker_ip = mqtt_config['broker']['host']
-        broker_port = mqtt_config['broker']['port']
-        keep_alive = mqtt_config['broker']['keep_alive']
-        self.probes_command_topic = mqtt_config['publishing']['probes_command_topic']
+        self.config = self.config['mqtt_client']
+        self.client_id = self.config['client_id']
+        clean_session = self.config['clean_session']
+        broker_ip = self.config['broker']['host']
+        broker_port = self.config['broker']['port']
+        keep_alive = self.config['broker']['keep_alive']
+        self.probes_command_topic = self.config['publishing']['probes_command_topic']
 
-        super().__init__(client_id = client_id)
+        super().__init__(client_id = self.client_id, clean_session = clean_session)
 
         self.on_connect = self.connection_success_event_handler
-        self.on_message = self.new_message_event_handler
-        if(mqtt_config['broker']['login']): # If there is the enabled credentials ...
+        self.on_message = self.message_rcvd_event_handler
+        if(self.config['broker']['login']): # If there is the enabled credentials ...
             self.username_pw_set(
-                mqtt_config['credentials']['username'],
-                mqtt_config['credentials']['password'])
+                self.config['credentials']['username'],
+                self.config['credentials']['password'])
         
         self.connect(broker_ip, broker_port, keep_alive)
         self.loop_start()
 
     def connection_success_event_handler(self, client, userdata, flags, rc): 
         # Invoked when the connection to broker has success
-        print(f"The broker has accepted the connection...")
-        for topic in self.config['mqtt_client']['subscription_topics']:
+        if not self.check_return_code(rc):
+            self.loop_stop() # the loop_stop() here, ensure that the client stops to polling the broker with connection requests
+            return
+        
+        for topic in self.config['subscription_topics']:
             self.subscribe(topic)
-            print(f"Subscription to topic [{topic}]")
+            print(f"{self.client_id}: Subscription to topic --> [{topic}]")
 
-    def new_message_event_handler(self, client, userdata, message):
+    def message_rcvd_event_handler(self, client, userdata, message):
         # Invoked when a new message has arrived from the broker      
-        print(f"Message pusblished on topic: {message.topic} -> {message.payload.decode('utf-8')}")
+        print(f"{self.client_id}: Received msg on topic -> | {message.topic} | {message.payload.decode('utf-8')} |")
 
     def send_probe_command(self, probe_id, command):
         # Invoked when you want to send a command to one probe
-        self.publish("probes/" + probe_id + "/" + self.probes_command_topic, command)        
+        complete_command_topic = str(self.probes_command_topic).replace("PROBE_ID", probe_id)
+        self.publish(complete_command_topic, command)        
+
+    def check_return_code(self, rc):
+        match rc:
+            case 0:
+                print(f"{self.client_id}: The broker has accepted the connection")
+                self.connected_to_broker = True
+                return True
+            case 1:
+                print(f"{self.client_id}: Connection refused, unacceptable protocol version")
+            case 2:
+                print(f"{self.client_id}: Connection refused, identifier rejected")
+            case 3:
+                print(f"{self.client_id}: Connection refused, server unavailable")
+            case 4:
+                print(f"{self.client_id}: Connection refused, bad user name or password")
+            case 5:
+                print(f"{self.client_id}: Connection refused, not authorized")
+        self.connected_to_broker = False
+        return False
 
     def disconnect(self):
         # Invoked to inform the broker to release the allocated resources
