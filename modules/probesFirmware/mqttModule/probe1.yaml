@@ -1,6 +1,7 @@
 #Configuration file for the MQTT module
 mqtt_client:
   probe_id: probe1
+  clean_session: True # Auto-eliminazione delle subscriptions
 
   broker:
     host: 131.114.72.254 # 192.168.1.51

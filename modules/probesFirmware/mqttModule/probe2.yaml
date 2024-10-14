@@ -1,16 +1,17 @@
 #Configuration file for the MQTT module
 mqtt_client:
   probe_id: probe2
-
+  clean_session: True # Auto-eliminazione delle subscriptions
+  
   broker:
     host: 131.114.72.254 # 192.168.1.51
     port: 8080
     keep_alive: 60
-    login: False # per l'utilizzo delle credenziali, metti a True. L'ESP32 non supporta le credenziali!
+    login: True # per l'utilizzo delle credenziali, metti a True. L'ESP32 non supporta le credenziali!
 
   credentials:
     username: probe2
-    password: Mouse2L@
+    password: Bustina2.53@
 
   subscription_topics:
     - "probes/PROBE_ID/commands"
