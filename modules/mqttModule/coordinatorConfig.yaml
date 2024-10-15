@@ -1,4 +1,5 @@
-#Configuration file for the MQTT module
+#Configuration file for the Coordinator MQTT module
+
 mqtt_client:
   client_id: coordinator
   clean_session: True # Auto-eliminazione delle subscriptions
