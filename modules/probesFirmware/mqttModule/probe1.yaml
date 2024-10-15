@@ -1,4 +1,5 @@
-#Configuration file for the MQTT module
+#Configuration file for the Probe MQTT module
+
 mqtt_client:
   probe_id: probe1
   clean_session: True # Auto-eliminazione delle subscriptions
@@ -18,6 +19,6 @@ mqtt_client:
 
   publishing:
     status_topic: "probes/PROBE_ID/status"
-    message_topic: "probes/PROBE_ID/msg" 
+    message_topic: "probes/PROBE_ID/msg"
     qos: 0
     retain: False
