@@ -1,14 +1,7 @@
 import yaml
 import paho.mqtt.client as mqtt
 
-"""
-    Il file di configurazione sarà uno per ogni client mqtt. Facendo le prove su un'unica macchina, "sono costretto" a definire più
-    di un file di configurazione, uno per il coordinator ed uno per ogni probes, in quanto ci sono parametri "personali" per il client mqtt.
-    Quindi, per adesso i file config si chiameranno "coordinatorConfig.yaml"... quando poi andrò su raspberry, posso anche rinominarli tutti
-    in "config.yaml".
-"""
-
-class mqttClient(mqtt.Client):
+class MqttClient(mqtt.Client):
 
     def __init__(self):
         self.config = None
