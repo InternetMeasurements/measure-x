@@ -5,7 +5,7 @@ import paho.mqtt.client as mqtt
     Estensione della classe paho.mqtt per l'utilizzo sulle probes
 """
 
-class mqttClient(mqtt.Client):
+class ProbeMqttClient(mqtt.Client):
 
     def __init__(self, probe_id):
         self.config = None
