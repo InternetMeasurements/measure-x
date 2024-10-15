@@ -1,8 +1,8 @@
-from modules.probesFirmware.mqttModule.mqttClient import mqttClient
+from modules.probesFirmware.mqttModule.mqttClient import ProbeMqttClient
 
 def main():
-    probe1Mqtt = mqttClient("probe1")
-    probe2Mqtt = mqttClient("probe2")
+    probe1Mqtt = ProbeMqttClient("probe1")
+    probe2Mqtt = ProbeMqttClient("probe2")
     while True:
         command = input()
         if(command == '0'):
