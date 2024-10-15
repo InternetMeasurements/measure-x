@@ -1,12 +1,12 @@
 from modules.iperfClient.iperfController import IperfController
-from modules.mqttModule.mqttClient import mqttClient
+from modules.mqttModule.mqttClient import MqttClient
 
 def main():
 
     #iperf_controller = IperfController()
     #iperf_controller.run_iperf_repetitions()
 
-    coordinator_mqtt = mqttClient()
+    coordinator_mqtt = MqttClient()
     while True:
         command = input()
         if(command == '0'):
