@@ -20,6 +20,7 @@ mqtt_client:
     - "probes/+/msg"
 
   publishing:
-    probes_command_topic: "probes/PROBE_ID/commands"
+    topics:
+      commands: "probes/PROBE_ID/commands"
     qos: 0
     retain: False
