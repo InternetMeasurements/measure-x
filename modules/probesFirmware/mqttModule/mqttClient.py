@@ -97,6 +97,7 @@ class ProbeMqttClient(mqtt.Client):
 
     def disconnect(self):
         # Invoked to inform the broker to release the allocated resources
+        self.publish_status("OFFLINE")
         self.loop_stop()
         super().disconnect()
         self.connected_to_broker = False
