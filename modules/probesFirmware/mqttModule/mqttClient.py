@@ -1,22 +1,27 @@
 import yaml
+from pathlib import Path
+import os
 import paho.mqtt.client as mqtt
 
 """
-    Estensione della classe paho.mqtt per l'utilizzo sulle probes
+    ******************************************************* Classe MQTT PER LE PROBES *******************************************************
 """
 
 class ProbeMqttClient(mqtt.Client):
 
-    def __init__(self, probe_id):
+    def __init__(self, probe_id, msg_received_handler):
         self.config = None
         self.probes_command_topic = None
+        self.probes_role_topic = None
         self.probe_id = None
         self.status_topic = None
         self.msg_topic = None
         self.role = None
         self.connected_to_broker = False
+        self.external_msg_handler = msg_received_handler
 
-        yaml_path = "./modules/probesFirmware/mqttModule/" + probe_id + ".yaml"
+        base_path = Path(__file__).parent
+        yaml_path = os.path.join(base_path, probe_id + ".yaml")
         with open(yaml_path) as file:
             self.config = yaml.safe_load(file)
 
@@ -48,7 +53,7 @@ class ProbeMqttClient(mqtt.Client):
             return
         
         self.publish_status("ONLINE")
-        for topic in self.config['subscription_topics']:
+        for topic in self.config['subscription_topics']: # For each topic in subscription_topics...
             topic = str(topic).replace("PROBE_ID", self.probe_id) # Substitution the "PROBE_ID" element with the real probe id
             self.subscribe(topic)
             print(f"{self.probe_id}: Subscription to topic --> [{topic}]")
@@ -56,6 +61,7 @@ class ProbeMqttClient(mqtt.Client):
     def message_rcvd_event_handler(self, client, userdata, message):
         # Invoked when a new message has arrived from the broker      
         print(f"{self.probe_id}: Received msg on topic -> | {message.topic} | {message.payload.decode('utf-8')} |")
+        self.external_msg_handler(message.payload.decode('utf-8'))
 
     def publish_status(self, status):
         # Invoked when you want to publish your status
