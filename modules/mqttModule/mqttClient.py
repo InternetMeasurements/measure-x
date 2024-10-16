@@ -1,13 +1,20 @@
 import yaml
+import os
+from pathlib import Path
 import paho.mqtt.client as mqtt
+
+"""
+    ******************************************************* Classe MQTT PER IL COORDINATOR *******************************************************
+"""
 
 class MqttClient(mqtt.Client):
 
     def __init__(self):
         self.config = None
         self.probes_command_topic = None
-
-        with open("./modules/mqttModule/coordinatorConfig.yaml") as file:
+        base_path = Path(__file__).parent
+        yaml_dir = os.path.join(base_path, "coordinatorConfig.yaml")
+        with open(yaml_dir) as file:
             self.config = yaml.safe_load(file)
 
         self.config = self.config['mqtt_client']
@@ -16,7 +23,7 @@ class MqttClient(mqtt.Client):
         broker_ip = self.config['broker']['host']
         broker_port = self.config['broker']['port']
         keep_alive = self.config['broker']['keep_alive']
-        self.probes_command_topic = self.config['publishing']['probes_command_topic']
+        self.probes_command_topic = self.config['publishing']['topics']['commands']
 
         super().__init__(client_id = self.client_id, clean_session = clean_session)
 
@@ -44,10 +51,17 @@ class MqttClient(mqtt.Client):
         # Invoked when a new message has arrived from the broker      
         print(f"{self.client_id}: Received msg on topic -> | {message.topic} | {message.payload.decode('utf-8')} |")
 
-    def send_probe_command(self, probe_id, command):
+    
+    def send_probe_iperf_start(self, probe_id):
         # Invoked when you want to send a command to one probe
         complete_command_topic = str(self.probes_command_topic).replace("PROBE_ID", probe_id)
-        self.publish(complete_command_topic, command)        
+        complete_command = "run_iperf: 1"
+        self.publish(complete_command_topic, complete_command)
+    
+    def send_probe_role(self, probe_id, role):
+        complete_role_topic = str(self.probes_command_topic).replace("PROBE_ID", probe_id)
+        complete_command_role = "role: " + role
+        self.publish(complete_role_topic, complete_command_role)
 
     def check_return_code(self, rc):
         match rc:
