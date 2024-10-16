@@ -1,7 +1,7 @@
 #Configuration file for the IPERF module
 iperf_client:
   total_repetition: 1
-  output_iperf_dir: ./modules/iperfClient/iPerfMeasurements/
+  output_iperf_dir: iPerfMeasurements
   result_measurement_filename: measurement_
   parallel_connections: 1
   destination_server_ip: 192.168.1.19
