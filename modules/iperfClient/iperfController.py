@@ -1,6 +1,7 @@
 import os
 import json
 import yaml
+from pathlib import Path
 from datetime import datetime, timedelta
 
 class IperfController:
@@ -20,7 +21,9 @@ class IperfController:
 
     def read_configuration(self): # Reads the iperf yaml configuration file 
         try:
-            with open('./modules/iperfClient/config.yaml', 'r') as file:
+            base_path = Path(__file__).parent
+            config_path = base_path / 'config.yaml'
+            with open(config_path, 'r') as file:
                 self.config = yaml.safe_load(file)
 
             config_list = self.config['iperf_client']
@@ -41,8 +44,10 @@ class IperfController:
     
     def get_usable_measurement_id(self, file_name):
         """It returns an id that can be used to the current measurement"""
+        base_path = Path(__file__).parent
+        output_path = os.path.join(base_path, self.output_iperf_dir)
         
-        file_list = os.listdir(self.output_iperf_dir)
+        file_list = os.listdir(output_path)
         file_list = [measurement_file for measurement_file in file_list if measurement_file.startswith(file_name)]
 
         if not file_list:
@@ -55,7 +60,8 @@ class IperfController:
     def run_iperf_execution(self, last_measurement_id):
         """This method execute the iperf3 program with the pre-loaded config."""
         message_info_execution = f"********* Execution Iperf3 to {self.destination_server_ip}, port: {self.destination_server_port}"
-        complete_output_json_dir = self.output_iperf_dir + self.output_json_filename + str(last_measurement_id) + ".json"
+        base_path = Path(__file__).parent
+        complete_output_json_dir = os.path.join(base_path, self.output_iperf_dir , self.output_json_filename + str(last_measurement_id) + ".json")
 
         command = "iperf3 -c " + self.destination_server_ip + " -p " + str(self.destination_server_port)
         command += " -P " + str(self.parallel_connections)
@@ -83,7 +89,8 @@ class IperfController:
     
     def print_last_output_iperf(self, last_measurement_ID):
         """Stampa l'output dell'ultima esecuzione di Iperf salvata in un file JSON."""
-        completePathIPerfJson = os.path.join(self.output_iperf_dir, self.output_json_filename + str(last_measurement_ID) + ".json")
+        base_path = Path(__file__).parent
+        completePathIPerfJson = os.path.join(base_path, self.output_iperf_dir, self.output_json_filename + str(last_measurement_ID) + ".json")
         if not os.path.exists(completePathIPerfJson):
             print("Last measurement not found!")
             return
