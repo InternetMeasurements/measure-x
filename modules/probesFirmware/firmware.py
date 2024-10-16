@@ -1,19 +1,27 @@
 from modules.probesFirmware.mqttModule.mqttClient import ProbeMqttClient
 
+class Probe:
+    def __init__(self, probe_id):
+        self.id = probe_id
+        self.state = None
+        self.mqtt_client = ProbeMqttClient(probe_id)
+    
+    def check_for_ready(self):
+        return self.state
+    
+    def disconnect(self):
+        self.mqtt_client.disconnect()
+    
+
 def main():
-    probe1Mqtt = ProbeMqttClient("probe1")
-    probe2Mqtt = ProbeMqttClient("probe2")
+    probe1 = Probe("probe1")
+    probe2 = Probe("probe2")
     while True:
         command = input()
         if(command == '0'):
-            probe1Mqtt.publish_status("OFFLINE")
-            probe2Mqtt.publish_status("OFFLINE")
-            probe1Mqtt.disconnect()
-            probe2Mqtt.disconnect()
+            probe1.disconnect()
+            probe2.disconnect()
             break
-        else:
-            probe1Mqtt.publish_msg("role?")
-            probe2Mqtt.publish_msg("role?")
     return
 
 if __name__ == "__main__":
