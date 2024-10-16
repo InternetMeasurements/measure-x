@@ -1,16 +1,21 @@
-from modules.probesFirmware.mqttModule.mqttClient import ProbeMqttClient
+from src.modules.probesFirmware.mqttModule.mqttClient import ProbeMqttClient
+from src.modules.probesFirmware.commandsExecutor.commandsExecutor import CommandsExecutor
 
 class Probe:
     def __init__(self, probe_id):
         self.id = probe_id
         self.state = None
-        self.mqtt_client = ProbeMqttClient(probe_id)
-    
+        self.role = None
+        self.command_executor = CommandsExecutor()
+        self.mqtt_client = ProbeMqttClient(probe_id, self.command_executor.decode_command) # The Decode Handler is triggered internally
+
     def check_for_ready(self):
         return self.state
     
     def disconnect(self):
         self.mqtt_client.disconnect()
+
+    
     
 
 def main():
