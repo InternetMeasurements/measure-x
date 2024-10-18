@@ -9,7 +9,7 @@ import paho.mqtt.client as mqtt
 
 class MqttClient(mqtt.Client):
 
-    def __init__(self):
+    def __init__(self, external_status_handler, external_msg_handler):
         self.config = None
         self.probes_command_topic = None
         base_path = Path(__file__).parent
@@ -17,6 +17,8 @@ class MqttClient(mqtt.Client):
         with open(yaml_dir) as file:
             self.config = yaml.safe_load(file)
 
+        self.external_msg_handler = external_msg_handler
+        self.external_status_handler = external_status_handler
         self.config = self.config['mqtt_client']
         self.client_id = self.config['client_id']
         clean_session = self.config['clean_session']
@@ -40,7 +42,7 @@ class MqttClient(mqtt.Client):
     def connection_success_event_handler(self, client, userdata, flags, rc): 
         # Invoked when the connection to broker has success
         if not self.check_return_code(rc):
-            self.loop_stop() # the loop_stop() here, ensure that the client stops to polling the broker with connection requests
+            self.loop_stop() # the loop_stop() here, ensure that the client stops to polling the broker with periodic connection requests
             return
         
         for topic in self.config['subscription_topics']:
@@ -50,19 +52,12 @@ class MqttClient(mqtt.Client):
     def message_rcvd_event_handler(self, client, userdata, message):
         # Invoked when a new message has arrived from the broker      
         print(f"{self.client_id}: Received msg on topic -> | {message.topic} | {message.payload.decode('utf-8')} |")
-
-    
-    def send_probe_iperf_start(self, probe_id):
-        # Invoked when you want to send a command to one probe
-        complete_command_topic = str(self.probes_command_topic).replace("PROBE_ID", probe_id)
-        complete_command = "run_iperf: 1"
-        self.publish(complete_command_topic, complete_command)
-    
-    def send_probe_role(self, probe_id, role):
-        complete_role_topic = str(self.probes_command_topic).replace("PROBE_ID", probe_id)
-        complete_command_role = "role: " + role
-        self.publish(complete_role_topic, complete_command_role)
-
+        probe_sender = (str(message.topic).split('/'))[1]
+        if str(message.topic).endswith("msg"):
+            self.external_msg_handler(probe_sender, message.payload.decode('utf-8'))
+        else:
+            self.external_status_handler(probe_sender, message.payload.decode('utf-8'))
+            
     def check_return_code(self, rc):
         match rc:
             case 0:
@@ -87,3 +82,7 @@ class MqttClient(mqtt.Client):
         self.loop_stop()
         super().disconnect()
         print(f"Disconnected")
+
+    def publish_command(self, command, probe_id): 
+        complete_command_topic = str(self.probes_command_topic).replace("PROBE_ID", probe_id)
+        self.publish(complete_command_topic, command)
