@@ -1,0 +1,28 @@
+{
+    "results":
+    [
+        {
+            "result_id": "0",
+            "type": "PING",
+            "avg_rtt": "20.44",
+            "max_rtt": "21.01",
+            "min_rtt": "19.98",
+            "sent": "4",
+            "received": "4",
+            "single_rtt": [ "20.45", "21.01", "19.98", "20.35" ],
+            "size": "32",
+            "ttl": "127",
+            "timestamp": "1728210832"
+        },
+        {
+            "result_id": "1",
+            "type": "THROUGHPUT",
+            "bits_per_second": ["77116833.75710934", "62447211.20145982"],
+            "protocol": "TCP",
+            "parallel_connections": "1",
+            "reverse": "False",
+            "transferred_bytes": "96530399",
+            "timestamp": "1728210872"
+        }
+    ]    
+}
