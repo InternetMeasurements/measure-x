@@ -1,0 +1,25 @@
+#Configuration file for the Probe MQTT module
+
+mqtt_client:
+  probe_id: probe4
+  clean_session: True # Auto-eliminazione delle subscriptions
+
+  broker:
+    host: 131.114.72.254 # 192.168.1.51
+    port: 8080
+    keep_alive: 60
+    login: True # per l'utilizzo delle credenziali, metti a True. L'ESP32 non supporta le credenziali!
+
+  credentials:
+    username: probe4
+    password: FinestraVerde2$
+
+  subscription_topics:
+    - "probes/PROBE_ID/commands"
+    # - "probes/PROBE_ID/role"
+
+  publishing:
+    status_topic: "probes/PROBE_ID/status"
+    message_topic: "probes/PROBE_ID/msg" 
+    qos: 0
+    retain: False
