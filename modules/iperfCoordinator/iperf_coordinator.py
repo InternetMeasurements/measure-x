@@ -20,7 +20,7 @@ class Iperf_Coordinator:
         self.mqtt.publish_command(command = command_role, probe_id = probe_id)
         
     def send_probe_iperf_start(self, probe_id):
-        if self.expected_acks == {}:
+        if self.expected_acks == set():
             print("iperf_coordinator: expected_acks empty")
             return
 
