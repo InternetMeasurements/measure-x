@@ -1,6 +1,6 @@
-from src.modules.probesFirmware.mqttModule.mqttClient import ProbeMqttClient
-from src.modules.probesFirmware.commandsMultiplexer.commandsMultiplexer import CommandsMultiplexer
-from src.modules.probesFirmware.iperfClient.iperfController import IperfController
+from src.probesFirmware.mqttModule.mqttClient import ProbeMqttClient
+from src.probesFirmware.commandsMultiplexer.commandsMultiplexer import CommandsMultiplexer
+from src.probesFirmware.iperfClient.iperfController import IperfController
 
 class Probe:
     def __init__(self, probe_id):
@@ -22,11 +22,9 @@ class Probe:
     def disconnect(self):
         self.mqtt_client.disconnect()
 
-    
-    
 
 def main():
-    probe1 = Probe("probe4")
+    probe1 = Probe("probe2")
     while True:
         command = input()
         if(command == '0'):
