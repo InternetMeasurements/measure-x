@@ -1,14 +1,21 @@
 from src.modules.probesFirmware.mqttModule.mqttClient import ProbeMqttClient
-from src.modules.probesFirmware.commandsExecutor.commandsExecutor import CommandsExecutor
+from src.modules.probesFirmware.commandsMultiplexer.commandsMultiplexer import CommandsMultiplexer
+from src.modules.probesFirmware.iperfClient.iperfController import IperfController
 
 class Probe:
     def __init__(self, probe_id):
         self.id = probe_id
         self.state = None
         self.role = None
-        self.command_executor = CommandsExecutor()
-        self.mqtt_client = ProbeMqttClient(probe_id, self.command_executor.decode_command) # The Decode Handler is triggered internally
+        self.commands_multiplexer = CommandsMultiplexer()
+        self.mqtt_client = ProbeMqttClient(probe_id, self.commands_multiplexer.decode_command) # The Decode Handler is triggered internally
+        self.iperf_controller = IperfController(self.mqtt_client)
 
+        self.commands_multiplexer.add_command_handler(
+            interested_command = "iperf",
+            handler = self.iperf_controller.iperf_command_handler)
+        
+        
     def check_for_ready(self):
         return self.state
     
@@ -19,13 +26,11 @@ class Probe:
     
 
 def main():
-    probe1 = Probe("probe1")
-    probe2 = Probe("probe2")
+    probe1 = Probe("probe4")
     while True:
         command = input()
         if(command == '0'):
             probe1.disconnect()
-            probe2.disconnect()
             break
     return
 
