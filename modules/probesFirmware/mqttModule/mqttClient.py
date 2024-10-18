@@ -82,6 +82,12 @@ class ProbeMqttClient(mqtt.Client):
             qos = self.config['publishing']['qos'],
             retain = self.config['publishing']['retain'] )
         
+    def publish_command_ACK(self, command):
+        self.publish_msg(command + " OK")
+
+    def publish_command_NACK(self, command, error_info):
+        self.publish_msg(command + " ERROR -> " + error_info)
+
     def check_return_code(self, rc):
         match rc:
             case 0:
