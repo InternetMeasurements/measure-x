@@ -5,12 +5,12 @@ class CommandsMultiplexer():
         self.commands_handler_list = {}
 
     
-    def add_command_handler(self, interested_command, handler):
+    def registration_handler_request(self, interested_command, handler) -> str:
         if interested_command not in self.commands_handler_list:
             self.commands_handler_list[interested_command] = handler
-            print(f"Registered handler for -> {interested_command}")
+            return "OK"
         else:
-            print(f"There is already a registered handler for -> {interested_command}")
+            return "There is already a registered handler for -> " + interested_command
 
     def decode_command(self, complete_command : str):
         print(f"command_multiplexer: complete_command -> {complete_command} ")
@@ -19,7 +19,7 @@ class CommandsMultiplexer():
         if command_key in self.commands_handler_list:
             self.commands_handler_list[command_key](command_value)
         else:
-            print(f"Multiplexer: no registered handler for {command_key}")
+            print(f"CommandsMultiplexer: no registered handler for {command_key}")
         
         """CODICE VECCHIO
         L'intero math viene implementato dall'invocazione parametrica di commands_handler_list[command_key](command_value)
