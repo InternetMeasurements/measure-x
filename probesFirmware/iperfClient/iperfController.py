@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from src.probesFirmware.mqttModule.mqttClient import ProbeMqttClient
 
 class IperfController:
-    def __init__(self, mqtt_client : ProbeMqttClient):
+    def __init__(self, mqtt_client : ProbeMqttClient, registration_handler_request_function):
 
         self.config = None
         self.mqtt_client = mqtt_client
@@ -26,6 +26,13 @@ class IperfController:
 
         # Iperf executed as Server - Parameters
         self.listening_port = None
+
+        # Request to commands_multiplexer
+        registration_response = registration_handler_request_function(
+            interested_command = "iperf",
+            handler = self.iperf_command_handler)
+        if registration_response != "OK" :
+            print(f"iperfController: registration handler failed. Reason -> {registration_response}")
 
         
 
