@@ -3,7 +3,7 @@ import json
 import yaml
 from pathlib import Path
 from datetime import datetime, timedelta
-from src.modules.probesFirmware.mqttModule.mqttClient import ProbeMqttClient
+from src.probesFirmware.mqttModule.mqttClient import ProbeMqttClient
 
 class IperfController:
     def __init__(self, mqtt_client : ProbeMqttClient):
