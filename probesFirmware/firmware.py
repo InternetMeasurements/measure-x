@@ -6,15 +6,10 @@ class Probe:
     def __init__(self, probe_id):
         self.id = probe_id
         self.state = None
-        self.role = None
         self.commands_multiplexer = CommandsMultiplexer()
         self.mqtt_client = ProbeMqttClient(probe_id, self.commands_multiplexer.decode_command) # The Decode Handler is triggered internally
-        self.iperf_controller = IperfController(self.mqtt_client)
+        self.iperf_controller = IperfController(self.mqtt_client, self.commands_multiplexer.registration_handler_request)
 
-        self.commands_multiplexer.add_command_handler(
-            interested_command = "iperf",
-            handler = self.iperf_controller.iperf_command_handler)
-        
         
     def check_for_ready(self):
         return self.state
