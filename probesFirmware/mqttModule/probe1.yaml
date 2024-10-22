@@ -16,10 +16,10 @@ mqtt_client:
 
   subscription_topics:
     - "probes/PROBE_ID/commands"
-    #- "probes/PROBE_ID/role"
 
   publishing:
     status_topic: "probes/PROBE_ID/status"
-    message_topic: "probes/PROBE_ID/msg"
+    results_topic: "probes/PROBE_ID/results"
+    error_topic: "probes/PROBE_ID/errors"
     qos: 0
     retain: False
