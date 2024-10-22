@@ -1,0 +1,11 @@
+{
+    "measurement_id": 28,
+    "start_timestamp": 1729629904,
+    "source_ip": "192.168.1.8",
+    "source_port": 17450,
+    "destination_ip": "192.168.1.8",
+    "destination_port": 5201,
+    "bytes_received": 15080095744,
+    "duration": 10.012672,
+    "avg_speed": 12048808345.26488
+}
