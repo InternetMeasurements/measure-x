@@ -52,7 +52,14 @@ class ProbeMqttClient(mqtt.Client):
             self.loop_stop() # the loop_stop() here, ensure that the client stops to polling the broker with connection requests
             return
         
-        self.publish_status("ONLINE")
+        json_status = {
+            "handler": "state",
+            "status": {
+                "state" : "ONLINE"
+            }
+        }
+        self.publish_status(json.dumps(json_status))
+
         for topic in self.config['subscription_topics']: # For each topic in subscription_topics...
             topic = str(topic).replace("PROBE_ID", self.probe_id) # Substitution the "PROBE_ID" element with the real probe id
             self.subscribe(topic)
