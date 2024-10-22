@@ -168,11 +168,35 @@ class IperfController:
                 break
             self.print_last_output_iperf(last_measurement_ID + repetition_count)
             repetition_count += 1
-        return True
-    
-    
-    def print_last_output_iperf(self, last_measurement_ID):
-        """Stampa l'output dell'ultima esecuzione di Iperf salvata in un file JSON."""
+
+        return execution_return_code
+
+    def iperf_command_handler(self, iperf_command : str):
+        if iperf_command.startswith("role"):
+            my_role = iperf_command.split('=')[1]
+            if self.read_configuration(role = my_role) :
+                self.mqtt_client.publish_command_ACK('iperf: conf') # ACK
+                #time.sleep(3)
+                if my_role == "Server":
+                    # questo comando viene eseguito prima dell'ACK, e quindi il coordinator non ricevendo l'ACK, pensa che il comando non sia arrivato
+                    self.run_iperf_execution(0) # the parameter is not used in Server mode
+            else:
+                self.mqtt_client.publish_command_NACK('iperf: conf') # NACK
+        elif iperf_command.startswith("start"): # The start command is handled only by client. The server should be already listening, due to conf command
+            if self.last_role == "Client":
+                execution_code = self.run_iperf_repetitions()  # Only execution_code 0, means iperf measurment correctly executed
+                if execution_code == -1:
+                    self.mqtt_client.publish_command_NACK(iperf_command, "NO CONFIGURATION") # NACK: No Configuration
+                else:
+                    self.mqtt_client.publish_command_NACK(iperf_command, str(execution_code)) # NACK: Execution Error
+        else:
+            print(f"iperfController: command not handled -> {iperf_command}")
+            self.mqtt_client.publish_command_NACK(iperf_command, " Command not handled") # NACK
+
+
+   
+    def publish_last_output_iperf(self, last_measurement_ID : int ):
+        """ Publish the last measuremet's output summary loading it from flash """
         base_path = Path(__file__).parent
         completePathIPerfJson = os.path.join(base_path, self.output_iperf_dir, self.output_json_filename + str(last_measurement_ID) + ".json")
         if not os.path.exists(completePathIPerfJson):
