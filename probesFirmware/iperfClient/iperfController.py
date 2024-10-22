@@ -205,11 +205,8 @@ class IperfController:
         
         with open(completePathIPerfJson, 'r') as file:
             data = json.load(file)
-        
-        dt_object = datetime.strptime(data["start"]["timestamp"]["time"], "%a, %d %b %Y %H:%M:%S %Z")
-        dt_object += timedelta(hours=2)
-        formatted_time = dt_object.strftime("%d/%m/%y %H:%M:%S")
 
+        start_timestamp = data["start"]["timestamp"]["timesecs"]
         source_ip = data["start"]["connected"][0]["local_host"]
         source_port = data["start"]["connected"][0]["local_port"]
         destination_ip = data["start"]["connected"][0]["remote_host"]
@@ -217,6 +214,29 @@ class IperfController:
         bytes_received = data["end"]["sum_received"]["bytes"]
         duration = data["end"]["sum_received"]["seconds"]
         avg_speed = data["end"]["sum_received"]["bits_per_second"]
+
+        json_summary_data = {
+            "handler": "iperf",
+            "result":
+            {
+                "measurement_id": last_measurement_ID,
+                "start_timestamp": start_timestamp,
+                "source_ip": source_ip,
+                "source_port": source_port,
+                "destination_ip": destination_ip,
+                "destination_port": destination_port,
+                "bytes_received": bytes_received,
+                "duration": duration,
+                "avg_speed": avg_speed
+            }
+        }
+
+        # json_byte_result = json.dumps(json_copmpressed_data).encode('utf-8') Valutare se conviene binarizzarla
+
+        self.mqtt_client.publish_result(json.dumps(json_summary_data))
+        print(f"iperfController: measurement [{last_measurement_ID}] result published")
+
+        """
         print("\n****************** SUMMARY ******************")
         print(f"Timestamp: {formatted_time}")
         print(f"IP sorgente: {source_ip}, Porta sorgente: {source_port}")
@@ -224,23 +244,4 @@ class IperfController:
         print(f"Velocità trasferimento {avg_speed} bits/s")
         print(f"Quantità di byte ricevuti: {bytes_received}")
         print(f"Durata misurazione: {duration} secondi\n")
-
-    def iperf_command_handler(self, iperf_command : str):
-        if iperf_command.startswith("role"):
-            my_role = iperf_command.split('=')[1]
-            if self.read_configuration(role = my_role) :
-                self.mqtt_client.publish_command_ACK('iperf: conf') # ACK
-            else:
-                self.mqtt_client.publish_command_NACK('iperf: conf', self.last_error) # NACK
-        elif iperf_command.startswith("start"):
-            if self.last_role == "Server":
-                self.run_iperf_execution(0) # the parameter is not used in Server mode
-            else:
-                if not self.run_iperf_repetitions():
-                    self.mqtt_client.publish_command_NACK(iperf_command, "NO CONFIGURATION") # NACK
-        else:
-            print(f"iperfController: command not handled -> {iperf_command}")
-            self.mqtt_client.publish_command_NACK(iperf_command, " Command not handled") # NACK
-        self.last_error = None
-
-
+        """
