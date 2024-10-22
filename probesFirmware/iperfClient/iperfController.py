@@ -106,40 +106,52 @@ class IperfController:
         last_element_ID = int(sorted_list[-1].split('_')[-1].split(".")[0])
         return last_element_ID + 1
     
-    def run_iperf_execution(self, last_measurement_id):
+    def run_iperf_execution(self, last_measurement_id) -> int :
         """This method execute the iperf3 program with the pre-loaded config."""
         message_info_execution = f"********* Execution Iperf3 to {self.destination_server_ip}, port: {self.destination_server_port}"
         base_path = Path(__file__).parent
         complete_output_json_dir = os.path.join(base_path, self.output_iperf_dir , self.output_json_filename + str(last_measurement_id) + ".json")
+        command = ["iperf3"]
 
-        command = "iperf3 "
         if self.last_role == "Client":
-            command += "-c " + self.destination_server_ip + " -p " + str(self.destination_server_port)
-            command += " -P " + str(self.parallel_connections)
-            message_info_execution += " -P " + str(self.parallel_connections)
+            command += ["-c", self.destination_server_ip]
+            command += ["-p", str(self.destination_server_port)]
+            command += ["-P", str(self.parallel_connections)]
+
             if not self.tcp_protocol:
-                command += " -u"
-                message_info_execution += " [UDP]"
+                command.append("-u")
             if self.reverse_function:
-                command += " -R"
-                message_info_execution += " Reverse"
+                command.append("-R")
             if self.verbose_function:
-                command += " -V"
-                message_info_execution += " Verbose"
-            command += " --json > " + complete_output_json_dir
-            message_info_execution += " *********"
+                command.append("-V")
+
+            command.append("--json")
+            result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)        
+            
+            if result.returncode != 0:
+                print(f"Errore nell'esecuzione di iperf: {result.stderr}")
+            else:
+                try:
+                    json_output = json.loads(result.stdout)
+                    with open(complete_output_json_dir, "w") as output_file:
+                        json.dump(json_output, output_file, indent=4)
+                    print(f"*** iperf results saved in: {complete_output_json_dir}")
+                except json.JSONDecodeError:
+                    print("*** iperfExecutionError: decode json failed")
         else:
-            command += "-s -p " + str(self.listening_port) # server mode and listening port
+            #command += "-s -p " + str(self.listening_port) # server mode and listening port
+            print("iperf3 server, listening...")
+            command += ["-s", "-p", str(self.listening_port)]
             if self.verbose_function:
-                command += " -V"
-        #print(command)
-        exit_code = os.system(command)
-        if self.last_role == "Client" :
-            if exit_code != 0 :
-                print(f"IPerf execution error: {exit_code}")
-                return False
-            print(f"Measurement saved in {complete_output_json_dir}")
-        return True
+                command.append("-V")
+            result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            if result.returncode == 0:
+                print(result.stdout)
+            else:
+                print(f"Errore nell'esecuzione di iperf: {result.stderr}")
+                
+        return result.returncode
+    
     
     def run_iperf_repetitions(self) -> bool:
         if (self.config is None) or (self.last_role is None):
