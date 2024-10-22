@@ -1,6 +1,7 @@
 import os
 import json
 import yaml
+import subprocess
 from pathlib import Path
 from datetime import datetime, timedelta
 from src.probesFirmware.mqttModule.mqttClient import ProbeMqttClient
@@ -27,16 +28,16 @@ class IperfController:
         # Iperf executed as Server - Parameters
         self.listening_port = None
 
-        # Request to commands_multiplexer
+        # Requests to commands_multiplexer
         registration_response = registration_handler_request_function(
             interested_command = "iperf",
             handler = self.iperf_command_handler)
         if registration_response != "OK" :
             print(f"iperfController: registration handler failed. Reason -> {registration_response}")
-
         
 
-    def read_configuration(self, role : str) -> bool :
+        
+    def read_configuration(self, role : str) -> bool : # If the role is 'Server', then will be loaded the ServerConf file, else the ClientConf file.
         base_path = Path(__file__).parent
         config_path = os.path.join(base_path , 'configToBe' + role + '.yaml')
         if role == "Client":
@@ -44,7 +45,7 @@ class IperfController:
         elif role == "Server":
             return self.read_server_configuration(config_path)
         else:
-            self.last_error = "Wrong role"
+            self.last_error = "WRONG ROLE"
             return False
 
     def read_server_configuration(self, config_path):
@@ -52,12 +53,9 @@ class IperfController:
         try:
             with open(config_path, 'r') as file:
                 self.config = yaml.safe_load(file)
-
                 server_config = self.config['iperf_server']
                 self.listening_port = server_config['listen_port']
                 self.verbose_function = server_config['verbose']
-
-
                 self.last_role = "Server"
                 self.last_error = None
                 return True
@@ -91,7 +89,7 @@ class IperfController:
             self.last_error = str(e)
             return False
     
-    def get_usable_measurement_id(self, file_name):
+    def get_last_measurement_id(self, file_name):
         """It returns an id that can be used to the current measurement"""
         base_path = Path(__file__).parent
         output_path = os.path.join(base_path, self.output_iperf_dir)
@@ -153,20 +151,19 @@ class IperfController:
         return result.returncode
     
     
-    def run_iperf_repetitions(self) -> bool:
+    def run_iperf_repetitions(self) -> int:
         if (self.config is None) or (self.last_role is None):
             print("iperfController: Can't start -> Not configured")
-            return False
-        
+            return -1
         repetition_count = 0
-
-        last_measurement_ID = self.get_usable_measurement_id(self.output_json_filename)
-
+        last_measurement_ID = self.get_last_measurement_id(self.output_json_filename)
+        execution_return_code = -2
         while repetition_count < self.total_repetition:
             print(f"\n*************** Repetition: {repetition_count + 1} ***************")
-            if not self.run_iperf_execution(last_measurement_ID + repetition_count):
+            execution_return_code = self.run_iperf_execution(last_measurement_ID + repetition_count)
+            if execution_return_code != 0: # 0 is the correct execution code
                 break
-            self.print_last_output_iperf(last_measurement_ID + repetition_count)
+            self.publish_last_output_iperf(last_measurement_ID + repetition_count)
             repetition_count += 1
 
         return execution_return_code
