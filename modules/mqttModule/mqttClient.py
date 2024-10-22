@@ -9,7 +9,7 @@ import paho.mqtt.client as mqtt
 
 class MqttClient(mqtt.Client):
 
-    def __init__(self, external_status_handler, external_msg_handler):
+    def __init__(self, external_status_handler, external_results_handler):
         self.config = None
         self.probes_command_topic = None
         base_path = Path(__file__).parent
@@ -17,7 +17,7 @@ class MqttClient(mqtt.Client):
         with open(yaml_dir) as file:
             self.config = yaml.safe_load(file)
 
-        self.external_msg_handler = external_msg_handler
+        self.external_results_handler = external_results_handler
         self.external_status_handler = external_status_handler
         self.config = self.config['mqtt_client']
         self.client_id = self.config['client_id']
@@ -35,9 +35,12 @@ class MqttClient(mqtt.Client):
             self.username_pw_set(
                 self.config['credentials']['username'],
                 self.config['credentials']['password'])
+        try:
+            self.connect(broker_ip, broker_port, keep_alive)
+            self.loop_start()
+        except:
+            print("MQTT Exception: broker not reachable")
         
-        self.connect(broker_ip, broker_port, keep_alive)
-        self.loop_start()
 
     def connection_success_event_handler(self, client, userdata, flags, rc): 
         # Invoked when the connection to broker has success
@@ -51,12 +54,14 @@ class MqttClient(mqtt.Client):
 
     def message_rcvd_event_handler(self, client, userdata, message):
         # Invoked when a new message has arrived from the broker      
-        print(f"{self.client_id}: Received msg on topic -> | {message.topic} | {message.payload.decode('utf-8')} |")
+        #print(f"MQTT: Received msg on topic -> | {message.topic} | "
         probe_sender = (str(message.topic).split('/'))[1]
-        if str(message.topic).endswith("msg"):
-            self.external_msg_handler(probe_sender, message.payload.decode('utf-8'))
-        else:
+        if str(message.topic).endswith("results"):
+            self.external_results_handler(probe_sender, message.payload.decode('utf-8'))
+        elif str(message.topic).endswith("status"):
             self.external_status_handler(probe_sender, message.payload.decode('utf-8'))
+        else:
+            print(f"MQTT: topic registered but non handled -> {message.topic}")
             
     def check_return_code(self, rc):
         match rc:
