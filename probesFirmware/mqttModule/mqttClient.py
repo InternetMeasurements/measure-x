@@ -15,10 +15,10 @@ class ProbeMqttClient(mqtt.Client):
         self.probes_role_topic = None
         self.probe_id = None
         self.status_topic = None
-        self.msg_topic = None
+        self.results_topic = None
         self.role = None
         self.connected_to_broker = False
-        self.external_msg_handler = msg_received_handler
+        self.external_mqtt_msg_handler = msg_received_handler
 
         base_path = Path(__file__).parent
         yaml_path = os.path.join(base_path, probe_id + ".yaml")
@@ -67,8 +67,8 @@ class ProbeMqttClient(mqtt.Client):
 
     def message_rcvd_event_handler(self, client, userdata, message):
         # Invoked when a new message has arrived from the broker      
-        print(f"{self.probe_id}: Received msg on topic -> | {message.topic} | {message.payload.decode('utf-8')} |")
-        self.external_msg_handler(message.payload.decode('utf-8'))
+        print(f"MQTT {self.probe_id}: Received msg on topic -> | {message.topic} | {message.payload.decode('utf-8')} |")
+        self.external_mqtt_msg_handler(message.payload.decode('utf-8'))
 
     def publish_status(self, status):
         # Invoked when you want to publish your status
@@ -81,19 +81,21 @@ class ProbeMqttClient(mqtt.Client):
             qos = self.config['publishing']['qos'],
             retain = self.config['publishing']['retain'] )
         
-    def publish_msg(self, msg):
-        # Invoked when you want to publish a msg
+    def publish_result(self, result):
+        # Invoked when you want to publish a result
         self.publish(
-            topic = self.msg_topic,
-            payload = msg,
+            topic = self.results_topic,
+            payload = result,
             qos = self.config['publishing']['qos'],
             retain = self.config['publishing']['retain'] )
         
     def publish_command_ACK(self, command):
-        self.publish_msg(command + " OK")
+        self.publish_status(command + " OK")
 
-    def publish_command_NACK(self, command, error_info):
-        self.publish_msg(command + " ERROR -> " + error_info)
+    def publish_command_NACK(self, command, error_info = None):
+        nack_error = self.last_error if not error_info else error_info
+        self.publish_status(command + " ERROR -> " + nack_error)
+        self.last_error = None
 
     def check_return_code(self, rc):
         match rc:
