@@ -4,7 +4,14 @@ class CommandsMultiplexer():
     def __init__(self):
         self.commands_handler_list = {}
 
-    
+    # +------------------ commands_handler_list ------------------+
+    # |      COMMAND     |          HANDLER FUNCTION              |
+    # +------------------+----------------------------------------+
+    # |       iperf      |  iperfController.iperf_command_handler |
+    # |       ping       |                                        |
+    # |   bg_generaror   |                                        |
+    # +------------------+----------------------------------------+
+
     def registration_handler_request(self, interested_command, handler) -> str:
         if interested_command not in self.commands_handler_list:
             self.commands_handler_list[interested_command] = handler
@@ -20,17 +27,3 @@ class CommandsMultiplexer():
             self.commands_handler_list[command_key](command_value)
         else:
             print(f"CommandsMultiplexer: no registered handler for {command_key}")
-        
-        """CODICE VECCHIO
-        L'intero math viene implementato dall'invocazione parametrica di commands_handler_list[command_key](command_value)
-        match command_key:
-            case "conf_iperf":
-                self.iperfController.read_configuration(role = command_value)
-                print(f"iperf config -> {command_value}")
-            case "run_iperf":
-                print(f"comando -> run_iperf")
-                self.iperfController.run_iperf_repetitions()
-            case _:
-                print("Non conosciuto")
-
-        """
