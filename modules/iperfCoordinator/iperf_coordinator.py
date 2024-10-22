@@ -32,3 +32,12 @@ class Iperf_Coordinator:
         self.mqtt.publish_command(command = command_iperf_start, probe_id = probe_id)
         print("iperf_coordinator: iperf started on probes. Waiting for results...")
 
+    def store_measurement_result(self, probe_sender, json_measurement: json):
+        base_path = Path(__file__).parent
+        probe_measurement_dir = Path(os.path.join(base_path, 'measurements', probe_sender))
+        complete_measurement_path = os.path.join(base_path, probe_measurement_dir, "measure_" + str(json_measurement['measurement_id']) + ".json")
+        if not probe_measurement_dir.exists():
+            os.makedirs(probe_measurement_dir, exist_ok=True)
+        with open(complete_measurement_path, "w") as file:
+            file.write(json.dumps(json_measurement, indent=4))
+        print(f"iperf_coordinator: stored result from {probe_sender} -> measure_{str(json_measurement['measurement_id'])}.json")
