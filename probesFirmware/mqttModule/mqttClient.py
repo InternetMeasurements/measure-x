@@ -33,7 +33,7 @@ class ProbeMqttClient(mqtt.Client):
         broker_port = self.config['broker']['port']
         keep_alive = self.config['broker']['keep_alive']
         self.status_topic = str(self.config['publishing']['status_topic']).replace('PROBE_ID', self.probe_id)
-        self.msg_topic = str(self.config['publishing']['message_topic']).replace('PROBE_ID', self.probe_id)
+        self.results_topic = str(self.config['publishing']['results_topic']).replace('PROBE_ID', self.probe_id)
 
         super().__init__(client_id = self.probe_id, clean_session = clean_session)
 
