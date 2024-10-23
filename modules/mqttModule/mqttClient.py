@@ -39,9 +39,8 @@ class MqttClient(mqtt.Client):
             self.connect(broker_ip, broker_port, keep_alive)
             self.loop_start()
         except:
-            print("MQTT Exception: broker not reachable")
+            print("MqttClient Exception: broker not reachable")
         
-
     def connection_success_event_handler(self, client, userdata, flags, rc): 
         # Invoked when the connection to broker has success
         if not self.check_return_code(rc):
@@ -50,7 +49,7 @@ class MqttClient(mqtt.Client):
         
         for topic in self.config['subscription_topics']:
             self.subscribe(topic)
-            print(f"{self.client_id}: Subscription to topic --> [{topic}]")
+            print(f"MqttClient: Subscription to topic --> [{topic}]")
 
     def message_rcvd_event_handler(self, client, userdata, message):
         # Invoked when a new message has arrived from the broker      
@@ -61,33 +60,37 @@ class MqttClient(mqtt.Client):
         elif str(message.topic).endswith("status"):
             self.external_status_handler(probe_sender, message.payload.decode('utf-8'))
         else:
-            print(f"MQTT: topic registered but non handled -> {message.topic}")
-            
+            print(f"MqttClient: topic registered but non handled -> {message.topic}")
+
     def check_return_code(self, rc):
         match rc:
             case 0:
-                print(f"{self.client_id}: The broker has accepted the connection")
+                print(f"MqttClient: The broker has accepted the connection")
                 self.connected_to_broker = True
                 return True
             case 1:
-                print(f"{self.client_id}: Connection refused, unacceptable protocol version")
+                print(f"MqttClient: Connection refused, unacceptable protocol version")
             case 2:
-                print(f"{self.client_id}: Connection refused, identifier rejected")
+                print(f"MqttClient: Connection refused, identifier rejected")
             case 3:
-                print(f"{self.client_id}: Connection refused, server unavailable")
+                print(f"MqttClient: Connection refused, server unavailable")
             case 4:
-                print(f"{self.client_id}: Connection refused, bad user name or password")
+                print(f"MqttClient: Connection refused, bad user name or password")
             case 5:
-                print(f"{self.client_id}: Connection refused, not authorized")
+                print(f"MqttClient: Connection refused, not authorized")
         self.connected_to_broker = False
         return False
 
+    def publish_on_command_topic(self, probe_id, complete_command : str): 
+        complete_command_topic = str(self.probes_command_topic).replace("PROBE_ID", probe_id)
+        self.publish(
+            topic = complete_command_topic, 
+            payload = complete_command,
+            qos = self.config['publishing']['qos'],
+            retain = self.config['publishing']['retain'] )
+        
     def disconnect(self):
         # Invoked to inform the broker to release the allocated resources
         self.loop_stop()
         super().disconnect()
-        print(f"Disconnected")
-
-    def publish_command(self, command, probe_id): 
-        complete_command_topic = str(self.probes_command_topic).replace("PROBE_ID", probe_id)
-        self.publish(complete_command_topic, command)
+        print(f"MqttClient: Disconnected")
