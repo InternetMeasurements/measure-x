@@ -14,7 +14,7 @@ class IperfController:
         self.last_role = None
         self.last_error = None
         
-        # Iperf executed as Client - Parameters
+        # Iperf Client - Parameters
         self.destination_server_ip = ""
         self.destination_server_port = 0
         self.tcp_protocol = False
@@ -22,10 +22,10 @@ class IperfController:
         self.output_json_filename = ""
         self.output_iperf_dir = ""
         self.reverse_function = False
-        self.verbose_function = False
+        self.verbose_function = False # common parameter
         self.total_repetition = 1
 
-        # Iperf executed as Server - Parameters
+        # Iperf Server - Parameters
         self.listening_port = None
 
         # Requests to commands_multiplexer
@@ -33,17 +33,14 @@ class IperfController:
             interested_command = "iperf",
             handler = self.iperf_command_handler)
         if registration_response != "OK" :
-            print(f"iperfController: registration handler failed. Reason -> {registration_response}")
+            print(f"IperfController: registration handler failed. Reason -> {registration_response}")
         
-
-        
-    def read_configuration(self, role : str) -> bool : # If the role is 'Server', then will be loaded the ServerConf file, else the ClientConf file.
-        base_path = Path(__file__).parent
-        config_path = os.path.join(base_path , 'configToBe' + role + '.yaml')
-        if role == "Client":
-            return self.read_client_configuration(config_path)
-        elif role == "Server":
-            return self.read_server_configuration(config_path)
+    def read_configuration(self, payload : json) -> bool :
+        my_role = payload['role']
+        if my_role == "Client":
+            return self.read_client_configuration(payload)
+        elif my_role == "Server":
+            return self.read_server_configuration(payload)
         else:
             self.last_error = "Wrong Role!"
             return False
