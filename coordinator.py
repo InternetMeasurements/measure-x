@@ -59,7 +59,7 @@ def main():
     iperf_coordinator = Iperf_Coordinator(coordinator_mqtt)
 
     commands_multiplexer.add_result_handler('iperf', iperf_coordinator.result_handler_received)
-    commands_multiplexer.add_status_handler('iperf', iperf_coordinator.status_handler_rcvd)
+    commands_multiplexer.add_status_handler('iperf', iperf_coordinator.status_handler_received)
 
     while True:
         print("PRESS 0 -> exit")
@@ -69,10 +69,10 @@ def main():
         command = input()
         match command:
             case "1":
-                iperf_coordinator.send_probe_iperf_role(probe_id = "probe2", role = "Server")
+                iperf_coordinator.send_probe_iperf_configuration(probe_id = "probe2", role = "Server")
                 #iperf_coordinator.send_probe_iperf_role(probe_id = "probe2", role = "Client")
             case "2":
-                iperf_coordinator.send_probe_iperf_role(probe_id = "probe4", role = "Client")
+                iperf_coordinator.send_probe_iperf_configuration(probe_id = "probe4", role = "Client", dest_probe = "probe2")
             case "3":
                 #coordinator_mqtt.send_probe_iperf_start(probe_id = "probe1")
                 iperf_coordinator.send_probe_iperf_start()
