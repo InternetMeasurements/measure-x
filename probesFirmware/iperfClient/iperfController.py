@@ -45,11 +45,22 @@ class IperfController:
         elif role == "Server":
             return self.read_server_configuration(config_path)
         else:
-            self.last_error = "WRONG ROLE"
+            self.last_error = "Wrong Role!"
             return False
 
-    def read_server_configuration(self, config_path):
-        print(f"read_configuration_Server()")
+    def read_server_configuration(self, payload_conf : json):
+        print(f"IperfController: read_configuration_Server()")
+        try:
+            self.listening_port = payload_conf['listen_port']
+            self.verbose_function = payload_conf['verbose']
+            self.last_role = "Server"
+            self.last_error = None
+            return True
+        except Exception as e:
+            print(f"IperfController: Configuration failed. Reason -> {e}")
+            self.last_error = str(e)
+            return False
+        """
         try:
             with open(config_path, 'r') as file:
                 self.config = yaml.safe_load(file)
@@ -64,11 +75,30 @@ class IperfController:
             self.last_error = str(e)
             return False
 
-    def read_client_configuration(self, config_path): # Reads the iperf yaml configuration file 
-        print(f"read_configuration_Client()")
+    def read_client_configuration(self, payload_conf : json): # Reads the iperf yaml configuration file 
+        print(f"IperfController: read_configuration_Client()")
+        try:
+            self.destination_server_ip = payload_conf['destination_server_ip']
+            self.destination_server_port = int(payload_conf['destination_server_port'])
+            self.tcp_protocol = True if (payload_conf['transport_protocol'] == "TCP") else False
+            self.parallel_connections = int(payload_conf['parallel_connections'])
+            self.output_json_filename = payload_conf['result_measurement_filename']
+            self.reverse_function = payload_conf['reverse']
+            self.verbose_function = payload_conf['verbose']
+            self.total_repetition = int(payload_conf['total_repetition'])
+
+            self.last_role = "Client"
+            self.last_error = None
+            return True
+        except Exception as e:
+            print(f"IperfController: Configuration failed. Reason -> {e}")
+            self.last_error = str(e)
+            return False
+        """
         try:
             with open(config_path, 'r') as file:
                 self.config = yaml.safe_load(file)
+
 
             client_config = self.config['iperf_client']
             self.destination_server_ip = client_config['destination_server_ip']
@@ -85,10 +115,10 @@ class IperfController:
             self.last_error = None
             return True
         except Exception as e:
-            print(f"Configuration failed. Reason -> {e}")
+            print(f"IperfController: Configuration failed. Reason -> {e}")
             self.last_error = str(e)
             return False
-    
+        """
     def get_last_measurement_id(self, file_name):
         """It returns an id that can be used to the current measurement"""
         base_path = Path(__file__).parent
