@@ -68,9 +68,10 @@ class IperfController:
                 self.last_error = None
                 return True
         except Exception as e:
-            print(f"Configuration failed. Reason -> {e}")
+            print(f"IperfController: Configuration failed. Reason -> {e}")
             self.last_error = str(e)
             return False
+        """
 
     def read_client_configuration(self, payload_conf : json): # Reads the iperf yaml configuration file 
         print(f"IperfController: read_configuration_Client()")
@@ -154,18 +155,18 @@ class IperfController:
             result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)        
             
             if result.returncode != 0:
-                print(f"Errore nell'esecuzione di iperf: {result.stderr}")
+                print(f"IperfController: Errore nell'esecuzione di iperf: {result.stderr}")
             else:
                 try:
                     json_output = json.loads(result.stdout)
                     with open(complete_output_json_dir, "w") as output_file:
                         json.dump(json_output, output_file, indent=4)
-                    print(f"*** iperf results saved in: {complete_output_json_dir}")
+                    print(f"IperfController: results saved in: {complete_output_json_dir}")
                 except json.JSONDecodeError:
-                    print("*** iperfExecutionError: decode json failed")
+                    print("IperfController: decode result json failed")
         else:
             #command += "-s -p " + str(self.listening_port) # server mode and listening port
-            print("iperf3 server, listening...")
+            print("IperfController: iperf3 server, listening...")
             command += ["-s", "-p", str(self.listening_port)]
             if self.verbose_function:
                 command.append("-V")
@@ -180,7 +181,7 @@ class IperfController:
     
     def run_iperf_repetitions(self) -> int:
         if (self.config is None) or (self.last_role is None):
-            print("iperfController: Can't start -> Not configured")
+            print("IperfController: Can't start -> Not configured")
             return -1
         repetition_count = 0
         last_measurement_ID = self.get_last_measurement_id(self.output_json_filename)
@@ -195,27 +196,26 @@ class IperfController:
 
         return execution_return_code
 
-    def iperf_command_handler(self, iperf_command : str):
-        if iperf_command.startswith("role"):
-            my_role = iperf_command.split('=')[1]
-            if self.read_configuration(role = my_role) :
-                self.mqtt_client.publish_command_ACK('iperf: conf') # ACK
-                #time.sleep(3)
-                if my_role == "Server":
-                    # questo comando viene eseguito prima dell'ACK, e quindi il coordinator non ricevendo l'ACK, pensa che il comando non sia arrivato
-                    self.run_iperf_execution(0) # the parameter is not used in Server mode
-            else:
-                self.mqtt_client.publish_command_NACK('iperf: conf') # NACK
-        elif iperf_command.startswith("start"): # The start command is handled only by client. The server should be already listening, due to conf command
-            if self.last_role == "Client":
-                execution_code = self.run_iperf_repetitions()  # Only execution_code 0, means iperf measurment correctly executed
-                if execution_code == -1:
-                    self.mqtt_client.publish_command_NACK(iperf_command, "NO CONFIGURATION") # NACK: No Configuration
+    def iperf_command_handler(self, command : str, payload: json):
+        match command:
+            case 'conf':
+                if self.read_configuration(payload): # if the configuration goes good, then ACK, else NACK
+                    my_role = payload['role']
+                    self.send_config_ack()
+                    if my_role == "Server":
+                        self.run_iperf_execution(0)
                 else:
-                    self.mqtt_client.publish_command_NACK(iperf_command, str(execution_code)) # NACK: Execution Error
-        else:
-            print(f"iperfController: command not handled -> {iperf_command}")
-            self.mqtt_client.publish_command_NACK(iperf_command, " Command not handled") # NACK
+                    self.mqtt_client.publish_command_NACK(handler='iperf', command='conf', error_info = self.last_error)
+            case 'start':
+                if self.last_role == "Client":
+                    execution_code = self.run_iperf_repetitions()
+                    if execution_code == -1:
+                        self.mqtt_client.publish_command_NACK(handler='iperf', command='start', error_info="No configuration") # NACK: No Configuration
+                    else:
+                        self.mqtt_client.publish_command_NACK(handler='iperf', command='start', error_info=str(execution_code)) # NACK: Execution Error
+            case _:
+                print(f"IperfController: command not handled -> {command}")
+                self.mqtt_client.publish_command_NACK(handler='iperf', command=command, error_info="Command not handled") # NACK
 
 
    
