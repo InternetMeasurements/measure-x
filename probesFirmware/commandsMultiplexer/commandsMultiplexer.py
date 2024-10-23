@@ -20,6 +20,7 @@ class CommandsMultiplexer():
             return "There is already a registered handler for -> " + interested_command
 
     def decode_command(self, complete_command : str):
+        # Il Decode command deve interpretare il JSON
         print(f"command_multiplexer: complete_command -> {complete_command} ")
         command_key = complete_command.split(':')[0]
         command_value = complete_command.split(':')[1].replace(' ', '')
