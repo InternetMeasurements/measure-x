@@ -1,9 +1,8 @@
 import os
 import json
-import yaml
 import subprocess
+import socket
 from pathlib import Path
-from datetime import datetime, timedelta
 from src.probesFirmware.mqttModule.mqttClient import ProbeMqttClient
 
 class IperfController:
@@ -134,7 +133,6 @@ class IperfController:
     
     def run_iperf_execution(self, last_measurement_id) -> int :
         """This method execute the iperf3 program with the pre-loaded config."""
-        message_info_execution = f"********* Execution Iperf3 to {self.destination_server_ip}, port: {self.destination_server_port}"
         base_path = Path(__file__).parent
         complete_output_json_dir = os.path.join(base_path, self.output_iperf_dir , self.output_json_filename + str(last_measurement_id) + ".json")
         command = ["iperf3"]
@@ -217,7 +215,16 @@ class IperfController:
                 print(f"IperfController: command not handled -> {command}")
                 self.mqtt_client.publish_command_NACK(handler='iperf', command=command, error_info="Command not handled") # NACK
 
-
+    def send_config_ack(self): # Incapsulating of the iperf-server-ip
+        json_ack = {
+            "command": "conf",
+            "conf":  "OK" }
+        if self.last_role == "Server":
+            hostname = socket.gethostname()
+            my_ip = socket.gethostbyname(hostname)
+            json_ack['ip'] = str(my_ip)
+            json_ack['port'] = self.listening_port
+        self.mqtt_client.publish_command_ACK(handler='iperf', command=json.dumps(json_ack)) # volendo, posso anche passare command = command
    
     def publish_last_output_iperf(self, last_measurement_ID : int ):
         """ Publish the last measuremet's output summary loading it from flash """
