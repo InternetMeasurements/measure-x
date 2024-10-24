@@ -74,6 +74,7 @@ class ProbeMqttClient(mqtt.Client):
             payload = status,
             qos = self.config['publishing']['qos'],
             retain = self.config['publishing']['retain'] )
+        print(f"MqttClient: sent on topic |{self.status_topic}| -> {status}")
         
     def publish_on_result_topic(self, result):
         # Invoked when you want to publish a result
@@ -83,23 +84,20 @@ class ProbeMqttClient(mqtt.Client):
             qos = self.config['publishing']['qos'],
             retain = self.config['publishing']['retain'] )
         
-    def publish_command_ACK(self, handler, command, payload):
+    def publish_command_ACK(self, handler, payload):
         json_ACK = {
             "handler": handler, #'iperf'
-            "command" : command, #'ACK'
-            "status": payload
+            "type" : "ACK", #'ACK'
+            "payload": payload
         }
         self.publish_on_status_topic(json.dumps(json_ACK))
         self.last_error = None
 
-    def publish_command_NACK(self, handler, command, error_info = None):
-        nack_error = self.last_error if (not error_info) else error_info
+    def publish_command_NACK(self, handler, command, payload):
         json_NACK = {
             "handler": handler, #'iperf'
-            "command" : command, #NACK'
-            "status": {
-                "reason": nack_error
-            }
+            "type" : "NACK", #NACK'
+            "payload": payload
         }
         self.publish_on_status_topic(json.dumps(json_NACK))
         self.last_error = None
@@ -126,8 +124,8 @@ class ProbeMqttClient(mqtt.Client):
     def publish_probe_state(self, state):
         json_status = {
             "handler": "probe_state",
-            "command": "state",
-            "status": {
+            "type": "state",
+            "payload": {
                 "state" : state
             }
         }
