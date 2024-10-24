@@ -5,10 +5,11 @@ from src.modules.iperfCoordinator.iperf_coordinator import Iperf_Coordinator
 class CommandsMultiplexer:
     def __init__(self):
         self.results_handler_list = {}
-        self.status_handler_list = {"state": self.probe_state_handler}
+        self.status_handler_list = {"probe_state": self.probe_state_handler_ONLY_PRINT}
 
-    def probe_state_handler(self, probe_sender, status):
-        print(f"probe_sender [{probe_sender}] -> state [{status['state']}]")
+    def probe_state_handler_ONLY_PRINT(self, probe_sender, type, payload):
+        if type == "state":
+            print(f"probe_sender [{probe_sender}] -> state [{payload['state']}]")
     
     def add_result_handler(self, interested_result, handler):
         if interested_result not in self.results_handler_list:
@@ -41,11 +42,12 @@ class CommandsMultiplexer:
         try:
             nested_json_status = json.loads(nested_status)
             handler = nested_json_status['handler']
-            status = nested_json_status['status']
+            type = nested_json_status['type']  # This is the type of status message
+            payload = nested_json_status['payload']
             if handler in self.status_handler_list:
-                self.status_handler_list[handler](probe_sender, status) # Multiplexing
+                self.status_handler_list[handler](probe_sender, type, payload) # Multiplexing
             else:
-                print(f"status_multiplexer:: no registered handler for [{handler}]. PRINT: -> {status}")
+                print(f"status_multiplexer:: no registered handler for [{handler}]. PRINT: -> {payload}")
         except json.JSONDecodeError as e:
             print(f"status_multiplexer:: json exception -> {e}")
 
