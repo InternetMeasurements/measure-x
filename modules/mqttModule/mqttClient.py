@@ -55,6 +55,7 @@ class MqttClient(mqtt.Client):
         # Invoked when a new message has arrived from the broker      
         #print(f"MQTT: Received msg on topic -> | {message.topic} | "
         probe_sender = (str(message.topic).split('/'))[1]
+        print(f"MqttClient: from topic |{str(message.topic)}| -> |{ message.payload.decode('utf-8')}|")
         if str(message.topic).endswith("results"):
             self.external_results_handler(probe_sender, message.payload.decode('utf-8'))
         elif str(message.topic).endswith("status"):
