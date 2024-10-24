@@ -28,8 +28,9 @@ class Iperf_Coordinator:
                             probe_port = payload["port"]
                             self.probes_server_ip[probe_sender] = probe_ip
                             self.probes_server_port[probe_sender] = probe_port
-                            self.received_acks.add(probe_sender)
                             print(f"Iperf_Coordinator: probe |{probe_sender}|->|{probe_ip}|->|{probe_port}|->ACK")
+                        # the else statement, means that the ACK is sent from the client
+                        self.received_acks.add(probe_sender)
                     case _:
                         print(f"ACK received for unkonwn iperf command -> {command_executed_on_probe}")
             case "NACK":
@@ -45,20 +46,20 @@ class Iperf_Coordinator:
     def get_json_from_probe_yaml(self, probes_configurations_path) -> json:
         json_probe_config = {}
         with open(probes_configurations_path, "r") as file:
-            config = yaml.safe_load(file)
+            iperf_client_config = yaml.safe_load(file)['iperf_client']
             json_probe_config = {
-                "transport_protocol": True if (config['transport_protocol'] == "TCP") else False,
-                "parallel_connections": int(config['parallel_connections']),
-                "result_measurement_filename": config['result_measurement_filename'],
-                "reverse": config['reverse'],
+                "transport_protocol": iperf_client_config['transport_protocol'],
+                "parallel_connections": int(iperf_client_config['parallel_connections']),
+                "result_measurement_filename": iperf_client_config['result_measurement_filename'],
+                "reverse": iperf_client_config['reverse'],
                 "verbose": False,
-                "total_repetition": int(config['total_repetition']),
+                "total_repetition": int(iperf_client_config['total_repetition']),
             }
         return json_probe_config
 
     def send_probe_iperf_configuration(self, probe_id, role, dest_probe = None): # Tramite il probe_id, devi caricare il file YAML per quella probes
         json_config = {}
-        if role == "Client":
+        if role == "Client": # Preparing the config for the iperf-client
             base_path = Path(__file__).parent
             probes_configurations_path = Path(os.path.join(base_path, self.probes_configurations_dir, "configToBeClient.yaml"))
             if probes_configurations_path.exists():
@@ -72,8 +73,7 @@ class Iperf_Coordinator:
                 self.last_client_probe = probe_id
             else:
                 print(f"Iperf_Coordinator: File not found->|{probes_configurations_path}|")
-        else:
-            # Questo json_config è quello di default per il Server.
+        else: # Preparing the config for the iperf-server
             json_config = {
                 "role": "Server",
                 "listen_port": 5201,
@@ -106,7 +106,7 @@ class Iperf_Coordinator:
             "payload": {}
         }
     
-        self.mqtt.publish_on_command_topic(probe_id = self.last_client_probe, command = json.dumps(json_iperf_start))
+        self.mqtt.publish_on_command_topic(probe_id = self.last_client_probe, complete_command = json.dumps(json_iperf_start))
         print("Iperf_Coordinator: iperf started on probes. Waiting for results...")
 
     def store_measurement_result(self, probe_sender, json_measurement: json):
