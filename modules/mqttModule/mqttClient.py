@@ -81,7 +81,7 @@ class MqttClient(mqtt.Client):
         self.connected_to_broker = False
         return False
 
-    def publish_on_command_topic(self, probe_id, complete_command : str): 
+    def publish_on_command_topic(self, probe_id, complete_command): 
         complete_command_topic = str(self.probes_command_topic).replace("PROBE_ID", probe_id)
         self.publish(
             topic = complete_command_topic, 
