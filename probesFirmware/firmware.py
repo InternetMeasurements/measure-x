@@ -19,7 +19,7 @@ class Probe:
 
 
 def main():
-    probe1 = Probe("probe4")
+    probe1 = Probe("probe2")
     while True:
         command = input()
         if(command == '0'):
