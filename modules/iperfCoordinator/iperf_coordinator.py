@@ -11,36 +11,39 @@ class Iperf_Coordinator:
         self.expected_acks = set()
         self.probes_configurations_dir = 'probes_configurations'
         self.last_client_probe = None
-        self.probes_servers_ip = {}
-        self.probes_servers_port = {}
+        self.probes_server_ip = {}
+        self.probes_server_port = {}
 
     def result_handler_received(self, probe_sender, result: json):
         self.store_measurement_result(probe_sender, result)
         
-    def status_handler_received(self, probe_sender, status : json):
-        command = status["command"]
-        match command:
-            case "conf":
-                if "reason" not in status: # If true, then this status is an ACK
-                    if ("ip" in status) and ("port" in status):
-                        probe_ip = status["ip"]
-                        probe_port = status["port"]
-                        self.probes_ip[probe_sender] = probe_ip
-                        self.probes_servers_port[probe_sender] = probe_port
-                    print(f"Iperf_Coordinator: probe |{probe_sender}|->|{probe_ip}|->|{command}|->ACK")
-                else: # else, this is an NACK
-                    reason = status['reason']
-                    print(f"Iperf_Coordinator: probe |{probe_sender}|->|{command}|->NACK, reason->{reason}")
+    def status_handler_received(self, probe_sender, type, payload : json):
+        match type:
+            case "ACK":
+                command_executed_on_probe = payload["command"]
+                match command_executed_on_probe:
+                    case "conf":
+                        if ("ip" in payload) and ("port" in payload):
+                            probe_ip = payload["ip"]
+                            probe_port = payload["port"]
+                            self.probes_server_ip[probe_sender] = probe_ip
+                            self.probes_server_port[probe_sender] = probe_port
+                            self.received_acks.add(probe_sender)
+                            print(f"Iperf_Coordinator: probe |{probe_sender}|->|{probe_ip}|->|{probe_port}|->ACK")
+                    case _:
+                        print(f"ACK received for unkonwn iperf command -> {command_executed_on_probe}")
+            case "NACK":
+                command_failed_on_probe = payload["command"]
+                reason = payload['reason']
+                print(f"Iperf_Coordinator: probe |{probe_sender}|->|{command_failed_on_probe}|->NACK, reason->{reason}")
             case _:
-                print(f"Iperf_Coordinator: status message not handled-> |{command}|")
+                print(f"Iperf_Coordinator: received unkown type message -> |{type}|")
 
     def get_json_from_probe_yaml(self, probes_configurations_path) -> json:
         json_probe_config = {}
         with open(probes_configurations_path, "r") as file:
             config = yaml.safe_load(file)
             json_probe_config = {
-                "destination_server_ip": config['destination_server_ip'],
-                "destination_server_port": int(config['destination_server_port']),
                 "transport_protocol": True if (config['transport_protocol'] == "TCP") else False,
                 "parallel_connections": int(config['parallel_connections']),
                 "result_measurement_filename": config['result_measurement_filename'],
@@ -56,13 +59,13 @@ class Iperf_Coordinator:
             base_path = Path(__file__).parent
             probes_configurations_path = Path(os.path.join(base_path, self.probes_configurations_dir, "configToBeClient.yaml"))
             if probes_configurations_path.exists():
-                if (dest_probe not in self.probes_servers_ip) or (dest_probe not in self.probes_servers_port):
+                if (dest_probe not in self.probes_server_ip) or (dest_probe not in self.probes_server_port):
                     print(f"Iperf_Coordinator: configure the Probe Server first")
                     return
                 json_config = self.get_json_from_probe_yaml(probes_configurations_path)
                 json_config['role'] = "Client"
-                json_config['destination_server_ip'] = self.probes_servers_ip[dest_probe]
-                json_config['destination_server_port'] = self.probes_servers_port[dest_probe]
+                json_config['destination_server_ip'] = self.probes_server_ip[dest_probe]
+                json_config['destination_server_port'] = self.probes_server_port[dest_probe]
                 self.last_client_probe = probe_id
             else:
                 print(f"Iperf_Coordinator: File not found->|{probes_configurations_path}|")
@@ -73,12 +76,12 @@ class Iperf_Coordinator:
                 "listen_port": 5201,
                 "verbose": True
             }
-        self.expected_acks.add(probe_id) # Add this probe in the list from which i'm expecting an ACK
         json_command = {
             "handler": 'iperf',
             "command": "conf",
             "payload": json_config
         }
+        self.expected_acks.add(probe_id) # Add this probe in the list from which i'm expecting to receive an ACK
         self.mqtt.publish_on_command_topic(probe_id=probe_id, complete_command=json.dumps(json_command))
         
     def send_probe_iperf_start(self):
@@ -91,7 +94,7 @@ class Iperf_Coordinator:
             return
 
         if self.last_client_probe is None:
-            print("iperf_coordinator: Did you configured the probes first?")
+            print("iperf_coordinator: Did you configured the client probe first?")
             return
         
         json_iperf_start = {
