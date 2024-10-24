@@ -91,31 +91,7 @@ class IperfController:
             print(f"IperfController: Configuration failed. Reason -> {e}")
             self.last_error = str(e)
             return False
-        """
-        try:
-            with open(config_path, 'r') as file:
-                self.config = yaml.safe_load(file)
 
-
-            client_config = self.config['iperf_client']
-            self.destination_server_ip = client_config['destination_server_ip']
-            self.destination_server_port = int(client_config['destination_server_port'])
-            self.tcp_protocol = True if (client_config['transport_protocol'] == "TCP") else False
-            self.parallel_connections = int(client_config['parallel_connections'])
-            self.output_json_filename = client_config['result_measurement_filename']
-            self.output_iperf_dir = client_config['output_iperf_dir']
-            self.reverse_function = client_config['reverse']
-            self.verbose_function = client_config['verbose']
-            self.total_repetition = int(client_config['total_repetition'])
-
-            self.last_role = "Client"
-            self.last_error = None
-            return True
-        except Exception as e:
-            print(f"IperfController: Configuration failed. Reason -> {e}")
-            self.last_error = str(e)
-            return False
-        """
     def get_last_measurement_id(self, file_name):
         """It returns an id that can be used to the current measurement"""
         base_path = Path(__file__).parent
@@ -198,31 +174,39 @@ class IperfController:
         match command:
             case 'conf':
                 if self.read_configuration(payload): # if the configuration goes good, then ACK, else NACK
-                    my_role = payload['role']
-                    self.send_config_ack()
-                    if my_role == "Server":
-                        self.run_iperf_execution(0)
+                    #my_role = payload['role']
+                    self.send_config_ack(successed_command = command)
+                    #if my_role == "Server":
+                     #   self.run_iperf_execution(0)
                 else:
-                    self.mqtt_client.publish_command_NACK(handler='iperf', command='conf', error_info = self.last_error)
+                    self.send_config_nack(failed_command=command, error_info=self.last_error)
             case 'start':
                 if self.last_role == "Client":
                     execution_code = self.run_iperf_repetitions()
                     if execution_code == -1:
-                        self.mqtt_client.publish_command_NACK(handler='iperf', command='start', error_info="No configuration") # NACK: No Configuration
+                        self.send_config_nack(failed_command=command, error_info="No configuration")
                     else:
-                        self.mqtt_client.publish_command_NACK(handler='iperf', command='start', error_info=str(execution_code)) # NACK: Execution Error
+                        self.send_config_nack(failed_command=command, error_info=str(execution_code))
             case _:
                 print(f"IperfController: command not handled -> {command}")
                 self.mqtt_client.publish_command_NACK(handler='iperf', command=command, error_info="Command not handled") # NACK
 
-    def send_config_ack(self): # Incapsulating of the iperf-server-ip
-        json_ack = { "conf":  "OK" }
+    def send_config_ack(self, successed_command): # Incapsulating of the iperf-server-ip
+        json_ack = { "command": successed_command }
         if self.last_role == "Server":
             hostname = socket.gethostname()
             my_ip = socket.gethostbyname(hostname)
             json_ack['ip'] = str(my_ip)
             json_ack['port'] = self.listening_port
-        self.mqtt_client.publish_command_ACK(handler='iperf', command = 'conf', payload=json_ack) # volendo, posso anche passare command = command
+        print(f"IperfController: ACK sent -> {json_ack}")
+        self.mqtt_client.publish_command_ACK(handler='iperf', payload=json_ack) # volendo, posso anche passare command = command
+
+    def send_config_nack(self, failed_command, error_info):
+        json_nack = {
+            "command" : failed_command,
+            "reason" : error_info
+            }
+        self.mqtt_client.publish_command_NACK(handler='iperf', payload = json_nack) # NACK: No Configuration
    
     def publish_last_output_iperf(self, last_measurement_ID : int ):
         """ Publish the last measuremet's output summary loading it from flash """
