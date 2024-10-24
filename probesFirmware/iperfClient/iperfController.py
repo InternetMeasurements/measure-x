@@ -216,15 +216,13 @@ class IperfController:
                 self.mqtt_client.publish_command_NACK(handler='iperf', command=command, error_info="Command not handled") # NACK
 
     def send_config_ack(self): # Incapsulating of the iperf-server-ip
-        json_ack = {
-            "command": "conf",
-            "conf":  "OK" }
+        json_ack = { "conf":  "OK" }
         if self.last_role == "Server":
             hostname = socket.gethostname()
             my_ip = socket.gethostbyname(hostname)
             json_ack['ip'] = str(my_ip)
             json_ack['port'] = self.listening_port
-        self.mqtt_client.publish_command_ACK(handler='iperf', command=json.dumps(json_ack)) # volendo, posso anche passare command = command
+        self.mqtt_client.publish_command_ACK(handler='iperf', command = 'conf', payload=json_ack) # volendo, posso anche passare command = command
    
     def publish_last_output_iperf(self, last_measurement_ID : int ):
         """ Publish the last measuremet's output summary loading it from flash """
