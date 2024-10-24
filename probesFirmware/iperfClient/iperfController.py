@@ -118,7 +118,7 @@ class IperfController:
             command += ["-p", str(self.destination_server_port)]
             command += ["-P", str(self.parallel_connections)]
 
-            if not self.tcp_protocol:
+            if self.tcp_protocol != "TCP":
                 command.append("-u")
             if self.reverse_function:
                 command.append("-R")
@@ -174,10 +174,10 @@ class IperfController:
         match command:
             case 'conf':
                 if self.read_configuration(payload): # if the configuration goes good, then ACK, else NACK
-                    #my_role = payload['role']
+                    my_role = payload['role']
                     self.send_config_ack(successed_command = command)
-                    #if my_role == "Server":
-                     #   self.run_iperf_execution(0)
+                    if my_role == "Server":
+                        self.run_iperf_execution(0)
                 else:
                     self.send_config_nack(failed_command=command, error_info=self.last_error)
             case 'start':
@@ -230,7 +230,8 @@ class IperfController:
 
         json_summary_data = {
             "handler": "iperf",
-            "result":
+            "type": "result",
+            "payload":
             {
                 "measurement_id": last_measurement_ID,
                 "start_timestamp": start_timestamp,
