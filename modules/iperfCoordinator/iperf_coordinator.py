@@ -50,21 +50,21 @@ class Iperf_Coordinator:
             }
         return json_probe_config
 
-
-    # VECCHIA send_probe_iperf_role
     def send_probe_iperf_configuration(self, probe_id, role, dest_probe = None): # Tramite il probe_id, devi caricare il file YAML per quella probes
         json_config = {}
         if role == "Client":
             base_path = Path(__file__).parent
-            probes_configurations_path = Path(os.path.join(base_path, self.probes_configurations_dir, (probe_id + ".yaml")))
+            probes_configurations_path = Path(os.path.join(base_path, self.probes_configurations_dir, "configToBeClient.yaml"))
             if probes_configurations_path.exists():
-                json_config = self.get_json_from_probe_yaml(probes_configurations_path)
                 if (dest_probe not in self.probes_servers_ip) or (dest_probe not in self.probes_servers_port):
                     print(f"Iperf_Coordinator: configure the Probe Server first")
                     return
+                json_config = self.get_json_from_probe_yaml(probes_configurations_path)
                 json_config['destination_server_ip'] = self.probes_servers_ip[dest_probe]
                 json_config['destination_server_port'] = self.probes_servers_port[dest_probe]
                 self.last_client_probe = probe_id
+            else:
+                print(f"Iperf_Coordinator: File not found->|{probes_configurations_path}|")
         else:
             # Questo json_config è quello di default per il Server.
             json_config = {
