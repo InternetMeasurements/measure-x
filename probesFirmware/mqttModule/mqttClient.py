@@ -51,15 +51,8 @@ class ProbeMqttClient(mqtt.Client):
         # Invoked when the connection to broker has success
         if not self.check_return_code(rc):
             self.loop_stop() # the loop_stop() here, ensure that the client stops to polling the broker with connection requests
-            return
-        
-        json_status = {
-            "handler": "state",
-            "status": {
-                "state" : "ONLINE"
-            }
-        }
-        self.publish_status(json.dumps(json_status))
+            return       
+        self.publish_probe_state("ONLINE")
 
         for topic in self.config['subscription_topics']: # For each topic in subscription_topics...
             topic = str(topic).replace("PROBE_ID", self.probe_id) # Substitution the "PROBE_ID" element with the real probe id
@@ -71,7 +64,7 @@ class ProbeMqttClient(mqtt.Client):
         print(f"MQTT {self.probe_id}: Received msg on topic -> | {message.topic} | {message.payload.decode('utf-8')} |")
         self.external_mqtt_msg_handler(message.payload.decode('utf-8'))
 
-    def publish_status(self, status):
+    def publish_on_status_topic(self, status):
         # Invoked when you want to publish your status
         if not self.connected_to_broker:
             print(f"{self.probe_id}: Not connected to broker!")
@@ -82,7 +75,7 @@ class ProbeMqttClient(mqtt.Client):
             qos = self.config['publishing']['qos'],
             retain = self.config['publishing']['retain'] )
         
-    def publish_result(self, result):
+    def publish_on_result_topic(self, result):
         # Invoked when you want to publish a result
         self.publish(
             topic = self.results_topic,
@@ -90,12 +83,24 @@ class ProbeMqttClient(mqtt.Client):
             qos = self.config['publishing']['qos'],
             retain = self.config['publishing']['retain'] )
         
-    def publish_command_ACK(self, command):
-        self.publish_status(command + " OK")
+    def publish_command_ACK(self, handler, payload):
+        json_ACK = {
+            "handler": handler,
+            "status" : payload
+        }
+        self.publish_on_status_topic(json.dumps(json_ACK))
+        self.last_error = None
 
-    def publish_command_NACK(self, command, error_info = None):
-        nack_error = self.last_error if not error_info else error_info
-        self.publish_status(command + " ERROR -> " + nack_error)
+    def publish_command_NACK(self, handler, command, error_info = None):
+        nack_error = self.last_error if (not error_info) else error_info
+        json_NACK = {
+            "handler": handler,
+            "status": {
+                "command": command,
+                "reason": nack_error
+            }
+        }
+        self.publish_on_status_topic(json.dumps(json_NACK))
         self.last_error = None
 
     def check_return_code(self, rc):
@@ -116,10 +121,20 @@ class ProbeMqttClient(mqtt.Client):
                 print(f"{self.probe_id}: Connection refused, not authorized")
         self.connected_to_broker = False
         return False
+    
+    def publish_probe_state(self, state):
+        json_status = {
+            "handler": "state",
+            "status": {
+                "state" : state
+            }
+        }
+        self.publish_on_status_topic(json.dumps(json_status))
+
 
     def disconnect(self):
         # Invoked to inform the broker to release the allocated resources
-        self.publish_status("OFFLINE")
+        self.publish_probe_state("OFFLINE")
         self.loop_stop()
         super().disconnect()
         self.connected_to_broker = False
