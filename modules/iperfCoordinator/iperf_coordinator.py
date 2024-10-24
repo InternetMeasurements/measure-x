@@ -60,6 +60,7 @@ class Iperf_Coordinator:
                     print(f"Iperf_Coordinator: configure the Probe Server first")
                     return
                 json_config = self.get_json_from_probe_yaml(probes_configurations_path)
+                json_config['role'] = "Client"
                 json_config['destination_server_ip'] = self.probes_servers_ip[dest_probe]
                 json_config['destination_server_port'] = self.probes_servers_port[dest_probe]
                 self.last_client_probe = probe_id
@@ -68,6 +69,7 @@ class Iperf_Coordinator:
         else:
             # Questo json_config è quello di default per il Server.
             json_config = {
+                "role": "Server",
                 "listen_port": 5201,
                 "verbose": True
             }
