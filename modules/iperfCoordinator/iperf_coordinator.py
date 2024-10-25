@@ -31,6 +31,8 @@ class Iperf_Coordinator:
                             print(f"Iperf_Coordinator: probe |{probe_sender}|->|{probe_ip}|->|{probe_port}|->ACK")
                         # the else statement, means that the ACK is sent from the client
                         self.received_acks.add(probe_sender)
+                    case "stop":
+                         print(f"Iperf_Coordinator: probe |{probe_sender}|-> Iperf-server stopped -> ACK")
                     case _:
                         print(f"ACK received for unkonwn iperf command -> {command_executed_on_probe}")
             case "NACK":
@@ -108,6 +110,15 @@ class Iperf_Coordinator:
     
         self.mqtt.publish_on_command_topic(probe_id = self.last_client_probe, complete_command = json.dumps(json_iperf_start))
         print("Iperf_Coordinator: iperf started on probes. Waiting for results...")
+    
+    def send_probe_iperf_stop(self, probe_id):
+        json_iperf_stop = {
+            "handler": "iperf",
+            "command": "stop",
+            "payload": {}
+        }
+        self.mqtt.publish_on_command_topic(probe_id = probe_id, complete_command = json.dumps(json_iperf_stop))
+
 
     def store_measurement_result(self, probe_sender, json_measurement: json):
         base_path = Path(__file__).parent
