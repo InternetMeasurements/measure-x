@@ -71,6 +71,7 @@ class Iperf_Coordinator:
                     return
                 json_config = self.get_json_from_probe_yaml(probes_configurations_path)
                 json_config['role'] = "Client"
+                json_config['save_result_on_flash'] = True
                 json_config['destination_server_ip'] = self.probes_server_ip[dest_probe]
                 json_config['destination_server_port'] = self.probes_server_port[dest_probe]
                 self.last_client_probe = probe_id
