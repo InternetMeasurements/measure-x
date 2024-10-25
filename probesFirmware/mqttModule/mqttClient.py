@@ -93,7 +93,7 @@ class ProbeMqttClient(mqtt.Client):
         self.publish_on_status_topic(json.dumps(json_ACK))
         self.last_error = None
 
-    def publish_command_NACK(self, handler, command, payload):
+    def publish_command_NACK(self, handler, payload):
         json_NACK = {
             "handler": handler, #'iperf'
             "type" : "NACK", #NACK'
