@@ -15,6 +15,7 @@ class Iperf_Coordinator:
         self.probes_server_port = {}
 
     def result_handler_received(self, probe_sender, result: json):
+        self.print_summary_result(measurement_result = result)
         self.store_measurement_result(probe_sender, result)
         
     def status_handler_received(self, probe_sender, type, payload : json):
@@ -129,3 +130,23 @@ class Iperf_Coordinator:
         with open(complete_measurement_path, "w") as file:
             file.write(json.dumps(json_measurement, indent=4))
         print(f"Iperf_Coordinator: stored result from {probe_sender} -> measure_{str(json_measurement['measurement_id'])}.json")
+
+    def print_summary_result(self, measurement_result):
+        
+        start_timestamp = measurement_result["start_timestamp"]
+        measurement_id = measurement_result["measurement_id"]
+        source_ip = measurement_result["source_ip"]
+        destination_ip = measurement_result["destination_ip"]
+        bytes_received = measurement_result["bytes_received"]
+        duration = measurement_result["duration"]
+        avg_speed = measurement_result["avg_speed"]
+
+        print("\n****************** SUMMARY ******************")
+        print(f"Timestamp: {start_timestamp}")
+        print(f"Measurement ID: {measurement_id}")
+        print(f"IP sorgente: {source_ip}")
+        print(f"IP destinatario: {destination_ip}")
+        print(f"Velocità trasferimento {avg_speed} bits/s")
+        print(f"Quantità di byte ricevuti: {bytes_received}")
+        print(f"Durata misurazione: {duration} secondi\n")
+        
