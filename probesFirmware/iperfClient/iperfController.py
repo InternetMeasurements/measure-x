@@ -11,7 +11,6 @@ from src.probesFirmware.mqttModule.mqttClient import ProbeMqttClient
 class IperfController:
     def __init__(self, mqtt_client : ProbeMqttClient, registration_handler_request_function):
 
-        self.config = None
         self.mqtt_client = mqtt_client
         self.last_role = None
         self.last_error = None
@@ -62,21 +61,6 @@ class IperfController:
             print(f"IperfController: Configuration failed. Reason -> {e}")
             self.last_error = str(e)
             return False
-        """
-        try:
-            with open(config_path, 'r') as file:
-                self.config = yaml.safe_load(file)
-                server_config = self.config['iperf_server']
-                self.listening_port = server_config['listen_port']
-                self.verbose_function = server_config['verbose']
-                self.last_role = "Server"
-                self.last_error = None
-                return True
-        except Exception as e:
-            print(f"IperfController: Configuration failed. Reason -> {e}")
-            self.last_error = str(e)
-            return False
-        """
 
     def read_client_configuration(self, payload_conf : json): # Reads the iperf yaml configuration file 
         print(f"IperfController: read_configuration_Client()")
@@ -99,20 +83,6 @@ class IperfController:
             self.last_error = str(e)
             return False
 
-    def get_last_measurement_id(self, file_name):
-        """It returns an id that can be used to the current measurement"""
-        base_path = Path(__file__).parent
-        output_path = os.path.join(base_path, self.output_iperf_dir)
-        
-        file_list = os.listdir(output_path)
-        file_list = [measurement_file for measurement_file in file_list if measurement_file.startswith(file_name)]
-
-        if not file_list:
-            return 0
-        
-        sorted_list = sorted(file_list, key=lambda x: int(x.split('_')[1].split('.')[0]))
-        last_element_ID = int(sorted_list[-1].split('_')[-1].split(".")[0])
-        return last_element_ID + 1
     
     def run_iperf_execution(self, last_measurement_id) -> int :
         """This method execute the iperf3 program with the pre-loaded config. THIS METHOD IS EXECUTED BY A NEW THREAD, IF THE ROLE IS SERVER"""
@@ -293,7 +263,8 @@ class IperfController:
 
         # json_byte_result = json.dumps(json_copmpressed_data).encode('utf-8') Valutare se conviene binarizzarla
 
-        self.mqtt_client.publish_result(json.dumps(json_summary_data))
+        self.mqtt_client.publish_on_result_topic(json.dumps(json_summary_data))
+        self.last_json_result = None # reset the result
         print(f"iperfController: measurement [{last_measurement_ID}] result published")
 
         """
@@ -305,3 +276,39 @@ class IperfController:
         print(f"Quantità di byte ricevuti: {bytes_received}")
         print(f"Durata misurazione: {duration} secondi\n")
         """
+    
+    def get_last_measurement_id(self, file_name):
+        """It returns an id that can be used to the current measurement"""
+        base_path = Path(__file__).parent
+        output_path = os.path.join(base_path, self.output_iperf_dir)
+        
+        file_list = os.listdir(output_path)
+        file_list = [measurement_file for measurement_file in file_list if measurement_file.startswith(file_name)]
+
+        if not file_list:
+            return 0
+        
+        sorted_list = sorted(file_list, key=lambda x: int(x.split('_')[1].split('.')[0]))
+        last_element_ID = int(sorted_list[-1].split('_')[-1].split(".")[0])
+        return last_element_ID + 1
+    
+    def reset_conf(self):
+        self.last_role = None
+        self.last_error = None
+        self.iperf_thread = None
+        
+        # Iperf Client - Parameters
+        self.destination_server_ip = ""
+        self.destination_server_port = 0
+        self.tcp_protocol = False
+        self.parallel_connections = 1
+        self.output_json_filename = ""
+        self.output_iperf_dir = ""
+        self.reverse_function = False
+        self.verbose_function = False # common parameter
+        self.total_repetition = 1
+        self.save_result_on_flash = None
+        self.last_json_result = None
+
+        # Iperf Server - Parameters
+        self.listening_port = None
