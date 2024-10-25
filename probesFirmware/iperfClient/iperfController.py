@@ -3,6 +3,9 @@ import json
 import subprocess
 import socket
 from pathlib import Path
+import threading
+import signal
+import psutil
 from src.probesFirmware.mqttModule.mqttClient import ProbeMqttClient
 
 class IperfController:
@@ -12,6 +15,7 @@ class IperfController:
         self.mqtt_client = mqtt_client
         self.last_role = None
         self.last_error = None
+        self.iperf_thread = None
         
         # Iperf Client - Parameters
         self.destination_server_ip = ""
@@ -129,15 +133,19 @@ class IperfController:
             result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)        
             
             if result.returncode != 0:
-                print(f"IperfController: Errore nell'esecuzione di iperf: {result.stderr}")
+                print(f"IperfController: Errore nell'esecuzione di iperf: {result.stderr} | return_code: {result.returncode }")
             else:
-                try:
-                    json_output = json.loads(result.stdout)
-                    with open(complete_output_json_dir, "w") as output_file:
-                        json.dump(json_output, output_file, indent=4)
-                    print(f"IperfController: results saved in: {complete_output_json_dir}")
+                try: # Reading the result in the stdout
+                    self.last_json_result = json.loads(result.stdout)
+                    if self.save_result_on_flash: # if the save_on_flash mode in enabled...
+                        base_path = Path(__file__).parent
+                        complete_output_json_dir = os.path.join(base_path, self.output_iperf_dir , self.output_json_filename + str(last_measurement_id) + ".json")
+                        with open(complete_output_json_dir, "w") as output_file:
+                            json.dump(self.last_json_result, output_file, indent=4)
+                        print(f"IperfController: results saved in: {complete_output_json_dir}")
                 except json.JSONDecodeError:
                     print("IperfController: decode result json failed")
+                    self.send_command_nack(failed_command="start", error_info="Decode result json failed")
         else:
             #command += "-s -p " + str(self.listening_port) # server mode and listening port
             print("IperfController: iperf3 server, listening...")
@@ -147,8 +155,9 @@ class IperfController:
             result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             if result.returncode == 0:
                 print(result.stdout)
-            else:
-                print(f"Errore nell'esecuzione di iperf: {result.stderr}")
+            # elif result.returncode == 15: # This returncode 15, means that the subprocess has received a SIG.TERM signal, and then the process has been gently terminated
+            elif result.returncode != 15:
+                print(f"Errore nell'esecuzione di iperf: {result.stderr} {result.stderr} | return_code: {result.returncode }")
                 
         return result.returncode
     
