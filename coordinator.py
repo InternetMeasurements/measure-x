@@ -29,7 +29,7 @@ class CommandsMultiplexer:
         try:
             nested_json_result = json.loads(nested_result)
             handler = nested_json_result['handler']
-            result = nested_json_result['result']
+            result = nested_json_result['payload']
             if handler in self.results_handler_list:
                 self.results_handler_list[handler](probe_sender, result) # Multiplexing
             else:
@@ -65,19 +65,29 @@ def main():
 
     while True:
         print("PRESS 0 -> exit")
-        print("PRESS 1 -> send role to probes2: Server role")
-        print("PRESS 2 -> send role to probes4: Client role")
-        print("PRESS 3 -> start throughput measurement")
+        print("PRESS 1 -> send role SERVER to probe2")
+        print("PRESS 2 -> send role CLIENT to probe2")
+        print("PRESS 3 -> send role SERVER to probe4")
+        print("PRESS 4 -> send role CLIENT to probe4")
+        print("PRESS 5 -> start throughput measurement")
+        print("PRESS 6 -> stop iperf SERVER on probe2")
+        print("PRESS 7 -> stop iperf SERVER on probe4")
         command = input()
         match command:
             case "1":
                 iperf_coordinator.send_probe_iperf_configuration(probe_id = "probe2", role = "Server")
-                #iperf_coordinator.send_probe_iperf_role(probe_id = "probe2", role = "Client")
             case "2":
-                iperf_coordinator.send_probe_iperf_configuration(probe_id = "probe4", role = "Client", dest_probe = "probe2")
+                iperf_coordinator.send_probe_iperf_configuration(probe_id = "probe2", role = "Client", dest_probe="probe4")
             case "3":
-                #coordinator_mqtt.send_probe_iperf_start(probe_id = "probe1")
+                iperf_coordinator.send_probe_iperf_configuration(probe_id = "probe4", role = "Server")
+            case "4":
+                iperf_coordinator.send_probe_iperf_configuration(probe_id = "probe4", role = "Client", dest_probe = "probe2")
+            case "5":
                 iperf_coordinator.send_probe_iperf_start()
+            case "6":
+                iperf_coordinator.send_probe_iperf_stop("probe2")
+            case "7":
+                iperf_coordinator.send_probe_iperf_stop("probe4")
             case _:
                 break
     coordinator_mqtt.disconnect()
