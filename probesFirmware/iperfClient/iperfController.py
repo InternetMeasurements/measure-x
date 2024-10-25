@@ -162,31 +162,35 @@ class IperfController:
         return result.returncode
     
     
-    def run_iperf_repetitions(self) -> int:
-        if (self.config is None) or (self.last_role is None):
+    def start_iperf(self) -> int:
+        if self.last_role is None:
             print("IperfController: Can't start -> Not configured")
             return -1
-        repetition_count = 0
-        last_measurement_ID = self.get_last_measurement_id(self.output_json_filename)
-        execution_return_code = -2
-        while repetition_count < self.total_repetition:
-            print(f"\n*************** Repetition: {repetition_count + 1} ***************")
-            execution_return_code = self.run_iperf_execution(last_measurement_ID + repetition_count)
-            if execution_return_code != 0: # 0 is the correct execution code
-                break
-            self.publish_last_output_iperf(last_measurement_ID + repetition_count)
-            repetition_count += 1
-
+        
+        execution_return_code = 0
+        if self.last_role == "Server":
+            self.iperf_thread = threading.Thread(target=self.run_iperf_execution, args=(0,))
+            self.iperf_thread.start()
+        else:
+            repetition_count = 0
+            last_measurement_ID = self.get_last_measurement_id(self.output_json_filename)
+            execution_return_code = -2
+            while repetition_count < self.total_repetition:
+                print(f"\n*************** Repetition: {repetition_count + 1} ***************")
+                execution_return_code = self.run_iperf_execution(last_measurement_ID + repetition_count)
+                if execution_return_code != 0: # 0 is the correct execution code
+                    break
+                self.publish_last_output_iperf(last_measurement_ID + repetition_count)
+                repetition_count += 1
         return execution_return_code
 
     def iperf_command_handler(self, command : str, payload: json):
         match command:
             case 'conf':
                 if self.read_configuration(payload): # if the configuration goes good, then ACK, else NACK
-                    my_role = payload['role']
-                    self.send_config_ack(successed_command = command)
-                    if my_role == "Server":
-                        self.run_iperf_execution(0)
+                    self.send_command_ack(successed_command = command)
+                    if self.last_role == "Server":
+                        self.start_iperf()
                 else:
                     self.send_config_nack(failed_command=command, error_info=self.last_error)
             case 'start':
