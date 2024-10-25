@@ -40,9 +40,6 @@ class Iperf_Coordinator:
                 command_failed_on_probe = payload["command"]
                 reason = payload['reason']
                 print(f"Iperf_Coordinator: probe |{probe_sender}|->|{command_failed_on_probe}|->NACK, reason->{reason}")
-            case "result":
-                measurement_result = payload
-                print(f"measurement_result: {measurement_result}")
             case _:
                 print(f"Iperf_Coordinator: received unkown type message -> |{type}|")
 
