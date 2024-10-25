@@ -83,6 +83,7 @@ class ProbeMqttClient(mqtt.Client):
             payload = result,
             qos = self.config['publishing']['qos'],
             retain = self.config['publishing']['retain'] )
+        print(f"MqttClient: sent on topic |{self.results_topic}| -> {result}")
         
     def publish_command_ACK(self, handler, payload):
         json_ACK = {
