@@ -192,12 +192,17 @@ class IperfController:
                     if self.last_role == "Server":
                         self.start_iperf()
                 else:
-                    self.send_config_nack(failed_command=command, error_info=self.last_error)
+                    self.send_command_nack(failed_command=command, error_info=self.last_error)
             case 'start':
+                if self.last_role == None:
+                    self.send_command_nack(failed_command=command, error_info="No configuration")
+                    return
                 if self.last_role == "Client":
-                    execution_code = self.run_iperf_repetitions()
-                    if execution_code == -1:
-                        self.send_config_nack(failed_command=command, error_info="No configuration")
+                    execution_code = self.start_iperf()
+                    if execution_code == 0:
+                        self.reset_conf()
+                    elif execution_code == -1:
+                        self.send_command_nack(failed_command=command, error_info="No configuration")
                     else:
                         self.send_config_nack(failed_command=command, error_info=str(execution_code))
             case _:
@@ -206,15 +211,15 @@ class IperfController:
 
     def send_config_ack(self, successed_command): # Incapsulating of the iperf-server-ip
         json_ack = { "command": successed_command }
-        if self.last_role == "Server":
+        if (successed_command == "conf") and (self.last_role == "Server"):
             hostname = socket.gethostname()
             my_ip = socket.gethostbyname(hostname)
             json_ack['ip'] = str(my_ip)
             json_ack['port'] = self.listening_port
-        print(f"IperfController: ACK sent -> {json_ack}")
+        print(f"IperfController: ACK sending -> {json_ack}")
         self.mqtt_client.publish_command_ACK(handler='iperf', payload=json_ack) # volendo, posso anche passare command = command
 
-    def send_config_nack(self, failed_command, error_info):
+    def send_command_nack(self, failed_command, error_info):
         json_nack = {
             "command" : failed_command,
             "reason" : error_info
