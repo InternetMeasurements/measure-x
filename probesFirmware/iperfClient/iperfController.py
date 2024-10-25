@@ -27,6 +27,8 @@ class IperfController:
         self.reverse_function = False
         self.verbose_function = False # common parameter
         self.total_repetition = 1
+        self.save_result_on_flash = None
+        self.last_json_result = None
 
         # Iperf Server - Parameters
         self.listening_port = None
@@ -87,6 +89,7 @@ class IperfController:
             self.reverse_function = payload_conf['reverse']
             self.verbose_function = payload_conf['verbose']
             self.total_repetition = int(payload_conf['total_repetition'])
+            self.save_result_on_flash = payload_conf["save_result_on_flash"]
 
             self.last_role = "Client"
             self.last_error = None
@@ -112,9 +115,7 @@ class IperfController:
         return last_element_ID + 1
     
     def run_iperf_execution(self, last_measurement_id) -> int :
-        """This method execute the iperf3 program with the pre-loaded config."""
-        base_path = Path(__file__).parent
-        complete_output_json_dir = os.path.join(base_path, self.output_iperf_dir , self.output_json_filename + str(last_measurement_id) + ".json")
+        """This method execute the iperf3 program with the pre-loaded config. THIS METHOD IS EXECUTED BY A NEW THREAD, IF THE ROLE IS SERVER"""
         command = ["iperf3"]
 
         if self.last_role == "Client":
@@ -255,23 +256,23 @@ class IperfController:
    
     def publish_last_output_iperf(self, last_measurement_ID : int ):
         """ Publish the last measuremet's output summary loading it from flash """
-        base_path = Path(__file__).parent
-        completePathIPerfJson = os.path.join(base_path, self.output_iperf_dir, self.output_json_filename + str(last_measurement_ID) + ".json")
-        if not os.path.exists(completePathIPerfJson):
-            print("Last measurement not found!")
-            return
+        # base_path = Path(__file__).parent
+        # completePathIPerfJson = os.path.join(base_path, self.output_iperf_dir, self.output_json_filename + str(last_measurement_ID) + ".json")
+        # if not os.path.exists(completePathIPerfJson):
+        #    print("Last measurement not found!")
+        #    return
         
-        with open(completePathIPerfJson, 'r') as file:
-            data = json.load(file)
+        #with open(completePathIPerfJson, 'r') as file:
+        #    data = json.load(file) # 'data' è diventato self.last_json_result
 
-        start_timestamp = data["start"]["timestamp"]["timesecs"]
-        source_ip = data["start"]["connected"][0]["local_host"]
-        source_port = data["start"]["connected"][0]["local_port"]
-        destination_ip = data["start"]["connected"][0]["remote_host"]
-        destination_port = data["start"]["connected"][0]["remote_port"]
-        bytes_received = data["end"]["sum_received"]["bytes"]
-        duration = data["end"]["sum_received"]["seconds"]
-        avg_speed = data["end"]["sum_received"]["bits_per_second"]
+        start_timestamp = self.last_json_result["start"]["timestamp"]["timesecs"]
+        source_ip = self.last_json_result["start"]["connected"][0]["local_host"]
+        source_port = self.last_json_result["start"]["connected"][0]["local_port"]
+        destination_ip = self.last_json_result["start"]["connected"][0]["remote_host"]
+        destination_port = self.last_json_result["start"]["connected"][0]["remote_port"]
+        bytes_received = self.last_json_result["end"]["sum_received"]["bytes"]
+        duration = self.last_json_result["end"]["sum_received"]["seconds"]
+        avg_speed = self.last_json_result["end"]["sum_received"]["bits_per_second"]
 
         json_summary_data = {
             "handler": "iperf",
