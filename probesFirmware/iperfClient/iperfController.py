@@ -204,12 +204,39 @@ class IperfController:
                     elif execution_code == -1:
                         self.send_command_nack(failed_command=command, error_info="No configuration")
                     else:
-                        self.send_config_nack(failed_command=command, error_info=str(execution_code))
+                        self.send_command_nack(failed_command=command, error_info=str(execution_code))
+            case 'stop':
+                termination_message = self.stop_iperf_server_thread()
+                if termination_message == "OK":
+                    self.send_command_ack(successed_command=command)
+                else:
+                    self.send_command_nack(failed_command=command, error_info=termination_message)
             case _:
                 print(f"IperfController: command not handled -> {command}")
-                self.mqtt_client.publish_command_NACK(handler='iperf', command=command, error_info="Command not handled") # NACK
+                self.send_command_nack(failed_command=command, error_info="Command not handled")
 
-    def send_config_ack(self, successed_command): # Incapsulating of the iperf-server-ip
+    def stop_iperf_server_thread(self):
+        iperf_server_pid = None
+        if self.last_role == "Server" and self.iperf_thread != None:
+            for process in psutil.process_iter(['pid', 'name']):
+                if 'iperf3' in process.info['name']:  # Cerca il processo iperf3
+                    iperf_server_pid = process.info['pid']
+            if iperf_server_pid == None:
+                return "Process iperf-server not in Execution"
+            # process_pid = subprocess.check_output(["pidof", "iperf3"]).strip() 
+            try:
+                os.kill(iperf_server_pid, signal.SIGTERM)
+                self.iperf_thread.join()
+                return "OK"
+            except OSError as e:
+                return str(e)
+        #elif self.last_error != "Server":
+            #return "My role is " + ("CLIENT" if self.last_role == "CLIENT" else "NOT SETTED")
+        else:
+            return "Process iperf-server not in execution"
+
+
+    def send_command_ack(self, successed_command): # Incapsulating of the iperf-server-ip
         json_ack = { "command": successed_command }
         if (successed_command == "conf") and (self.last_role == "Server"):
             hostname = socket.gethostname()
