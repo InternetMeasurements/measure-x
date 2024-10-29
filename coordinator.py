@@ -1,6 +1,7 @@
 import json
-from src.modules.mqttModule.mqttClient import MqttClient
+from src.modules.mqttModule.mqtt_client import Mqtt_Client
 from src.modules.iperfCoordinator.iperf_coordinator import Iperf_Coordinator
+from src.modules.pingCoordinator.ping_coordinator import Ping_Coordinator 
 
 class CommandsMultiplexer:
     def __init__(self):
@@ -10,16 +11,16 @@ class CommandsMultiplexer:
     def add_result_handler(self, interested_result, handler):
         if interested_result not in self.results_handler_list:
             self.results_handler_list[interested_result] = handler
-            print(f"Registered result handler for [{interested_result}]")
+            return "OK" #print(f"CommandsMultiplexer: Registered result handler for [{interested_result}]")
         else:
-            print(f"There is already a registered handler for -> {interested_result}")
+            return "There is already a registered handler for " + interested_result
 
     def add_status_handler(self, interested_status, handler):
         if interested_status not in self.status_handler_list:
             self.status_handler_list[interested_status] = handler
-            print(f"Registered status handler for [{interested_status}]")
+            return "OK" #print(f"CommandsMultiplexer: Registered status handler for [{interested_status}]")
         else:
-            print(f"There is already a registered handler for -> {interested_status}")
+            return "There is already a registered handler for " + interested_status
 
     def result_multiplexer(self, probe_sender: str, nested_result):
         try:
@@ -29,9 +30,9 @@ class CommandsMultiplexer:
             if handler in self.results_handler_list:
                 self.results_handler_list[handler](probe_sender, result) # Multiplexing
             else:
-                print(f"result_multiplexer: no registered handler for {handler}")
+                print(f"CommandsMultiplexer: result_multiplexer: no registered handler for |{handler}|")
         except json.JSONDecodeError as e:
-            print(f"result_multiplexer: json exception -> {e}")
+            print(f"CommandsMultiplexer: result_multiplexer: json exception -> {e}")
             
 
     def status_multiplexer(self, probe_sender, nested_status):
@@ -43,7 +44,7 @@ class CommandsMultiplexer:
             if handler in self.status_handler_list:
                 self.status_handler_list[handler](probe_sender, type, payload) # Multiplexing
             else:
-                print(f"status_multiplexer:: no registered handler for [{handler}]. PRINT: -> {payload}")
+                print(f"CommandsMultiplexer: status_multiplexer: no registered handler for |{handler}|. PRINT: -> {payload}")
         except json.JSONDecodeError as e:
             print(f"CommandsMultiplexer: status_multiplexer:: json exception -> {e}")
 
