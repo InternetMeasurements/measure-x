@@ -7,3 +7,4 @@ iperf_client:
   transport_protocol: TCP
   reverse: False
   verbose: False
+  save_result_on_flash: False
