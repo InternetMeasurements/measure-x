@@ -19,7 +19,7 @@ class CommandsMultiplexer():
             self.commands_handler_list[interested_command] = handler
             return "OK"
         else:
-            return "There is already a registered handler for " + interested_command
+            return "There is already a registered handler for |" + interested_command + "|"
 
     def decode_command(self, complete_command):
         nested_command = json.loads(complete_command)
@@ -31,4 +31,4 @@ class CommandsMultiplexer():
         if handler in self.commands_handler_list:
             self.commands_handler_list[handler](command, payload)
         else:
-            print(f"CommandsMultiplexer: no registered handler for {handler}")
+            print(f"CommandsMultiplexer: no registered handler for |{handler}|")
