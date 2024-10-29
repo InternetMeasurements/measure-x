@@ -65,39 +65,71 @@ def main():
     global probe_ip
     commands_multiplexer = CommandsMultiplexer()
 
-    coordinator_mqtt = MqttClient(
+    coordinator_mqtt = Mqtt_Client(
         external_status_handler = commands_multiplexer.status_multiplexer, 
         external_results_handler = commands_multiplexer.result_multiplexer)
     iperf_coordinator = Iperf_Coordinator(coordinator_mqtt)
+    ping_coordinaotor = Ping_Coordinator(
+        mqtt_client=coordinator_mqtt,
+        registration_handler_result=commands_multiplexer.add_result_handler, 
+        registration_handler_status=commands_multiplexer.add_status_handler)
 
-    commands_multiplexer.add_result_handler('iperf', iperf_coordinator.result_handler_received)
-    commands_multiplexer.add_status_handler('iperf', iperf_coordinator.status_handler_received)
+    commands_multiplexer.add_status_handler('probe_state', online_status_handler)
+    commands_multiplexer.add_result_handler('iperf', iperf_coordinator.handler_received_result)
+    commands_multiplexer.add_status_handler('iperf', iperf_coordinator.handler_received_status)
+
 
     while True:
         print("PRESS 0 -> exit")
-        print("PRESS 1 -> send role SERVER to probe2")
-        print("PRESS 2 -> send role CLIENT to probe2")
-        print("PRESS 3 -> send role SERVER to probe4")
-        print("PRESS 4 -> send role CLIENT to probe4")
-        print("PRESS 5 -> start throughput measurement")
-        print("PRESS 6 -> stop iperf SERVER on probe2")
-        print("PRESS 7 -> stop iperf SERVER on probe4")
+        print("PRESS 1 -> start ping from probe1 to probe2")
+        print("PRESS 2 -> start ping from probe2 to probe1")
         command = input()
         match command:
             case "1":
-                iperf_coordinator.send_probe_iperf_configuration(probe_id = "probe2", role = "Server")
+                # print("PRESS 1 -> send role SERVER to probe2")
+                # iperf_coordinator.send_probe_iperf_configuration(probe_id = "probe2", role = "Server")
+                probe_ping_starter = "probe2"
+                probe_ping_destinarion = "probe4"
+                if probe_ping_starter not in probe_ip:
+                    print(f"The starter probe {probe_ping_starter} is OFFLINE")
+                    continue
+                if probe_ping_destinarion not in probe_ip:
+                    print(f"The destination probe {probe_ping_destinarion} is OFFLINE")
+                    continue
+                ping_coordinaotor.send_start_command(probe_sender = probe_ping_starter,
+                                                     destination_ip = probe_ip[probe_ping_destinarion])
             case "2":
-                iperf_coordinator.send_probe_iperf_configuration(probe_id = "probe2", role = "Client", dest_probe="probe4")
-            case "3":
-                iperf_coordinator.send_probe_iperf_configuration(probe_id = "probe4", role = "Server")
-            case "4":
-                iperf_coordinator.send_probe_iperf_configuration(probe_id = "probe4", role = "Client", dest_probe = "probe2")
-            case "5":
-                iperf_coordinator.send_probe_iperf_start()
-            case "6":
-                iperf_coordinator.send_probe_iperf_stop("probe2")
-            case "7":
-                iperf_coordinator.send_probe_iperf_stop("probe4")
+                probe_ping_starter = "probe4"
+                probe_ping_destinarion = "probe2"
+                if probe_ping_starter not in probe_ip:
+                    print(f"The starter probe {probe_ping_starter} is OFFLINE")
+                    continue
+                if probe_ping_destinarion not in probe_ip:
+                    print(f"The destination probe {probe_ping_destinarion} is OFFLINE")
+                    continue
+                ping_coordinaotor.send_start_command(probe_sender = probe_ping_starter,
+                                                     destination_ip = probe_ip[probe_ping_destinarion])
+                #print("PRESS 2 -> send role CLIENT to probe2")
+                # destination_probe = "probe4"
+                # iperf_coordinator.send_probe_iperf_configuration(probe_id = "probe2", role = "Client", dest_probe=destination_probe, dest_probe_ip=probe_ip.get(destination_probe, None))
+                """
+                    case "3":
+                        # print("PRESS 3 -> send role SERVER to probe4")
+                        # iperf_coordinator.send_probe_iperf_configuration(probe_id = "probe4", role = "Server")
+                    case "4":
+                        print("PRESS 4 -> send role CLIENT to probe4")
+                        # destination_probe = "probe2"
+                        # iperf_coordinator.send_probe_iperf_configuration(probe_id = "probe4", role = "Client", dest_probe = destination_probe, dest_probe_ip=probe_ip.get(destination_probe, None))
+                    case "5":
+                        # print("PRESS 5 -> start throughput measurement")
+                        # iperf_coordinator.send_probe_iperf_start()
+                    case "6":
+                        # print("PRESS 6 -> stop iperf SERVER on probe2")
+                        # iperf_coordinator.send_probe_iperf_stop("probe2")
+                    case "7":
+                        # print("PRESS 7 -> stop iperf SERVER on probe4")
+                        # iperf_coordinator.send_probe_iperf_stop("probe4")
+                """
             case _:
                 break
     coordinator_mqtt.disconnect()
