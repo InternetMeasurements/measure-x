@@ -129,6 +129,21 @@ class Iperf_Coordinator:
             file.write(json.dumps(json_measurement, indent=4))
         print(f"Iperf_Coordinator: stored result from {probe_sender} -> measure_{str(json_measurement['measurement_id'])}.json")
 
+    def get_last_measurement_id(self, probe_id):
+        """It returns the id that can be used as Current-Measurement-ID"""
+        base_path = Path(__file__).parent
+        output_path = os.path.join(base_path, "measurements", probe_id)
+        
+        file_list = os.listdir(output_path)
+        file_list = [measurement_file for measurement_file in file_list if measurement_file.startswith("measure_")]
+
+        if not file_list:
+            return 0
+        
+        sorted_list = sorted(file_list, key=lambda x: int(x.split('_')[1].split('.')[0]))
+        last_element_ID = int(sorted_list[-1].split('_')[-1].split(".")[0])
+        return last_element_ID + 1
+
     def print_summary_result(self, measurement_result):
         
         start_timestamp = measurement_result["start_timestamp"]
