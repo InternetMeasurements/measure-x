@@ -7,7 +7,7 @@ import paho.mqtt.client as mqtt
     ******************************************************* Classe MQTT PER IL COORDINATOR *******************************************************
 """
 
-class MqttClient(mqtt.Client):
+class Mqtt_Client(mqtt.Client):
 
     def __init__(self, external_status_handler, external_results_handler):
         self.config = None
