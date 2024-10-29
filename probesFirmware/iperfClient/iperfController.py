@@ -1,7 +1,6 @@
 import os
 import json
 import subprocess
-import socket
 from pathlib import Path
 import threading
 import signal
@@ -22,6 +21,7 @@ class IperfController:
         self.tcp_protocol = False
         self.parallel_connections = 1
         self.output_json_filename = ""
+        self.measurement_id = None
         self.output_iperf_dir = ""
         self.reverse_function = False
         self.verbose_function = False # common parameter
@@ -70,6 +70,7 @@ class IperfController:
             self.tcp_protocol = True if (payload_conf['transport_protocol'] == "TCP") else False
             self.parallel_connections = int(payload_conf['parallel_connections'])
             self.output_json_filename = payload_conf['result_measurement_filename']
+            self.measurement_id = payload_conf['measurement_id']
             self.reverse_function = payload_conf['reverse']
             self.verbose_function = payload_conf['verbose']
             self.total_repetition = int(payload_conf['total_repetition'])
@@ -144,14 +145,13 @@ class IperfController:
             self.iperf_thread.start()
         else:
             repetition_count = 0
-            last_measurement_ID = self.get_last_measurement_id(self.output_json_filename)
             execution_return_code = -2
             while repetition_count < self.total_repetition:
                 print(f"\n*************** Repetition: {repetition_count + 1} ***************")
-                execution_return_code = self.run_iperf_execution(last_measurement_ID + repetition_count)
+                execution_return_code = self.run_iperf_execution(last_measurement_id = self.measurement_id + repetition_count)
                 if execution_return_code != 0: # 0 is the correct execution code
                     break
-                self.publish_last_output_iperf(last_measurement_ID + repetition_count)
+                self.publish_last_output_iperf(last_measurement_ID = self.measurement_id + repetition_count)
                 repetition_count += 1
         return execution_return_code
 
@@ -190,7 +190,7 @@ class IperfController:
         iperf_server_pid = None
         if self.last_role == "Server" and self.iperf_thread != None:
             for process in psutil.process_iter(['pid', 'name']):
-                if 'iperf3' in process.info['name']:  # Cerca il processo iperf3
+                if 'iperf3' in process.info['name']:  # Finding the iperf3 process
                     iperf_server_pid = process.info['pid']
             if iperf_server_pid == None:
                 return "Process iperf-server not in Execution"
@@ -210,20 +210,17 @@ class IperfController:
     def send_command_ack(self, successed_command): # Incapsulating of the iperf-server-ip
         json_ack = { "command": successed_command }
         if (successed_command == "conf") and (self.last_role == "Server"):
-            hostname = socket.gethostname()
-            my_ip = socket.gethostbyname(hostname)
-            json_ack['ip'] = str(my_ip)
             json_ack['port'] = self.listening_port
         print(f"IperfController: ACK sending -> {json_ack}")
-        self.mqtt_client.publish_command_ACK(handler='iperf', payload=json_ack) # volendo, posso anche passare command = command
+        self.mqtt_client.publish_command_ACK(handler='iperf', payload=json_ack) 
 
     def send_command_nack(self, failed_command, error_info):
         json_nack = {
             "command" : failed_command,
             "reason" : error_info
             }
-        self.mqtt_client.publish_command_NACK(handler='iperf', payload = json_nack) # NACK: No Configuration
-   
+        self.mqtt_client.publish_command_NACK(handler='iperf', payload = json_nack) 
+
     def publish_last_output_iperf(self, last_measurement_ID : int ):
         """ Publish the last measuremet's output summary loading it from flash """
         # base_path = Path(__file__).parent
@@ -263,7 +260,7 @@ class IperfController:
 
         # json_byte_result = json.dumps(json_copmpressed_data).encode('utf-8') Valutare se conviene binarizzarla
 
-        self.mqtt_client.publish_on_result_topic(json.dumps(json_summary_data))
+        self.mqtt_client.publish_on_result_topic(result=json.dumps(json_summary_data))
         self.last_json_result = None # reset the result
         print(f"iperfController: measurement [{last_measurement_ID}] result published")
 
@@ -276,21 +273,6 @@ class IperfController:
         print(f"Quantità di byte ricevuti: {bytes_received}")
         print(f"Durata misurazione: {duration} secondi\n")
         """
-    
-    def get_last_measurement_id(self, file_name):
-        """It returns an id that can be used to the current measurement"""
-        base_path = Path(__file__).parent
-        output_path = os.path.join(base_path, self.output_iperf_dir)
-        
-        file_list = os.listdir(output_path)
-        file_list = [measurement_file for measurement_file in file_list if measurement_file.startswith(file_name)]
-
-        if not file_list:
-            return 0
-        
-        sorted_list = sorted(file_list, key=lambda x: int(x.split('_')[1].split('.')[0]))
-        last_element_ID = int(sorted_list[-1].split('_')[-1].split(".")[0])
-        return last_element_ID + 1
     
     def reset_conf(self):
         self.last_role = None
