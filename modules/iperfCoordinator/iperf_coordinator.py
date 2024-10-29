@@ -2,38 +2,36 @@ import os
 import json
 import yaml
 from pathlib import Path
-from src.modules.mqttModule.mqttClient import MqttClient
+from src.modules.mqttModule.mqtt_client import Mqtt_Client
 
 class Iperf_Coordinator:
-    def __init__(self, mqtt : MqttClient):
+    def __init__(self, mqtt : Mqtt_Client):
         self.mqtt = mqtt 
         self.received_acks = set()
         self.expected_acks = set()
         self.probes_configurations_dir = 'probes_configurations'
         self.last_client_probe = None
-        self.probes_server_ip = {}
         self.probes_server_port = {}
 
-    def result_handler_received(self, probe_sender, result: json):
+    def handler_received_result(self, probe_sender, result: json):
         self.print_summary_result(measurement_result = result)
         self.store_measurement_result(probe_sender, result)
         
-    def status_handler_received(self, probe_sender, type, payload : json):
+    def handler_received_status(self, probe_sender, type, payload : json):
         match type:
             case "ACK":
                 command_executed_on_probe = payload["command"]
                 match command_executed_on_probe:
                     case "conf":
-                        if ("ip" in payload) and ("port" in payload):
-                            probe_ip = payload["ip"]
+                        if "port" in payload:
                             probe_port = payload["port"]
-                            self.probes_server_ip[probe_sender] = probe_ip
                             self.probes_server_port[probe_sender] = probe_port
-                            print(f"Iperf_Coordinator: probe |{probe_sender}|->|{probe_ip}|->|{probe_port}|->ACK")
+                            print(f"Iperf_Coordinator: probe |{probe_sender}| --> |Listening port -> {probe_port}| --> ACK")
                         # the else statement, means that the ACK is sent from the client
                         self.received_acks.add(probe_sender)
                     case "stop":
                          print(f"Iperf_Coordinator: probe |{probe_sender}|-> Iperf-server stopped -> ACK")
+                         self.probes_server_port.pop(probe_sender, None)
                     case _:
                         print(f"ACK received for unkonwn iperf command -> {command_executed_on_probe}")
             case "NACK":
@@ -54,22 +52,23 @@ class Iperf_Coordinator:
                 "reverse": iperf_client_config['reverse'],
                 "verbose": False,
                 "total_repetition": int(iperf_client_config['total_repetition']),
+                "save_result_on_flash": iperf_client_config['save_result_on_flash']
             }
         return json_probe_config
 
-    def send_probe_iperf_configuration(self, probe_id, role, dest_probe = None): # Tramite il probe_id, devi caricare il file YAML per quella probes
+    def send_probe_iperf_configuration(self, probe_id, role, dest_probe = None, dest_probe_ip = None): # Tramite il probe_id, devi caricare il file YAML per quella probes
         json_config = {}
         if role == "Client": # Preparing the config for the iperf-client
             base_path = Path(__file__).parent
             probes_configurations_path = Path(os.path.join(base_path, self.probes_configurations_dir, "configToBeClient.yaml"))
             if probes_configurations_path.exists():
-                if (dest_probe not in self.probes_server_ip) or (dest_probe not in self.probes_server_port):
+                if (dest_probe_ip is None) or (dest_probe not in self.probes_server_port):
                     print(f"Iperf_Coordinator: configure the Probe Server first")
                     return
                 json_config = self.get_json_from_probe_yaml(probes_configurations_path)
                 json_config['role'] = "Client"
-                json_config['save_result_on_flash'] = True
-                json_config['destination_server_ip'] = self.probes_server_ip[dest_probe]
+                json_config['measurement_id'] = self.get_last_measurement_id(probe_id)
+                json_config['destination_server_ip'] = dest_probe_ip
                 json_config['destination_server_port'] = self.probes_server_port[dest_probe]
                 self.last_client_probe = probe_id
             else:
