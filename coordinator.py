@@ -5,11 +5,7 @@ from src.modules.iperfCoordinator.iperf_coordinator import Iperf_Coordinator
 class CommandsMultiplexer:
     def __init__(self):
         self.results_handler_list = {}
-        self.status_handler_list = {"probe_state": self.probe_state_handler_ONLY_PRINT}
-
-    def probe_state_handler_ONLY_PRINT(self, probe_sender, type, payload):
-        if type == "state":
-            print(f"probe_sender [{probe_sender}] -> state [{payload['state']}]")
+        self.status_handler_list = {}
     
     def add_result_handler(self, interested_result, handler):
         if interested_result not in self.results_handler_list:
@@ -49,10 +45,23 @@ class CommandsMultiplexer:
             else:
                 print(f"status_multiplexer:: no registered handler for [{handler}]. PRINT: -> {payload}")
         except json.JSONDecodeError as e:
-            print(f"status_multiplexer:: json exception -> {e}")
+            print(f"CommandsMultiplexer: status_multiplexer:: json exception -> {e}")
 
+probe_ip = {} # da inserire nella classe CoordinatorMeasureX
+
+def online_status_handler(probe_sender, type, payload):
+    global probe_ip
+    if type == "state":
+        if payload["state"] == "ONLINE" or payload["state"] == "UPDATE":
+            probe_ip[probe_sender] = payload["ip"]
+            print(f"probe_sender [{probe_sender}] -> state [{payload['state']}] -> ip [{probe_ip[probe_sender]}]")
+        else:
+            probe_ip.pop(probe_sender, None)
+            print(f"probe_sender [{probe_sender}] -> state [{payload['state']}]")
+    
 
 def main():
+    global probe_ip
     commands_multiplexer = CommandsMultiplexer()
 
     coordinator_mqtt = MqttClient(
