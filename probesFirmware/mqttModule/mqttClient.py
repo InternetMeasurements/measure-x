@@ -1,5 +1,6 @@
 import yaml
 import json
+import socket
 from pathlib import Path
 import os
 import paho.mqtt.client as mqtt
@@ -122,7 +123,7 @@ class ProbeMqttClient(mqtt.Client):
         self.connected_to_broker = False
         return False
     
-    def publish_probe_state(self, state):
+    def publish_probe_state(self, state):        
         json_status = {
             "handler": "probe_state",
             "type": "state",
@@ -130,6 +131,10 @@ class ProbeMqttClient(mqtt.Client):
                 "state" : state
             }
         }
+        if state == "ONLINE" or state == "UPDATE":
+            hostname = socket.gethostname()
+            my_ip = socket.gethostbyname(hostname)
+            json_status["payload"]["ip"] = my_ip
         self.publish_on_status_topic(json.dumps(json_status))
 
 
