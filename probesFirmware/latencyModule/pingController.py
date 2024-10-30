@@ -102,55 +102,19 @@ class PingController:
             }
         self.mqtt_client.publish_command_NACK(handler='ping', payload = json_nack)
 
-    def parse_ping_result_in_str_json_result(self, ping_result, destination_ip) -> str:
-        try:
-            regex_patterns = {
-                "host": r"PING (\S+) \(([\d\.]+)\)",  # Cattura l'host
-                "packets_transmitted": r"(\d+) packets transmitted|(\d+) pacchetti inviati",
-                "packets_received": r"(\d+) received|(\d+) ricevuti",
-                "packet_loss": r"(\d+)% packet loss|(\d+)% perdita di pacchetti",
-                "time": r"time (\d+ms)|tempo = (\d+ms)",
-                "round_trip": r"rtt min/avg/max/mdev = ([\d\.]+)/([\d\.]+)/([\d\.]+)/([\d\.]+) ms|min/avg/max/mdev = ([\d\.]+)/([\d\.]+)/([\d\.]+)/([\d\.]+) ms",
-                "ttl": r"ttl=(\d+)|ttl: (\d+)"
-            }
+    def send_ping_result(self, json_ping_result : json, icmp_replies, start_timestamp, measurement_id):
+        hostname = socket.gethostname()
+        my_ip = socket.gethostbyname(hostname)
 
-            # Costruisci il dizionario JSON con i risultati
-            ping_data = {
-                "destination_ip": destination_ip,
-                "resolved_host": None,
-                "packets_transmitted": None,
-                "packets_received": None,
-                "packet_loss": None,
-                "time": None,
-                "round_trip": None,
-                "ttl": None
-            }
+        json_ping_result["source"] = my_ip
+        json_ping_result["start_timestamp"] = start_timestamp
+        json_ping_result["measurement_id"] = measurement_id
+        json_ping_result["icmp_replies"] = icmp_replies
 
-            for key, pattern in regex_patterns.items():
-                match = re.search(pattern, ping_result.stdout)
-                if match:
-                    if key == "host":
-                        ping_data["resolved_host"] = match.group(1)  # Cattura l'host risolto
-                    elif key == "packets_transmitted":
-                        ping_data["packets_transmitted"] = int(match.group(1) or match.group(2))
-                    elif key == "packets_received":
-                        ping_data["packets_received"] = int(match.group(1) or match.group(2))
-                    elif key == "packet_loss":
-                        ping_data["packet_loss"] = int(match.group(1) or match.group(2))
-                    elif key == "time":
-                        ping_data["time"] = match.group(1) or match.group(2)
-                    elif key == "round_trip":
-                        ping_data["round_trip"] = {
-                            "min": float(match.group(1) or match.group(5)),
-                            "avg": float(match.group(2) or match.group(6)),
-                            "max": float(match.group(3) or match.group(7)),
-                            "mdev": float(match.group(4) or match.group(8))
-                        }
-                    elif key == "ttl":
-                        ping_data["ttl"] = int(match.group(1) or match.group(2))
+        json_command_result = {
+            "handler": "ping",
+            "type": "result",
+            "payload": json_ping_result
+        }
 
-            return json.dumps(ping_data, indent=4) # get back the ping result as json string! -> WARNING -> No need to dumps when publish it
-        except subprocess.CalledProcessError as e:
-            self.send_command_nack("result_parse", error_info=str(e))
-            return ""
-            
+        self.mqtt_client.publish_on_result_topic(result=json.dumps(json_command_result))            
