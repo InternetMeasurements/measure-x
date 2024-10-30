@@ -188,24 +188,22 @@ class IperfController:
 
     def stop_iperf_server_thread(self):
         iperf_server_pid = None
+        process_name = "iperf3"
         if self.last_role == "Server" and self.iperf_thread != None:
             for process in psutil.process_iter(['pid', 'name']):
-                if 'iperf3' in process.info['name']:  # Finding the iperf3 process
+                if process_name in process.info['name']:  # Finding the iperf3 process
                     iperf_server_pid = process.info['pid']
                     break
             if iperf_server_pid == None:
-                return "Process iperf-server not in Execution"
-            # process_pid = subprocess.check_output(["pidof", "iperf3"]).strip() 
+                return "Process " + process_name + "-server not in Execution"
             try:
                 os.kill(iperf_server_pid, signal.SIGTERM)
                 self.iperf_thread.join()
                 return "OK"
             except OSError as e:
                 return str(e)
-        #elif self.last_error != "Server":
-            #return "My role is " + ("CLIENT" if self.last_role == "CLIENT" else "NOT SETTED")
         else:
-            return "Process iperf-server not in execution"
+            return "Process " + process_name + "-server not in execution"
 
 
     def send_command_ack(self, successed_command): # Incapsulating of the iperf-server-ip
