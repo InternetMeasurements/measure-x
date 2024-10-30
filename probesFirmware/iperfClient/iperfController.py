@@ -192,6 +192,7 @@ class IperfController:
             for process in psutil.process_iter(['pid', 'name']):
                 if 'iperf3' in process.info['name']:  # Finding the iperf3 process
                     iperf_server_pid = process.info['pid']
+                    break
             if iperf_server_pid == None:
                 return "Process iperf-server not in Execution"
             # process_pid = subprocess.check_output(["pidof", "iperf3"]).strip() 
