@@ -5,8 +5,6 @@ from src.modules.mqttModule.mqtt_client import Mqtt_Client
 class Ping_Coordinator:
     def __init__(self, mqtt_client : Mqtt_Client, registration_handler_status, registration_handler_result):
         self.mqtt_client = mqtt_client
-
-
         # Requests to commands_multiplexer
         registration_response = registration_handler_status(
             interested_status = "ping",
@@ -92,4 +90,5 @@ class Ping_Coordinator:
         print(f"RTT max: {rtt_max}")
         print(f"RTT mdev: {rtt_mdev}")
         for icmp_reply in measurement_result['icmp_replies']:
-            print(f"\t-------------------------\n{icmp_reply}\n")
+            if "destination" in icmp_reply:
+                print(f"\t-------------------------\n{icmp_reply}\n")
