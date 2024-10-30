@@ -38,7 +38,7 @@ class Ping_Coordinator:
     
     def handler_received_result(self, probe_sender, result: json):
         self.print_summary_result(measurement_result = result)
-        #self.store_measurement_result(probe_sender, result)
+        self.store_measurement_result(probe_sender = probe_sender , result = result)
     
     def send_start_command(self, probe_sender, destination_ip, packets_number = 4, packets_size = 32):
         json_ping_start = {
@@ -46,6 +46,7 @@ class Ping_Coordinator:
             "command": "start",
             "payload": {
                 "destination_ip": destination_ip,
+                "measurement_id": 0, # ********************* Da capire come scegliere l'id della misurazione
                 "packets_number": packets_number,
                 "packets_size": packets_size
             }
@@ -66,17 +67,29 @@ class Ping_Coordinator:
     def print_summary_result(self, measurement_result):
         start_timestamp = measurement_result["start_timestamp"]
         measurement_id = measurement_result["measurement_id"]
-        source_ip = measurement_result["source_ip"]
-        destination_ip = measurement_result["destination_ip"]
-        bytes_received = measurement_result["bytes_received"]
-        duration = measurement_result["duration"]
-        avg_speed = measurement_result["avg_speed"]
+        source_ip = measurement_result["source"]
+        destination_ip = measurement_result["destination"]
+        packets_transmitted = measurement_result["packet_transmit"]
+        packets_received = measurement_result["packet_receive"]
+        packet_loss = measurement_result["packet_loss_count"]
+        packet_loss_rate = measurement_result["packet_loss_rate"]
+        rtt_min = measurement_result["rtt_min"]
+        rtt_avg = measurement_result["rtt_avg"]
+        rtt_max = measurement_result["rtt_max"]
+        rtt_mdev = measurement_result["rtt_mdev"]
 
         print("\n****************** SUMMARY ******************")
         print(f"Timestamp: {start_timestamp}")
         print(f"Measurement ID: {measurement_id}")
         print(f"IP sorgente: {source_ip}")
         print(f"IP destinatario: {destination_ip}")
-        print(f"Velocità trasferimento {avg_speed} bits/s")
-        print(f"Quantità di byte ricevuti: {bytes_received}")
-        print(f"Durata misurazione: {duration} secondi\n")
+        print(f"Packets trasmitted: {packets_transmitted}")
+        print(f"Packets received: {packets_received}")
+        print(f"Packets loss: {packet_loss}")
+        print(f"Packet loss rate: {packet_loss_rate}")
+        print(f"RTT min: {rtt_min}")
+        print(f"RTT avg: {rtt_avg}")
+        print(f"RTT max: {rtt_max}")
+        print(f"RTT mdev: {rtt_mdev}")
+        for icmp_reply in measurement_result['icmp_replies']:
+            print(f"\t-------------------------\n{icmp_reply}\n")
