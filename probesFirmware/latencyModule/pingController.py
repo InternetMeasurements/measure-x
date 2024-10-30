@@ -5,7 +5,9 @@ import subprocess
 import platform
 import signal
 import psutil
-import re
+import socket
+import time
+from pingparsing import PingParsing
 from src.probesFirmware.mqttModule.mqttClient import ProbeMqttClient
 
 """ Class that implements the latency, packets loss... funcionalities """
@@ -44,19 +46,24 @@ class PingController:
         packets_number = payload['packets_number']
         packets_size = payload['packets_size']
         # Command construction
-        command = ["ping"]
-        if platform.system() == "Windows":
-            command += ["-n", str(packets_number), "-l", str(packets_size)]
+        if platform.system() == "Windows": # It's necessary for the output parsing, execute the ping command linux based
+            command = ["wsl", "ping"]
         else:
-            command += ["-c", str(packets_number), "-s", str(packets_size)]
-        command += [destination_ip]
-
-        ping_result = subprocess.run(["ping", destination_ip], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
+            command = ["ping"]
+        command += [destination_ip, "-c", str(packets_number), "-s", str(packets_size)]
+        start_timestamp = time.time()
+        ping_result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
         if ping_result.returncode == 0:
-            parsed_str_result = self.parse_ping_result_in_str_json_result(ping_result=ping_result, destination_ip=destination_ip)
-            if parsed_str_result != "":
-                self.mqtt_client.publish_on_result_topic(result = parsed_str_result)
-            # Qui andrebbe la pubblicazione del risultato
+            parser = PingParsing()
+            dict_result = parser.parse(ping_result.stdout)
+            self.send_ping_result( json_ping_result=dict_result.as_dict(), 
+                                   icmp_replies = dict_result.icmp_replies,
+                                   start_timestamp=start_timestamp,
+                                   measurement_id=measurement_id)
+
+            #parsed_str_result = json.dumps(dict_result.as_dict()) #self.parse_ping_result_in_str_json_result(ping_result=ping_result, destination_ip=destination_ip)
+            #if parsed_str_result != "":
+                #self.mqtt_client.publish_on_result_topic(result = parsed_str_result)
         elif ping_result.returncode != 15: # if the return code is different from (SIG.TERM and CorrectTermination), then send nack to coordinator
             self.send_command_nack(failed_command="ping", error_info=str(ping_result.returncode))
 
