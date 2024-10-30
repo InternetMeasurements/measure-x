@@ -32,11 +32,8 @@ class PingController:
                 self.ping_thread.start()
             case 'stop':
                 termination_message = self.stop_ping_thread()
-                if termination_message == "OK":
-                    self.send_command_ack(successed_command=command)
-                else:
+                if termination_message != "OK":
                     self.send_command_nack(failed_command=command, error_info=termination_message)
-                return
             case _:
                 self.send_command_nack(failed_command = command, error_info = "Command not handled")
             
@@ -53,22 +50,22 @@ class PingController:
             command = ["ping"]
         command += [destination_ip, "-c", str(packets_number), "-s", str(packets_size)]
         start_timestamp = time.time()
-        ping_result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
-        if ping_result.returncode == 0:
-            parser = PingParsing()
-            dict_result = parser.parse(ping_result.stdout)
-            self.send_ping_result( json_ping_result=dict_result.as_dict(), 
-                                   icmp_replies = dict_result.icmp_replies,
-                                   start_timestamp=start_timestamp,
-                                   measurement_id=measurement_id)
-
-            #parsed_str_result = json.dumps(dict_result.as_dict()) #self.parse_ping_result_in_str_json_result(ping_result=ping_result, destination_ip=destination_ip)
-            #if parsed_str_result != "":
-                #self.mqtt_client.publish_on_result_topic(result = parsed_str_result)
-        elif ping_result.returncode != 15: # if the return code is different from (SIG.TERM and CorrectTermination), then send nack to coordinator
-            self.send_command_nack(failed_command="ping", error_info=str(ping_result.returncode))
-        else:
-            self.send_command_ack(successed_command="stop")
+        try:
+            ping_result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
+            if ping_result.returncode == 0:
+                parser = PingParsing()
+                dict_result = parser.parse(ping_result.stdout)
+                self.send_ping_result( json_ping_result=dict_result.as_dict(), 
+                                    icmp_replies = dict_result.icmp_replies,
+                                    start_timestamp=start_timestamp,
+                                    measurement_id=measurement_id)
+        except subprocess.CalledProcessError as e: 
+            if e.returncode == -signal.SIGTERM: # if the returncode of the ping process is SIG_TERM, then the process has been stopped from the coordinator. So, it's better to "ACK it"
+                self.send_command_ack(successed_command="stop")
+            else: # if the return code is different from (SIG.TERM and CorrectTermination), then something strange happened, so the probe sends NACK to the coordinator
+                self.send_command_nack(failed_command="ping", error_info=str(e))
+        except Exception as e: #In case of abnormal exception, send the nack to the coordinator
+            self.send_command_nack(failed_command="ping", error_info=str(e))
 
     
         
