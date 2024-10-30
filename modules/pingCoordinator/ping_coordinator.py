@@ -52,6 +52,16 @@ class Ping_Coordinator:
         }
         self.mqtt_client.publish_on_command_topic(probe_id = probe_sender, complete_command=json.dumps(json_ping_start))
 
+    def send_stop_command(self, probe_destination):
+        json_ping_stop = {
+            "handler": "ping",
+            "command": "stop",
+            "payload": {}
+        }
+        self.mqtt_client.publish_on_command_topic(probe_id=probe_destination, complete_command=json.dumps(json_ping_stop))
+
+    def store_measurement_result(self, probe_sender, result):
+        return
 
     def print_summary_result(self, measurement_result):
         start_timestamp = measurement_result["start_timestamp"]
