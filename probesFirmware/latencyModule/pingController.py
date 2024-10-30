@@ -31,7 +31,7 @@ class PingController:
                 self.ping_thread = threading.Thread(target=self.start_ping, args=(payload,))
                 self.ping_thread.start()
             case 'stop':
-                termination_message = self.stop_ping_server_thread()
+                termination_message = self.stop_ping_thread()
                 if termination_message == "OK":
                     self.send_command_ack(successed_command=command)
                 else:
@@ -45,6 +45,7 @@ class PingController:
         destination_ip = payload['destination_ip']
         packets_number = payload['packets_number']
         packets_size = payload['packets_size']
+        measurement_id = payload['measurement_id']
         # Command construction
         if platform.system() == "Windows": # It's necessary for the output parsing, execute the ping command linux based
             command = ["wsl", "ping"]
@@ -66,15 +67,18 @@ class PingController:
                 #self.mqtt_client.publish_on_result_topic(result = parsed_str_result)
         elif ping_result.returncode != 15: # if the return code is different from (SIG.TERM and CorrectTermination), then send nack to coordinator
             self.send_command_nack(failed_command="ping", error_info=str(ping_result.returncode))
+        else:
+            self.send_command_ack(successed_command="stop")
 
     
         
-    def stop_ping_server_thread(self):
+    def stop_ping_thread(self):
         ping_process = None
         if self.ping_thread != None:
             for process in psutil.process_iter(['pid', 'name']):
                 if 'ping' in process.info['name']:  # Finding the ping process
                     ping_process = process.info['pid']
+                    break
         if ping_process == None:
             return "Process ping not in Execution"
         
