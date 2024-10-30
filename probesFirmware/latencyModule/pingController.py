@@ -71,13 +71,14 @@ class PingController:
         
     def stop_ping_thread(self):
         ping_process = None
+        process_name = "ping"
         if self.ping_thread != None:
-            for process in psutil.process_iter(['pid', 'name']):
-                if 'ping' in process.info['name']:  # Finding the ping process
+            for process in psutil.process_iter(['pid', 'name']):  # Finding the ping process
+                if process_name in process.info['name']: 
                     ping_process = process.info['pid']
                     break
         if ping_process == None:
-            return "Process ping not in Execution"
+            return "Process " + process_name + " not in Execution"
         
         try:
             os.kill(ping_process, signal.SIGTERM)
