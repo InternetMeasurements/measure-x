@@ -99,7 +99,9 @@ def main():
                     print(f"The destination probe {probe_ping_destinarion} is OFFLINE")
                     continue
                 ping_coordinator.send_start_command(probe_sender = probe_ping_starter,
-                                                     destination_ip = probe_ip[probe_ping_destinarion])
+                                                     destination_ip = probe_ip[probe_ping_destinarion],
+                                                     packets_number=8,
+                                                     packets_size=1024)
             case "2":
                 probe_ping_starter = "probe4"
                 probe_ping_destinarion = "probe2"
@@ -110,7 +112,13 @@ def main():
                     print(f"The destination probe {probe_ping_destinarion} is OFFLINE")
                     continue
                 ping_coordinator.send_start_command(probe_sender = probe_ping_starter,
-                                                     destination_ip = probe_ip[probe_ping_destinarion])
+                                                     destination_ip = probe_ip[probe_ping_destinarion],
+                                                     packets_number=8,
+                                                     packets_size=1024
+                                                     )
+                
+
+
                 #print("PRESS 2 -> send role CLIENT to probe2")
                 # destination_probe = "probe4"
                 # iperf_coordinator.send_probe_iperf_configuration(probe_id = "probe2", role = "Client", dest_probe=destination_probe, dest_probe_ip=probe_ip.get(destination_probe, None))
