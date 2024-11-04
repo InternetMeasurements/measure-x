@@ -3,6 +3,7 @@ from src.modules.mqttModule.mqtt_client import Mqtt_Client
 from src.modules.commandsMultiplexer.commands_multiplexer import CommandsMultiplexer
 from src.modules.iperfCoordinator.iperf_coordinator import Iperf_Coordinator
 from src.modules.pingCoordinator.ping_coordinator import Ping_Coordinator 
+from src.modules.mongoModule.mongoDB import MongoDB
 
 probe_ip = {} # da inserire nella classe CoordinatorMeasureX
 
@@ -36,6 +37,8 @@ def main():
         registration_handler_status=commands_multiplexer.add_status_handler)
 
     commands_multiplexer.add_status_handler('probe_state', online_status_handler)
+
+    db = MongoDB()
 
 
     while True:
