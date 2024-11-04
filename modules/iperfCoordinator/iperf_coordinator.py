@@ -5,13 +5,31 @@ from pathlib import Path
 from src.modules.mqttModule.mqtt_client import Mqtt_Client
 
 class Iperf_Coordinator:
-    def __init__(self, mqtt : Mqtt_Client):
+    def __init__(self, mqtt : Mqtt_Client, registration_handler_status, registration_handler_result):
         self.mqtt = mqtt 
         self.received_acks = set()
         self.expected_acks = set()
         self.probes_configurations_dir = 'probes_configurations'
         self.last_client_probe = None
         self.probes_server_port = {}
+
+        # Requests to commands_multiplexer
+        registration_response = registration_handler_status(
+            interested_status = "iperf",
+            handler = self.handler_received_status)
+        if registration_response == "OK" :
+            print(f"Iperf_Coordinator: registered handler for status -> iperf")
+        else:
+            print(f"Iperf_Coordinator: registration handler failed. Reason -> {registration_response}")
+
+        # Requests to commands_multiplexer
+        registration_response = registration_handler_result(
+            interested_result = "iperf",
+            handler = self.handler_received_result)
+        if registration_response == "OK" :
+            print(f"Iperf_Coordinator: registered handler for result -> iperf")
+        else:
+            print(f"Iperf_Coordinator: registration handler failed. Reason -> {registration_response}")
 
     def handler_received_result(self, probe_sender, result: json):
         self.print_summary_result(measurement_result = result)
