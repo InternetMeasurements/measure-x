@@ -10,13 +10,14 @@ from src.modules.mongoModule.models.measurement_model_mongo import MeasurementMo
 from src.modules.mongoModule.models.iperf_result_model_mongo import IperfResultModelMongo
 
 class Iperf_Coordinator:
-    def __init__(self, mqtt : Mqtt_Client, registration_handler_status, registration_handler_result):
+    def __init__(self, mqtt : Mqtt_Client, registration_handler_status, registration_handler_result, mongo_db : MongoDB):
         self.mqtt = mqtt 
         self.received_acks = set()
         self.expected_acks = set()
         self.probes_configurations_dir = 'probes_configurations'
         self.last_client_probe = None
         self.probes_server_port = {}
+        self.mongo_db = mongo_db
 
         # Requests to commands_multiplexer
         registration_response = registration_handler_status(
