@@ -64,7 +64,7 @@ class Iperf_Coordinator:
         else:
             print("Iperf_Coordinator: result not last")
         self.print_summary_result(measurement_result = result)
-        self.store_measurement_result(probe_sender, result)
+        #self.store_measurement_result(probe_sender, result)
         
     def handler_received_status(self, probe_sender, type, payload : json):
         match type:
@@ -105,7 +105,7 @@ class Iperf_Coordinator:
             }
         return json_probe_config
 
-    def send_probe_iperf_configuration(self, probe_id, role, dest_probe = None, dest_probe_ip = None): # Tramite il probe_id, devi caricare il file YAML per quella probes
+    def send_probe_iperf_configuration(self, probe_id, role, source_probe_ip = None, dest_probe = None, dest_probe_ip = None): # Tramite il probe_id, devi caricare il file YAML per quella probes
         json_config = {}
         if role == "Client": # Preparing the config for the iperf-client
             base_path = Path(__file__).parent
@@ -128,7 +128,7 @@ class Iperf_Coordinator:
                 
                 json_config = self.get_json_from_probe_yaml(probes_configurations_path)
                 json_config['role'] = "Client"
-                json_config['measurement_id'] = self.get_last_measurement_id(probe_id)
+                json_config['measurement_id'] = measurement_id
                 json_config['destination_server_ip'] = dest_probe_ip
                 json_config['destination_server_port'] = self.probes_server_port[dest_probe]
                 self.last_client_probe = probe_id
@@ -166,7 +166,6 @@ class Iperf_Coordinator:
             "command": "start",
             "payload": {}
         }
-    
         self.mqtt.publish_on_command_topic(probe_id = self.last_client_probe, complete_command = json.dumps(json_iperf_start))
         print("Iperf_Coordinator: iperf started on probes. Waiting for results...")
     
@@ -189,8 +188,16 @@ class Iperf_Coordinator:
             file.write(json.dumps(json_measurement, indent=4))
         print(f"Iperf_Coordinator: stored result from {probe_sender} -> measure_{str(json_measurement['measurement_id'])}.json")
 
+    def set_measurement_as_completed(self, measurement_id) -> bool:
+        stop_time = dt.now()
+        update_result = self.mongo_db.measurements_collection.update_one(
+                            {"_id": ObjectId(measurement_id)},
+                            {"$set": {"stop_time": stop_time}})
+        return (update_result.modified_count > 0)
+
+    """
     def get_last_measurement_id(self, probe_id):
-        """It returns the id that can be used as Current-Measurement-ID"""
+        #It returns the id that can be used as Current-Measurement-ID
         base_path = Path(__file__).parent
         output_path = os.path.join(base_path, "measurements", probe_id)
         
@@ -203,11 +210,12 @@ class Iperf_Coordinator:
         sorted_list = sorted(file_list, key=lambda x: int(x.split('_')[1].split('.')[0]))
         last_element_ID = int(sorted_list[-1].split('_')[-1].split(".")[0])
         return last_element_ID + 1
+    """
 
     def print_summary_result(self, measurement_result):
         
         start_timestamp = measurement_result["start_timestamp"]
-        measurement_id = measurement_result["measurement_id"]
+        measure_reference = measurement_result["measure_reference"]
         source_ip = measurement_result["source_ip"]
         destination_ip = measurement_result["destination_ip"]
         bytes_received = measurement_result["bytes_received"]
@@ -216,7 +224,7 @@ class Iperf_Coordinator:
 
         print("\n****************** SUMMARY ******************")
         print(f"Timestamp: {start_timestamp}")
-        print(f"Measurement ID: {measurement_id}")
+        print(f"Measurement reference: {measure_reference}")
         print(f"IP sorgente: {source_ip}")
         print(f"IP destinatario: {destination_ip}")
         print(f"Velocità trasferimento {avg_speed} bits/s")
