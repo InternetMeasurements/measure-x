@@ -38,6 +38,31 @@ class Iperf_Coordinator:
             print(f"Iperf_Coordinator: registration handler failed. Reason -> {registration_response}")
 
     def handler_received_result(self, probe_sender, result: json):
+        mongo_result = IperfResultModelMongo(
+            measure_reference = result["measure_reference"],
+            repetition_result = result["repetition_number"],
+            start_timestamp = result["start_timestamp"],
+            transport_protocol = result["transport_protocol"],
+            source_ip = result["source_ip"],
+            source_port = result["source_port"],
+            destination_ip = result["destination_ip"],
+            destination_port = result["destination_port"],
+            bytes_received = result["bytes_received"],
+            duration = result["duration"],
+            avg_speed = result["avg_speed"]
+        )
+        result_id = str(self.mongo_db.insert_iperf_result(result=mongo_result))
+        if result_id is not None:
+            print(f"Iperf_Coordinator: result |{result_id}| stored in db")
+        else:
+            print(f"Iperf_Coordinator: error while storing result |{result_id}|")
+
+        last_result = result["last_result"]
+        if last_result: # if this result is the last, then i must set the stop timestamp on the measurment collection in Mongo
+            if self.set_measurement_as_completed(result["measure_reference"]):
+                print(f"Iperf_Coordinator: measurement |{result['measure_reference']}| completed ")
+        else:
+            print("Iperf_Coordinator: result not last")
         self.print_summary_result(measurement_result = result)
         self.store_measurement_result(probe_sender, result)
         
@@ -47,7 +72,7 @@ class Iperf_Coordinator:
                 command_executed_on_probe = payload["command"]
                 match command_executed_on_probe:
                     case "conf":
-                        if "port" in payload:
+                        if "port" in payload: # if the 'port' key is in the payload, then it's the ACK comes from iperf-server
                             probe_port = payload["port"]
                             self.probes_server_port[probe_sender] = probe_port
                             print(f"Iperf_Coordinator: probe |{probe_sender}| --> |Listening port -> {probe_port}| --> ACK")
