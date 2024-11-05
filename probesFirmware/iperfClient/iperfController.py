@@ -17,13 +17,13 @@ class IperfController:
         
         # Iperf Client - Parameters
         self.destination_server_ip = ""
-        self.destination_server_port = 0
-        self.tcp_protocol = False
-        self.parallel_connections = 1
-        self.output_json_filename = ""
+        self.destination_server_port = None
+        self.tcp_protocol = None
+        self.parallel_connections = None
+        self.output_json_filename = None
         self.measurement_id = None
-        self.output_iperf_dir = ""
-        self.reverse_function = False
+        self.output_iperf_dir = None
+        self.reverse_function = None
         self.verbose_function = False # common parameter
         self.total_repetition = 1
         self.save_result_on_flash = None
@@ -281,10 +281,10 @@ class IperfController:
         # Iperf Client - Parameters
         self.destination_server_ip = ""
         self.destination_server_port = 0
-        self.tcp_protocol = False
+        self.transport_protocol = None
         self.parallel_connections = 1
-        self.output_json_filename = ""
-        self.output_iperf_dir = ""
+        self.output_json_filename = None
+        self.output_iperf_dir = None
         self.reverse_function = False
         self.verbose_function = False # common parameter
         self.total_repetition = 1
