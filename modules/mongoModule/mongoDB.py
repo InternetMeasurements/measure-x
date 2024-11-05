@@ -1,9 +1,12 @@
 from pymongo import MongoClient
-from src.modules.mongoModule.measurement_model_mongo import MeasurementModelMongo, BackgroundTrafficModelMongo
+from src.modules.mongoModule.models.measurement_model_mongo import MeasurementModelMongo
+from src.modules.mongoModule.models.ping_result_model_mongo import PingResultModelMongo
+from src.modules.mongoModule.models.iperf_result_model_mongo import IperfResultModelMongo
+from src.modules.mongoModule.models.background_traffic_model_mongo import BackgroundTrafficModelMongo
 
 class MongoDB:
     def __init__(self):
-        self.addr_mongo_server = "192.168.1.102"
+        self.addr_mongo_server = "192.168.1.102" 
         self.user = "measurex"
         self.password = "measurex"
         self.db_name = "measurex"
@@ -50,16 +53,37 @@ class MongoDB:
                 print("non eliminato")
         """
     
-    def insert_measurement(self, measure : MeasurementModelMongo) -> bool:
+    def insert_measurement(self, measure : MeasurementModelMongo) -> str:
         try:
             insert_result = self.measurements_collection.insert_one(measure.to_dict())
             if insert_result.inserted_id:
                 print(f"Measurement stored in mongo. ID -> |{insert_result.inserted_id}|")
-                return True
+                return insert_result.inserted_id
         except Exception as e:
-            print(f"Error while storing the measurment on mongo -> {e}")
-            return False
-    
+            print(f"MongoDB: Error while storing the measurment on mongo -> {e}")
+            return None
+        
+    def insert_iperf_result(self, result : IperfResultModelMongo) -> str:
+        try:
+            insert_result = self.results_collection.insert_one(result.to_dict())
+            if insert_result.inserted_id:
+                print(f"Iperf result stored in mongo. ID -> |{insert_result.inserted_id}|")
+                return insert_result.inserted_id
+        except Exception as e:
+            print(f"MongoDB: Error while storing the Iperf result on mongo -> {e}")
+            return None
+
+    def insert_ping_result(self, result : PingResultModelMongo) -> str:
+        try:
+            insert_result = self.results_collection.insert_one(result.to_dict())
+            if insert_result.inserted_id:
+                print(f"Ping result stored in mongo. ID -> |{insert_result.inserted_id}|")
+                return insert_result.inserted_id
+        except Exception as e:
+            print(f"MongoDB: Error while storing the Ping result on mongo -> {e}")
+            return None
+
+
 
     def delete_result_by_id(id : str) -> bool:
         return False
