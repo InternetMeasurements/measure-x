@@ -67,7 +67,7 @@ class IperfController:
         try:
             self.destination_server_ip = payload_conf['destination_server_ip']
             self.destination_server_port = int(payload_conf['destination_server_port'])
-            self.tcp_protocol = True if (payload_conf['transport_protocol'] == "TCP") else False
+            self.transport_protocol = payload_conf['transport_protocol']
             self.parallel_connections = int(payload_conf['parallel_connections'])
             self.output_json_filename = payload_conf['result_measurement_filename']
             self.measurement_id = payload_conf['measurement_id']
@@ -85,7 +85,7 @@ class IperfController:
             return False
 
     
-    def run_iperf_execution(self, last_measurement_id) -> int :
+    def run_iperf_execution(self) -> int :
         """This method execute the iperf3 program with the pre-loaded config. THIS METHOD IS EXECUTED BY A NEW THREAD, IF THE ROLE IS SERVER"""
         command = ["iperf3"]
 
@@ -94,7 +94,7 @@ class IperfController:
             command += ["-p", str(self.destination_server_port)]
             command += ["-P", str(self.parallel_connections)]
 
-            if self.tcp_protocol != "TCP":
+            if self.transport_protocol != "TCP":
                 command.append("-u")
             if self.reverse_function:
                 command.append("-R")
@@ -111,7 +111,7 @@ class IperfController:
                     self.last_json_result = json.loads(result.stdout)
                     if self.save_result_on_flash: # if the save_on_flash mode in enabled...
                         base_path = Path(__file__).parent
-                        complete_output_json_dir = os.path.join(base_path, self.output_iperf_dir , self.output_json_filename + str(last_measurement_id) + ".json")
+                        complete_output_json_dir = os.path.join(base_path, self.output_iperf_dir , self.output_json_filename + self.measurement_id + ".json")
                         with open(complete_output_json_dir, "w") as output_file:
                             json.dump(self.last_json_result, output_file, indent=4)
                         print(f"IperfController: results saved in: {complete_output_json_dir}")
@@ -141,14 +141,14 @@ class IperfController:
         
         execution_return_code = 0
         if self.last_role == "Server":
-            self.iperf_thread = threading.Thread(target=self.run_iperf_execution, args=(0,))
+            self.iperf_thread = threading.Thread(target=self.run_iperf_execution, args=())
             self.iperf_thread.start()
         else:
             repetition_count = 0
             execution_return_code = -2
             while repetition_count < self.total_repetition:
                 print(f"\n*************** Repetition: {repetition_count + 1} ***************")
-                execution_return_code = self.run_iperf_execution(last_measurement_id = self.measurement_id + repetition_count)
+                execution_return_code = self.run_iperf_execution()
                 if execution_return_code != 0: # 0 is the correct execution code
                     break
                 self.publish_last_output_iperf(last_measurement_ID = self.measurement_id + repetition_count)
