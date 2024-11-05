@@ -114,6 +114,18 @@ class Iperf_Coordinator:
                 if (dest_probe_ip is None) or (dest_probe not in self.probes_server_port):
                     print(f"Iperf_Coordinator: configure the Probe Server first")
                     return
+                mongo_measurement = MeasurementModelMongo(
+                    description = "Throughupt measure with iperf tool",
+                    type = "Throughput",
+                    source_probe = probe_id,
+                    dest_probe = dest_probe,
+                    source_probe_ip = source_probe_ip,
+                    dest_probe_ip = dest_probe_ip)
+                measurement_id = str(self.mongo_db.insert_measurement(mongo_measurement))
+                if measurement_id is None:
+                    print("Error while inserting measurement iperf")
+                    return
+                
                 json_config = self.get_json_from_probe_yaml(probes_configurations_path)
                 json_config['role'] = "Client"
                 json_config['measurement_id'] = self.get_last_measurement_id(probe_id)
