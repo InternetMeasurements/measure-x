@@ -1,6 +1,12 @@
 class IperfResultModelMongo:
-    def __init__(self, start_timestamp, source_ip, source_port, destination_ip, destination_port, bytes_received, duration, avg_speed) -> None:
+    def __init__(self, 
+                 measure_reference, repetition_result, start_timestamp,
+                 transport_protocol, source_ip, source_port, destination_ip,
+                 destination_port, bytes_received, duration, avg_speed):
         self._id = None
+        self.measure_reference = measure_reference
+        self.repetition_result = repetition_result
+        self.transport_protocol = transport_protocol
         self.start_timestamp = start_timestamp
         self.source_ip = source_ip
         self.source_port = source_port
@@ -9,8 +15,14 @@ class IperfResultModelMongo:
         self.bytes_received = bytes_received
         self.duration = duration
         self.avg_speed = avg_speed
-        self.type = "THROUGHPUT"
-        #self.bit_per_seconds = 
 
-        # Continua a leggere tutti i dati di un result. 
-        # Impongo che sia il coordinator a memorizzare i dati dei results.
+    def to_dict(self):
+        return {
+            'measure_reference': self.measure_reference,
+            'repetition_result': self.repetition_result,
+            'transport_protocol': self.transport_protocol,
+            'start_timestamp': self.start_timestamp,
+            'bytes_received': self.bytes_received,
+            'duration': self.duration,
+            'avg_speed': self.avg_speed
+        }
