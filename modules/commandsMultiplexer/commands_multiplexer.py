@@ -1,3 +1,5 @@
+import json
+
 class CommandsMultiplexer:
     def __init__(self):
         self.results_handler_list = {}
