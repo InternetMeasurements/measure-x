@@ -151,7 +151,7 @@ class IperfController:
                 execution_return_code = self.run_iperf_execution()
                 if execution_return_code != 0: # 0 is the correct execution code
                     break
-                self.publish_last_output_iperf(last_measurement_ID = self.measurement_id + repetition_count)
+                self.publish_last_output_iperf(repetition = repetition_count, last_result=((repetition_count + 1) == self.total_repetition))
                 repetition_count += 1
         return execution_return_code
 
@@ -220,10 +220,10 @@ class IperfController:
             }
         self.mqtt_client.publish_command_NACK(handler='iperf', payload = json_nack) 
 
-    def publish_last_output_iperf(self, last_measurement_ID : int ):
+    def publish_last_output_iperf(self, repetition : int , last_result : bool):
         """ Publish the last measuremet's output summary loading it from flash """
         # base_path = Path(__file__).parent
-        # completePathIPerfJson = os.path.join(base_path, self.output_iperf_dir, self.output_json_filename + str(last_measurement_ID) + ".json")
+        # completePathIPerfJson = os.path.join(base_path, self.output_iperf_dir, self.output_json_filename + str(self.measurement_id) + ".json")
         # if not os.path.exists(completePathIPerfJson):
         #    print("Last measurement not found!")
         #    return
@@ -245,7 +245,9 @@ class IperfController:
             "type": "result",
             "payload":
             {
-                "measurement_id": last_measurement_ID,
+                "measure_reference": self.measurement_id,
+                "repetition_number": repetition,
+                "transport_protocol": self.transport_protocol,
                 "start_timestamp": start_timestamp,
                 "source_ip": source_ip,
                 "source_port": source_port,
@@ -253,7 +255,8 @@ class IperfController:
                 "destination_port": destination_port,
                 "bytes_received": bytes_received,
                 "duration": duration,
-                "avg_speed": avg_speed
+                "avg_speed": avg_speed,
+                "last_result": last_result
             }
         }
 
@@ -261,7 +264,7 @@ class IperfController:
 
         self.mqtt_client.publish_on_result_topic(result=json.dumps(json_summary_data))
         self.last_json_result = None # reset the result
-        print(f"iperfController: measurement [{last_measurement_ID}] result published")
+        print(f"iperfController: measurement [{self.measurement_id}] result published")
 
         """
         print("\n****************** SUMMARY ******************")
