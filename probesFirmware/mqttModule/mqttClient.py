@@ -9,6 +9,8 @@ import paho.mqtt.client as mqtt
     ******************************************************* Classe MQTT PER LE PROBES *******************************************************
 """
 
+VERBOSE = False
+
 class ProbeMqttClient(mqtt.Client):
 
     def __init__(self, probe_id, msg_received_handler):
@@ -58,11 +60,13 @@ class ProbeMqttClient(mqtt.Client):
         for topic in self.config['subscription_topics']: # For each topic in subscription_topics...
             topic = str(topic).replace("PROBE_ID", self.probe_id) # Substitution the "PROBE_ID" element with the real probe id
             self.subscribe(topic)
-            print(f"{self.probe_id}: Subscription to topic --> [{topic}]")
+            if VERBOSE:
+                print(f"{self.probe_id}: Subscription to topic --> [{topic}]")
 
     def message_rcvd_event_handler(self, client, userdata, message):
-        # Invoked when a new message has arrived from the broker      
-        print(f"MQTT {self.probe_id}: Received msg on topic -> | {message.topic} | {message.payload.decode('utf-8')} |")
+        # Invoked when a new message has arrived from the broker     
+        if VERBOSE: 
+            print(f"MQTT {self.probe_id}: Received msg on topic -> | {message.topic} | {message.payload.decode('utf-8')} |")
         self.external_mqtt_msg_handler(message.payload.decode('utf-8'))
 
     def publish_on_status_topic(self, status):
@@ -75,7 +79,8 @@ class ProbeMqttClient(mqtt.Client):
             payload = status,
             qos = self.config['publishing']['qos'],
             retain = self.config['publishing']['retain'] )
-        print(f"MqttClient: sent on topic |{self.status_topic}| -> {status}")
+        if VERBOSE:
+            print(f"MqttClient: sent on topic |{self.status_topic}| -> {status}")
         
     def publish_on_result_topic(self, result):
         # Invoked when you want to publish a result
@@ -84,7 +89,8 @@ class ProbeMqttClient(mqtt.Client):
             payload = result,
             qos = self.config['publishing']['qos'],
             retain = self.config['publishing']['retain'] )
-        print(f"MqttClient: sent on topic |{self.results_topic}| -> {result}")
+        if VERBOSE:
+            print(f"MqttClient: sent on topic |{self.results_topic}| -> {result}")
         
     def publish_command_ACK(self, handler, payload):
         json_ACK = {
@@ -131,7 +137,7 @@ class ProbeMqttClient(mqtt.Client):
                 "state" : state
             }
         }
-        if state == "ONLINE" or state == "UPDATE":
+        if (state == "ONLINE") or (state == "UPDATE"):
             hostname = socket.gethostname()
             my_ip = socket.gethostbyname(hostname)
             json_status["payload"]["ip"] = my_ip

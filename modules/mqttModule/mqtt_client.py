@@ -7,6 +7,8 @@ import paho.mqtt.client as mqtt
     ******************************************************* Classe MQTT PER IL COORDINATOR *******************************************************
 """
 
+VERBOSE = False
+
 class Mqtt_Client(mqtt.Client):
 
     def __init__(self, external_status_handler, external_results_handler):
@@ -49,13 +51,15 @@ class Mqtt_Client(mqtt.Client):
         
         for topic in self.config['subscription_topics']:
             self.subscribe(topic)
-            print(f"MqttClient: Subscription to topic --> [{topic}]")
+            if VERBOSE:
+                print(f"MqttClient: Subscription to topic --> [{topic}]")
 
     def message_rcvd_event_handler(self, client, userdata, message):
         # Invoked when a new message has arrived from the broker      
         #print(f"MQTT: Received msg on topic -> | {message.topic} | "
         probe_sender = (str(message.topic).split('/'))[1]
-        print(f"MqttClient: from topic |{str(message.topic)}| -> |{ message.payload.decode('utf-8')}|")
+        if VERBOSE:
+            print(f"MqttClient: from topic |{str(message.topic)}| -> |{ message.payload.decode('utf-8')}|")
         if str(message.topic).endswith("results"):
             self.external_results_handler(probe_sender, message.payload.decode('utf-8'))
         elif str(message.topic).endswith("status"):
@@ -66,7 +70,8 @@ class Mqtt_Client(mqtt.Client):
     def check_return_code(self, rc):
         match rc:
             case 0:
-                print(f"MqttClient: The broker has accepted the connection")
+                if VERBOSE:
+                    print(f"MqttClient: The broker has accepted the connection")
                 self.connected_to_broker = True
                 return True
             case 1:
