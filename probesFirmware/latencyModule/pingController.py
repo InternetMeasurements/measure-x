@@ -42,7 +42,7 @@ class PingController:
         destination_ip = payload['destination_ip']
         packets_number = payload['packets_number']
         packets_size = payload['packets_size']
-        measurement_id = payload['measurement_id']
+        measure_reference = payload['measure_reference']
         # Command construction
         if platform.system() == "Windows": # It's necessary for the output parsing, execute the ping command linux based
             command = ["wsl", "ping"]
@@ -58,7 +58,7 @@ class PingController:
                 self.send_ping_result( json_ping_result=dict_result.as_dict(), 
                                     icmp_replies = dict_result.icmp_replies,
                                     start_timestamp=start_timestamp,
-                                    measurement_id=measurement_id)
+                                    measure_reference=measure_reference)
         except subprocess.CalledProcessError as e: 
             if e.returncode == -signal.SIGTERM: # if the returncode of the ping process is SIG_TERM, then the process has been stopped from the coordinator. So, it's better to "ACK it"
                 self.send_command_ack(successed_command="stop")
@@ -84,6 +84,7 @@ class PingController:
             os.kill(ping_process, signal.SIGTERM)
             self.ping_thread.join()
             self.ping_thread = None
+            print(f"PingController: ping command stopped.")
             return "OK"
         except OSError as e:
             return str(e)
@@ -92,6 +93,7 @@ class PingController:
         json_ack = { "command": successed_command }
         print(f"PingController: ACK sending -> {json_ack}")
         self.mqtt_client.publish_command_ACK(handler='ping', payload = json_ack)
+        print(f"PingController: sent ACK -> {successed_command}")
 
     def send_command_nack(self, failed_command, error_info):
         json_nack = {
@@ -99,6 +101,7 @@ class PingController:
             "reason" : error_info
             }
         self.mqtt_client.publish_command_NACK(handler='ping', payload = json_nack)
+        print(f"PingController: sent NACK, reason-> {error_info}")
 
     def send_ping_result(self, json_ping_result : json, icmp_replies, start_timestamp, measurement_id):
         hostname = socket.gethostname()
@@ -114,5 +117,5 @@ class PingController:
             "type": "result",
             "payload": json_ping_result
         }
-
-        self.mqtt_client.publish_on_result_topic(result=json.dumps(json_command_result))            
+        self.mqtt_client.publish_on_result_topic(result=json.dumps(json_command_result))
+        print(f"PingController: sent ping result -> {json_ping_result}")
