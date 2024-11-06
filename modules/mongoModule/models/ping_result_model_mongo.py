@@ -1,27 +1,33 @@
 
 
 class PingResultModelMongo:
-    def __init__(self, referred_measurement, avg_rtt, max_rtt, min_rtt, packets_sent, packets_received) -> None:
+    def __init__(self, measure_reference, start_timestamp, rtt_avg, rtt_max, rtt_min, rtt_mdev, packets_sent, packets_received, packets_loss_count, packets_loss_rate, icmp_replies) -> None:
         self._id = None
-        self.referred_measurement = referred_measurement
-        self.type = type
-        self.avg_rtt = avg_rtt
-        self.max_rtt = max_rtt
-        self.min_rtt = min_rtt
+        self.measure_reference = measure_reference
+        self.start_timestamp = start_timestamp
+        self.rtt_avg = rtt_avg
+        self.rtt_max = rtt_max
+        self.rtt_min = rtt_min
+        self.rtt_mdev = rtt_mdev
         self.packets_sent = packets_sent
         self.packets_received = packets_received
+        self.packets_loss_count = packets_loss_count
+        self.packets_loss_rate = packets_loss_rate
+        self.icmp_replies = icmp_replies
         
 
 
     def to_dict(self) -> dict:
         return {
-            'description': self.description,
-            'type': self.type,
-            'creation_time': self.creation_time,
-            'source_probe': self.source_probe,
-            'dest_probe': self.dest_probe,
-            'gps_source_probe': self.gps_source_probe,
-            'gps_dest_probe': self.gps_dest_probe,
-            'background_traffic': self.background_traffic,
-            'stop_time': self.stop_time
+            'measure_reference': self.measure_reference,
+            'start_timestamp': self.start_timestamp,
+            'rtt_avg': self.rtt_avg,
+            'rtt_max': self.rtt_max,
+            'rtt_min': self.rtt_min,
+            'rtt_mdev': self.rtt_mdev,
+            'packets_sent': self.packets_sent,
+            'packets_received': self.packets_received,
+            'packets_loss_count': self.packets_loss_count,
+            'packets_loss_rate': self.packets_loss_rate,
+            'icmp_replies': self.icmp_replies
         }
