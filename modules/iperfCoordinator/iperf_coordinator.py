@@ -10,6 +10,7 @@ from src.modules.mongoModule.models.measurement_model_mongo import MeasurementMo
 from src.modules.mongoModule.models.iperf_result_model_mongo import IperfResultModelMongo
 
 class Iperf_Coordinator:
+
     def __init__(self, mqtt : Mqtt_Client, registration_handler_status, registration_handler_result, mongo_db : MongoDB):
         self.mqtt = mqtt 
         self.received_acks = set()
@@ -18,6 +19,7 @@ class Iperf_Coordinator:
         self.last_client_probe = None
         self.probes_server_port = {}
         self.mongo_db = mongo_db
+        self.last_mongo_measurement = None # In this attribute, i save the measurement before store it in mongoDB
 
         # Requests to commands_multiplexer
         registration_response = registration_handler_status(
@@ -37,10 +39,11 @@ class Iperf_Coordinator:
         else:
             print(f"Iperf_Coordinator: registration handler failed. Reason -> {registration_response}")
 
+
     def handler_received_result(self, probe_sender, result: json):
         mongo_result = IperfResultModelMongo(
-            measure_reference = result["measure_reference"],
-            repetition_result = result["repetition_number"],
+            measure_reference = ObjectId(result["measure_reference"]),
+            repetition_number = result["repetition_number"],
             start_timestamp = result["start_timestamp"],
             transport_protocol = result["transport_protocol"],
             source_ip = result["source_ip"],
@@ -64,7 +67,7 @@ class Iperf_Coordinator:
         else:
             print("Iperf_Coordinator: result not last")
         self.print_summary_result(measurement_result = result)
-        #self.store_measurement_result(probe_sender, result)
+
         
     def handler_received_status(self, probe_sender, type, payload : json):
         match type:
@@ -75,18 +78,21 @@ class Iperf_Coordinator:
                         if "port" in payload: # if the 'port' key is in the payload, then it's the ACK comes from iperf-server
                             probe_port = payload["port"]
                             self.probes_server_port[probe_sender] = probe_port
-                            print(f"Iperf_Coordinator: probe |{probe_sender}| --> |Listening port -> {probe_port}| --> ACK")
-                        # the else statement, means that the ACK is sent from the client
+                            print(f"Iperf_Coordinator: probe |{probe_sender}|->|Listening port: {probe_port}|->|ACK|")
+                        # the else statement, means that the ACK is sent from the client.
+                        else:
+                            print(f"Iperf_Coordinator: probe |{probe_sender}|->|conf|->|ACK|")
+                        # ↓ In any case, i add the probe_id to the probes from which i received its conf-ACK
                         self.received_acks.add(probe_sender)
                     case "stop":
-                         print(f"Iperf_Coordinator: probe |{probe_sender}|-> Iperf-server stopped -> ACK")
+                         print(f"Iperf_Coordinator: probe |{probe_sender}|->|Iperf-server stopped|->|ACK|")
                          self.probes_server_port.pop(probe_sender, None)
                     case _:
                         print(f"ACK received for unkonwn iperf command -> {command_executed_on_probe}")
             case "NACK":
                 command_failed_on_probe = payload["command"]
                 reason = payload['reason']
-                print(f"Iperf_Coordinator: probe |{probe_sender}|->|{command_failed_on_probe}|->NACK, reason->{reason}")
+                print(f"Iperf_Coordinator: probe |{probe_sender}|->|{command_failed_on_probe}|->|NACK|, reason --> {reason}")
             case _:
                 print(f"Iperf_Coordinator: received unkown type message -> |{type}|")
 
@@ -109,10 +115,6 @@ class Iperf_Coordinator:
                     dest_probe = dest_probe,
                     source_probe_ip = source_probe_ip,
                     dest_probe_ip = dest_probe_ip)
-                measurement_id = str(self.mongo_db.insert_measurement(mongo_measurement))
-                if measurement_id is None:
-                    print("Error while inserting measurement iperf")
-                    return
                 
                 json_config = self.get_json_from_probe_yaml(probes_configurations_path)
                 json_config['role'] = "Client"
@@ -175,6 +177,53 @@ class Iperf_Coordinator:
         self.mqtt.publish_on_command_topic(probe_id = probe_id, complete_command = json.dumps(json_iperf_stop))
 
 
+    def set_measurement_as_completed(self, measurement_id) -> bool:
+        stop_time = dt.now()
+        update_result = self.mongo_db.measurements_collection.update_one(
+                            {"_id": ObjectId(measurement_id)},
+                            {"$set": {"stop_time": stop_time}})
+        return (update_result.modified_count > 0)
+    
+
+    def get_json_from_probe_yaml(self, probes_configurations_path) -> json:
+        json_probe_config = {}
+        with open(probes_configurations_path, "r") as file:
+            iperf_client_config = yaml.safe_load(file)['iperf_client']
+            json_probe_config = {
+                "transport_protocol": iperf_client_config['transport_protocol'],
+                "parallel_connections": int(iperf_client_config['parallel_connections']),
+                "result_measurement_filename": iperf_client_config['result_measurement_filename'],
+                "reverse": iperf_client_config['reverse'],
+                "verbose": False,
+                "total_repetition": int(iperf_client_config['total_repetition']),
+                "save_result_on_flash": iperf_client_config['save_result_on_flash']
+            }
+        return json_probe_config
+    
+
+    def print_summary_result(self, measurement_result : json):
+        start_timestamp = measurement_result["start_timestamp"]
+        repetition_number = measurement_result["repetition_number"]
+        measure_reference = measurement_result["measure_reference"]
+        source_ip = measurement_result["source_ip"]
+        transport_protocol = measurement_result["transport_protocol"]
+        destination_ip = measurement_result["destination_ip"]
+        bytes_received = measurement_result["bytes_received"]
+        duration = measurement_result["duration"]
+        avg_speed = measurement_result["avg_speed"]
+
+        print("\n****************** SUMMARY ******************")
+        print(f"Timestamp: {start_timestamp}")
+        print(f"Repetition number: {repetition_number}")
+        print(f"Measurement reference: {measure_reference}")
+        print(f"Transport protocol: {transport_protocol}")
+        print(f"IP sorgente: {source_ip}")
+        print(f"IP destinatario: {destination_ip}")
+        print(f"Velocità trasferimento {avg_speed} bits/s")
+        print(f"Quantità di byte ricevuti: {bytes_received}")
+        print(f"Durata risultato: {duration} secondi\n")
+
+    """
     def store_measurement_result(self, probe_sender, json_measurement: json):
         base_path = Path(__file__).parent
         probe_measurement_dir = Path(os.path.join(base_path, 'measurements', probe_sender))
@@ -185,14 +234,6 @@ class Iperf_Coordinator:
             file.write(json.dumps(json_measurement, indent=4))
         print(f"Iperf_Coordinator: stored result from {probe_sender} -> measure_{str(json_measurement['measurement_id'])}.json")
 
-    def set_measurement_as_completed(self, measurement_id) -> bool:
-        stop_time = dt.now()
-        update_result = self.mongo_db.measurements_collection.update_one(
-                            {"_id": ObjectId(measurement_id)},
-                            {"$set": {"stop_time": stop_time}})
-        return (update_result.modified_count > 0)
-
-    """
     def get_last_measurement_id(self, probe_id):
         #It returns the id that can be used as Current-Measurement-ID
         base_path = Path(__file__).parent
@@ -208,23 +249,4 @@ class Iperf_Coordinator:
         last_element_ID = int(sorted_list[-1].split('_')[-1].split(".")[0])
         return last_element_ID + 1
     """
-
-    def print_summary_result(self, measurement_result):
-        
-        start_timestamp = measurement_result["start_timestamp"]
-        measure_reference = measurement_result["measure_reference"]
-        source_ip = measurement_result["source_ip"]
-        destination_ip = measurement_result["destination_ip"]
-        bytes_received = measurement_result["bytes_received"]
-        duration = measurement_result["duration"]
-        avg_speed = measurement_result["avg_speed"]
-
-        print("\n****************** SUMMARY ******************")
-        print(f"Timestamp: {start_timestamp}")
-        print(f"Measurement reference: {measure_reference}")
-        print(f"IP sorgente: {source_ip}")
-        print(f"IP destinatario: {destination_ip}")
-        print(f"Velocità trasferimento {avg_speed} bits/s")
-        print(f"Quantità di byte ricevuti: {bytes_received}")
-        print(f"Durata misurazione: {duration} secondi\n")
         
