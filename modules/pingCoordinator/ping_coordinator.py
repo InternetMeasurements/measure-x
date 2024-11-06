@@ -1,10 +1,19 @@
 import os
 import json
+from datetime import datetime as dt
 from src.modules.mqttModule.mqtt_client import Mqtt_Client
+from bson import ObjectId
+from src.modules.mongoModule.mongoDB import MongoDB
+from src.modules.mongoModule.models.measurement_model_mongo import MeasurementModelMongo
+from src.modules.mongoModule.models.ping_result_model_mongo import PingResultModelMongo
 
 class Ping_Coordinator:
-    def __init__(self, mqtt_client : Mqtt_Client, registration_handler_status, registration_handler_result):
+
+    def __init__(self, mqtt_client : Mqtt_Client, registration_handler_status, registration_handler_result, mongo_db : MongoDB):
         self.mqtt_client = mqtt_client
+        self.mongo_db = mongo_db
+        self.last_mongo_measurement = None
+
         # Requests to commands_multiplexer
         registration_response = registration_handler_status(
             interested_status = "ping",
@@ -38,20 +47,34 @@ class Ping_Coordinator:
         self.store_measurement_result(result = result)
         self.mongo_db.set_measurement_as_completed(self.last_mongo_measurement._id)
         self.print_summary_result(measurement_result = result)
-        self.store_measurement_result(probe_sender = probe_sender , result = result)
+        
     
-    def send_start_command(self, probe_sender, destination_ip, packets_number = 4, packets_size = 32):
+    def send_start_command(self, probe_sender, probe_receiver, destination_ip, source_ip, packets_number = 4, packets_size = 32):
+        self.last_mongo_measurement = MeasurementModelMongo(
+            description = "Latency measure with ping tool",
+            type = "Ping",
+            start_time = dt.now(),
+            source_probe = probe_sender,
+            dest_probe = probe_receiver,
+            source_probe_ip = source_ip,
+            dest_probe_ip = destination_ip)
+        self.last_mongo_measurement._id = self.mongo_db.insert_measurement(self.last_mongo_measurement)
+        if self.last_mongo_measurement._id is None:
+            print(f"Iperf_Coordinator: can't start ping. Error while storing ping measurement on Mongo")
+            return
+        
         json_ping_start = {
             "handler": "ping",
             "command": "start",
             "payload": {
                 "destination_ip": destination_ip,
-                "measurement_id": 0, # ********************* Da capire come scegliere l'id della misurazione
+                "measure_reference": str(self.last_mongo_measurement._id),
                 "packets_number": packets_number,
                 "packets_size": packets_size
             }
         }
         self.mqtt_client.publish_on_command_topic(probe_id = probe_sender, complete_command=json.dumps(json_ping_start))
+        
 
     def send_stop_command(self, probe_destination):
         json_ping_stop = {
