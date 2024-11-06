@@ -1,4 +1,3 @@
-from datetime import datetime as dt
 from src.modules.mongoModule.models.background_traffic_model_mongo import BackgroundTrafficModelMongo
 
 class MeasurementModelMongo:
