@@ -1,3 +1,4 @@
+from datetime import datetime as dt
 from pymongo import MongoClient
 from src.modules.mongoModule.models.measurement_model_mongo import MeasurementModelMongo
 from src.modules.mongoModule.models.ping_result_model_mongo import PingResultModelMongo
@@ -55,9 +56,10 @@ class MongoDB:
     
     def insert_measurement(self, measure : MeasurementModelMongo) -> str:
         try:
+            measure.start_time = dt.now()
             insert_result = self.measurements_collection.insert_one(measure.to_dict())
             if insert_result.inserted_id:
-                print(f"Measurement stored in mongo. ID -> |{insert_result.inserted_id}|")
+                print(f"MongoDB: measurement stored in mongo. ID -> |{insert_result.inserted_id}|")
                 return insert_result.inserted_id
         except Exception as e:
             print(f"MongoDB: Error while storing the measurment on mongo -> {e}")
@@ -67,7 +69,7 @@ class MongoDB:
         try:
             insert_result = self.results_collection.insert_one(result.to_dict())
             if insert_result.inserted_id:
-                print(f"Iperf result stored in mongo. ID -> |{insert_result.inserted_id}|")
+                print(f"MongoDB: iperf result stored in mongo. ID -> |{insert_result.inserted_id}|")
                 return insert_result.inserted_id
         except Exception as e:
             print(f"MongoDB: Error while storing the Iperf result on mongo -> {e}")
@@ -77,7 +79,7 @@ class MongoDB:
         try:
             insert_result = self.results_collection.insert_one(result.to_dict())
             if insert_result.inserted_id:
-                print(f"Ping result stored in mongo. ID -> |{insert_result.inserted_id}|")
+                print(f"MongoDB: ping result stored in mongo. ID -> |{insert_result.inserted_id}|")
                 return insert_result.inserted_id
         except Exception as e:
             print(f"MongoDB: Error while storing the Ping result on mongo -> {e}")
