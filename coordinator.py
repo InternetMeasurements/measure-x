@@ -29,7 +29,10 @@ def main():
     iperf_coordinator = Iperf_Coordinator(
         mqtt = coordinator_mqtt,
         registration_handler_result=commands_multiplexer.add_result_handler,
-        registration_handler_status=commands_multiplexer.add_status_handler)
+        registration_handler_status=commands_multiplexer.add_status_handler,
+        mongo_db=db)
+    
+    
     
     ping_coordinator = Ping_Coordinator(
         mqtt_client=coordinator_mqtt,
@@ -38,7 +41,6 @@ def main():
 
     commands_multiplexer.add_status_handler('probe_state', online_status_handler)
 
-    db = MongoDB()
 
 
     while True:
