@@ -1,4 +1,5 @@
 from datetime import datetime as dt
+from bson import ObjectId
 from pymongo import MongoClient
 from src.modules.mongoModule.models.measurement_model_mongo import MeasurementModelMongo
 from src.modules.mongoModule.models.ping_result_model_mongo import PingResultModelMongo
@@ -85,6 +86,12 @@ class MongoDB:
             print(f"MongoDB: Error while storing the Ping result on mongo -> {e}")
             return None
 
+    def set_measurement_as_completed(self, measurement_id) -> bool:
+        stop_time = dt.now()
+        update_result = self.measurements_collection.update_one(
+                            {"_id": ObjectId(measurement_id)},
+                            {"$set": {"stop_time": stop_time}})
+        return (update_result.modified_count > 0)
 
 
     def delete_result_by_id(id : str) -> bool:
