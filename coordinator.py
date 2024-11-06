@@ -5,7 +5,7 @@ from src.modules.iperfCoordinator.iperf_coordinator import Iperf_Coordinator
 from src.modules.pingCoordinator.ping_coordinator import Ping_Coordinator 
 from src.modules.mongoModule.mongoDB import MongoDB
 
-probe_ip = {} # da inserire nella classe CoordinatorMeasureX
+probe_ip = {}
 
 def online_status_handler(probe_sender, type, payload):
     global probe_ip
@@ -20,8 +20,13 @@ def online_status_handler(probe_sender, type, payload):
 
 def main():
     global probe_ip
-    commands_multiplexer = CommandsMultiplexer()
+    try:
+        db = MongoDB()
+    except Exception as e:
+        print(f"Coordinator: connection failed to mongo. -> Exception info: \n{e}")
+        return
 
+    commands_multiplexer = CommandsMultiplexer()
     coordinator_mqtt = Mqtt_Client(
         external_status_handler = commands_multiplexer.status_multiplexer, 
         external_results_handler = commands_multiplexer.result_multiplexer)
