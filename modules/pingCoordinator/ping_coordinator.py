@@ -35,6 +35,8 @@ class Ping_Coordinator:
         return
     
     def handler_received_result(self, probe_sender, result: json):
+        self.store_measurement_result(result = result)
+        self.mongo_db.set_measurement_as_completed(self.last_mongo_measurement._id)
         self.print_summary_result(measurement_result = result)
         self.store_measurement_result(probe_sender = probe_sender , result = result)
     
