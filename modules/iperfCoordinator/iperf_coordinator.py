@@ -41,31 +41,7 @@ class Iperf_Coordinator:
 
 
     def handler_received_result(self, probe_sender, result: json):
-        mongo_result = IperfResultModelMongo(
-            measure_reference = ObjectId(result["measure_reference"]),
-            repetition_number = result["repetition_number"],
-            start_timestamp = result["start_timestamp"],
-            transport_protocol = result["transport_protocol"],
-            source_ip = result["source_ip"],
-            source_port = result["source_port"],
-            destination_ip = result["destination_ip"],
-            destination_port = result["destination_port"],
-            bytes_received = result["bytes_received"],
-            duration = result["duration"],
-            avg_speed = result["avg_speed"]
-        )
-        result_id = str(self.mongo_db.insert_iperf_result(result=mongo_result))
-        if result_id is not None:
-            print(f"Iperf_Coordinator: result |{result_id}| stored in db")
-        else:
-            print(f"Iperf_Coordinator: error while storing result |{result_id}|")
-
-        last_result = result["last_result"]
-        if last_result: # if this result is the last, then i must set the stop timestamp on the measurment collection in Mongo
-            if self.set_measurement_as_completed(result["measure_reference"]):
-                print(f"Iperf_Coordinator: measurement |{result['measure_reference']}| completed ")
-        else:
-            print("Iperf_Coordinator: result not last")
+        self.store_measurement_result(result)
         self.print_summary_result(measurement_result = result)
 
         
@@ -175,31 +151,35 @@ class Iperf_Coordinator:
             "payload": {}
         }
         self.mqtt.publish_on_command_topic(probe_id = probe_id, complete_command = json.dumps(json_iperf_stop))
-
-
-    def set_measurement_as_completed(self, measurement_id) -> bool:
-        stop_time = dt.now()
-        update_result = self.mongo_db.measurements_collection.update_one(
-                            {"_id": ObjectId(measurement_id)},
-                            {"$set": {"stop_time": stop_time}})
-        return (update_result.modified_count > 0)
     
 
-    def get_json_from_probe_yaml(self, probes_configurations_path) -> json:
-        json_probe_config = {}
-        with open(probes_configurations_path, "r") as file:
-            iperf_client_config = yaml.safe_load(file)['iperf_client']
-            json_probe_config = {
-                "transport_protocol": iperf_client_config['transport_protocol'],
-                "parallel_connections": int(iperf_client_config['parallel_connections']),
-                "result_measurement_filename": iperf_client_config['result_measurement_filename'],
-                "reverse": iperf_client_config['reverse'],
-                "verbose": False,
-                "total_repetition": int(iperf_client_config['total_repetition']),
-                "save_result_on_flash": iperf_client_config['save_result_on_flash']
-            }
-        return json_probe_config
-    
+    def store_measurement_result(self, result : json):
+        mongo_result = IperfResultModelMongo(
+            measure_reference = ObjectId(result["measure_reference"]),
+            repetition_number = result["repetition_number"],
+            start_timestamp = result["start_timestamp"],
+            transport_protocol = result["transport_protocol"],
+            source_ip = result["source_ip"],
+            source_port = result["source_port"],
+            destination_ip = result["destination_ip"],
+            destination_port = result["destination_port"],
+            bytes_received = result["bytes_received"],
+            duration = result["duration"],
+            avg_speed = result["avg_speed"]
+        )
+        result_id = str(self.mongo_db.insert_iperf_result(result=mongo_result))
+        if result_id is not None:
+            print(f"Iperf_Coordinator: result |{result_id}| stored in db")
+        else:
+            print(f"Iperf_Coordinator: error while storing result |{result_id}|")
+
+        last_result = result["last_result"]
+        if last_result: # if this result is the last, then i must set the stop timestamp on the measurment collection in Mongo
+            if self.mongo_db.set_measurement_as_completed(result["measure_reference"]):
+                print(f"Iperf_Coordinator: measurement |{result['measure_reference']}| completed ")
+        else:
+            print("Iperf_Coordinator: result not last")
+
 
     def print_summary_result(self, measurement_result : json):
         start_timestamp = measurement_result["start_timestamp"]
@@ -222,6 +202,21 @@ class Iperf_Coordinator:
         print(f"Velocità trasferimento {avg_speed} bits/s")
         print(f"Quantità di byte ricevuti: {bytes_received}")
         print(f"Durata risultato: {duration} secondi\n")
+
+    def get_json_from_probe_yaml(self, probes_configurations_path) -> json:
+        json_probe_config = {}
+        with open(probes_configurations_path, "r") as file:
+            iperf_client_config = yaml.safe_load(file)['iperf_client']
+            json_probe_config = {
+                "transport_protocol": iperf_client_config['transport_protocol'],
+                "parallel_connections": int(iperf_client_config['parallel_connections']),
+                "result_measurement_filename": iperf_client_config['result_measurement_filename'],
+                "reverse": iperf_client_config['reverse'],
+                "verbose": False,
+                "total_repetition": int(iperf_client_config['total_repetition']),
+                "save_result_on_flash": iperf_client_config['save_result_on_flash']
+            }
+        return json_probe_config
 
     """
     def store_measurement_result(self, probe_sender, json_measurement: json):
