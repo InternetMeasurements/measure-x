@@ -24,12 +24,17 @@ class Probe:
 
 
 def main():
-    probe1 = Probe("probe2")
+    probe1 = Probe("probe4")
     while True:
         command = input()
-        if(command == '0'):
-            probe1.disconnect()
-            break
+        match command:
+            case "0":
+                probe1.disconnect()
+                break
+            case "1":
+                probe1.mqtt_client.publish_probe_state(state="ONLINE")
+            case _:
+                continue  
     return
 
 if __name__ == "__main__":
