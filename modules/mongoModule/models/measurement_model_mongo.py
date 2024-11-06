@@ -2,11 +2,11 @@ from datetime import datetime as dt
 from src.modules.mongoModule.models.background_traffic_model_mongo import BackgroundTrafficModelMongo
 
 class MeasurementModelMongo:
-    def __init__(self, description, type, source_probe, dest_probe, source_probe_ip, dest_probe_ip, gps_source_probe = None, gps_dest_probe = None) -> None:
+    def __init__(self, description, type, source_probe, dest_probe, source_probe_ip, dest_probe_ip, start_time = None, gps_source_probe = None, gps_dest_probe = None) -> None:
         self._id = None
         self.description = description
         self.type = type
-        self.creation_time = dt.now()
+        self.start_time = start_time # This field is setted when the coordinator send the START command
         self.source_probe = source_probe
         self.dest_probe = dest_probe
         self.source_probe_ip = source_probe_ip,
@@ -20,7 +20,7 @@ class MeasurementModelMongo:
         return {
             'description': self.description,
             'type': self.type,
-            'creation_time': self.creation_time,
+            'start_time': self.start_time,
             'source_probe': self.source_probe,
             'dest_probe': self.dest_probe,
             'source_probe_ip': self.source_probe_ip,
