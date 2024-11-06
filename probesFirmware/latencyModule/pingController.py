@@ -91,7 +91,6 @@ class PingController:
 
     def send_command_ack(self, successed_command): # Incapsulating of the ping client
         json_ack = { "command": successed_command }
-        print(f"PingController: ACK sending -> {json_ack}")
         self.mqtt_client.publish_command_ACK(handler='ping', payload = json_ack)
         print(f"PingController: sent ACK -> {successed_command}")
 
@@ -103,15 +102,25 @@ class PingController:
         self.mqtt_client.publish_command_NACK(handler='ping', payload = json_nack)
         print(f"PingController: sent NACK, reason-> {error_info}")
 
-    def send_ping_result(self, json_ping_result : json, icmp_replies, start_timestamp, measurement_id):
+    def send_ping_result(self, json_ping_result : json, icmp_replies, start_timestamp, measure_reference):
         hostname = socket.gethostname()
         my_ip = socket.gethostbyname(hostname)
 
         json_ping_result["source"] = my_ip
         json_ping_result["start_timestamp"] = start_timestamp
-        json_ping_result["measurement_id"] = measurement_id
-        json_ping_result["icmp_replies"] = icmp_replies
+        json_ping_result["measure_reference"] = measure_reference
 
+        essential_icmp_replies = []
+        for icmp_reply in icmp_replies:
+            essential_icmp_replies.append(
+                {
+                "bytes": icmp_reply["bytes"],
+                "icmp_seq": icmp_reply["icmp_seq"],
+                "ttl": icmp_reply["ttl"],
+                "time": icmp_reply["time"]
+                })
+
+        json_ping_result["icmp_replies"] = essential_icmp_replies
         json_command_result = {
             "handler": "ping",
             "type": "result",
