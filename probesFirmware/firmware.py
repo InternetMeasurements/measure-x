@@ -15,6 +15,7 @@ class Probe:
         self.ping_controller = PingController(self.mqtt_client,
                                               self.commands_multiplexer.registration_handler_request)   # ENABLE LATENCY FUNCTIONALITY
         
+        
     def check_for_ready(self):
         return self.state
     
