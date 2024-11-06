@@ -38,6 +38,43 @@ class IperfController:
             handler = self.iperf_command_handler)
         if registration_response != "OK" :
             print(f"IperfController: registration handler failed. Reason -> {registration_response}")
+
+    
+    def iperf_command_handler(self, command : str, payload: json):
+        match command:
+            case 'conf':
+                if self.read_configuration(payload): # if the configuration goes good, then ACK, else NACK
+                    self.send_command_ack(successed_command = command)
+                    if self.last_role == "Server":
+                        self.start_iperf()
+                else:
+                    self.send_command_nack(failed_command=command, error_info=self.last_error)
+            case 'start':
+                if self.last_role == None:
+                    self.send_command_nack(failed_command=command, error_info="No configuration")
+                    return
+                if self.last_role == "Client":
+                    self.measurement_id = payload['measurement_id'] # Only in this moment the probe knows the measurment_id coming from Mongo
+                    if self.measurement_id is None:
+                        self.send_command_nack(failed_command="start", error_info="measure_id is None")
+                        return
+                    execution_code = self.start_iperf()
+                    if execution_code == 0:
+                        self.reset_conf()
+                    elif execution_code == -1:
+                        self.send_command_nack(failed_command=command, error_info="No configuration")
+                    else:
+                        self.send_command_nack(failed_command=command, error_info=str(execution_code))
+            case 'stop':
+                termination_message = self.stop_iperf_server_thread()
+                if termination_message == "OK":
+                    self.send_command_ack(successed_command=command)
+                else:
+                    self.send_command_nack(failed_command=command, error_info=termination_message)
+            case _:
+                print(f"IperfController: command not handled -> {command}")
+                self.send_command_nack(failed_command=command, error_info="Command not handled")
+    
         
     def read_configuration(self, payload : json) -> bool :
         my_role = payload['role']
@@ -70,7 +107,7 @@ class IperfController:
             self.transport_protocol = payload_conf['transport_protocol']
             self.parallel_connections = int(payload_conf['parallel_connections'])
             self.output_json_filename = payload_conf['result_measurement_filename']
-            self.measurement_id = payload_conf['measurement_id']
+            self.measurement_id = payload_conf['measurement_id'] # REMEMBER --> You will read None during the configuration phase!
             self.reverse_function = payload_conf['reverse']
             self.verbose_function = payload_conf['verbose']
             self.total_repetition = int(payload_conf['total_repetition'])
@@ -155,36 +192,7 @@ class IperfController:
                 repetition_count += 1
         return execution_return_code
 
-    def iperf_command_handler(self, command : str, payload: json):
-        match command:
-            case 'conf':
-                if self.read_configuration(payload): # if the configuration goes good, then ACK, else NACK
-                    self.send_command_ack(successed_command = command)
-                    if self.last_role == "Server":
-                        self.start_iperf()
-                else:
-                    self.send_command_nack(failed_command=command, error_info=self.last_error)
-            case 'start':
-                if self.last_role == None:
-                    self.send_command_nack(failed_command=command, error_info="No configuration")
-                    return
-                if self.last_role == "Client":
-                    execution_code = self.start_iperf()
-                    if execution_code == 0:
-                        self.reset_conf()
-                    elif execution_code == -1:
-                        self.send_command_nack(failed_command=command, error_info="No configuration")
-                    else:
-                        self.send_command_nack(failed_command=command, error_info=str(execution_code))
-            case 'stop':
-                termination_message = self.stop_iperf_server_thread()
-                if termination_message == "OK":
-                    self.send_command_ack(successed_command=command)
-                else:
-                    self.send_command_nack(failed_command=command, error_info=termination_message)
-            case _:
-                print(f"IperfController: command not handled -> {command}")
-                self.send_command_nack(failed_command=command, error_info="Command not handled")
+    
 
     def stop_iperf_server_thread(self):
         iperf_server_pid = None
