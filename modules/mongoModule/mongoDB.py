@@ -1,4 +1,4 @@
-from datetime import datetime as dt
+import time
 from bson import ObjectId
 from pymongo import MongoClient
 from src.modules.mongoModule.models.measurement_model_mongo import MeasurementModelMongo
@@ -57,7 +57,7 @@ class MongoDB:
     
     def insert_measurement(self, measure : MeasurementModelMongo) -> str:
         try:
-            measure.start_time = dt.now()
+            measure.start_time = time.time()
             insert_result = self.measurements_collection.insert_one(measure.to_dict())
             if insert_result.inserted_id:
                 print(f"MongoDB: measurement stored in mongo. ID -> |{insert_result.inserted_id}|")
