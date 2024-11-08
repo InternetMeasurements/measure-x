@@ -68,6 +68,12 @@ class Iperf_Coordinator:
                 command_failed_on_probe = payload["command"]
                 reason = payload['reason']
                 print(f"Iperf_Coordinator: probe |{probe_sender}|->|{command_failed_on_probe}|->|NACK|, reason --> {reason}")
+                match command_failed_on_probe:
+                    case "start":
+                        print("comando fallito start")
+                        if self.mongo_db.set_measurement_as_failed(measurement_id = self.last_mongo_measurement._id):
+                            print(f"Iperf_Coordinator: measurement |{self.last_mongo_measurement._id}| setted as failed")
+
             case _:
                 print(f"Iperf_Coordinator: received unkown type message -> |{type}|")
 
@@ -129,6 +135,7 @@ class Iperf_Coordinator:
             return
         
         measurement_id = self.mongo_db.insert_measurement(self.last_mongo_measurement)
+        self.last_mongo_measurement._id = measurement_id
         if measurement_id is None:
             print("Iperf_Coordinator: Can't send start! Error while inserting measurement iperf in mongo")
             return
