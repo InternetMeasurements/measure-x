@@ -8,14 +8,13 @@ from src.modules.mongoModule.models.background_traffic_model_mongo import Backgr
 
 class MongoDB:
     def __init__(self):
-        self.addr_mongo_server = "192.168.1.102" 
+        self.addr_mongo_server = "192.168.1.117" 
         self.user = "measurex"
         self.password = "measurex"
         self.db_name = "measurex"
         self.results_collection = None
         self.measurements_collection = None
-        #self.client = MongoClient("mongodb://" + self.user + ":" + self.password + "@" + self.addr_mongo_server + ":27017/" + self.db_name)
-        self.client = MongoClient("mongodb://measurex:measurex@192.168.1.102:27017/")
+        self.client = MongoClient("mongodb://" + self.user + ":" + self.password + "@" + self.addr_mongo_server + ":27017/")
 
         db = self.client[self.db_name] # crea il db measurex
 
