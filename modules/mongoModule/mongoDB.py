@@ -57,6 +57,7 @@ class MongoDB:
     def insert_measurement(self, measure : MeasurementModelMongo) -> str:
         try:
             measure.start_time = time.time()
+            measure.state = "started"
             insert_result = self.measurements_collection.insert_one(measure.to_dict())
             if insert_result.inserted_id:
                 print(f"MongoDB: measurement stored in mongo. ID -> |{insert_result.inserted_id}|")
@@ -92,7 +93,28 @@ class MongoDB:
                             {"$set": {"stop_time": stop_time,
                                       "state": "completed"} })
         return (update_result.modified_count > 0)
-
-
-    def delete_result_by_id(id : str) -> bool:
-        return False
+    
+    def delete_measurements_by_id(self, measurement_id: str) -> bool:
+        delete_result = self.measurements_collection.delete_one(
+                            {"_id": ObjectId(measurement_id)})
+        return (delete_result.deleted_count > 0)
+    
+    def delete_results_by_measure_reference(self, measure_reference) -> bool:
+        delete_result = self.results_collection.delete_many(
+                            {"measure_reference": ObjectId(measure_reference)})
+        return (delete_result.deleted_count > 0)
+    
+    def delete_result_by_id(self, result_id : str) -> bool:
+        delete_result = self.results_collection.delete_one(
+                            {"_id": ObjectId(result_id)})
+        return (delete_result.deleted_count > 0)
+    
+    def set_measurement_as_failed(self, measurement_id : str) -> bool:
+        replace_result = self.measurements_collection.update_one(
+                            {"_id": ObjectId(measurement_id)},
+                            {"$set":{
+                                "_id": ObjectId(measurement_id),
+                                "state": "failed"
+                                }
+                            })
+        return (replace_result.modified_count > 0)
