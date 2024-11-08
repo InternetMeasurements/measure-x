@@ -86,10 +86,11 @@ class MongoDB:
             return None
 
     def set_measurement_as_completed(self, measurement_id) -> bool:
-        stop_time = dt.now()
+        stop_time = time.time()
         update_result = self.measurements_collection.update_one(
                             {"_id": ObjectId(measurement_id)},
-                            {"$set": {"stop_time": stop_time}})
+                            {"$set": {"stop_time": stop_time,
+                                      "state": "completed"} })
         return (update_result.modified_count > 0)
 
 
