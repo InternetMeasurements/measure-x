@@ -1,10 +1,11 @@
 import os
 import json
 import yaml
+import time
 from pathlib import Path
 from src.modules.mqttModule.mqtt_client import Mqtt_Client
 from bson import ObjectId
-from src.modules.mongoModule.mongoDB import MongoDB
+from src.modules.mongoModule.mongoDB import MongoDB, SECONDS_OLD_MEASUREMENT
 from src.modules.mongoModule.models.measurement_model_mongo import MeasurementModelMongo
 from src.modules.mongoModule.models.iperf_result_model_mongo import IperfResultModelMongo
 
@@ -40,8 +41,12 @@ class Iperf_Coordinator:
 
 
     def handler_received_result(self, probe_sender, result: json):
-        self.store_measurement_result(result)
-        self.print_summary_result(measurement_result = result)
+        if ((time.time() - result["start_timestamp"]) < SECONDS_OLD_MEASUREMENT):
+            self.store_measurement_result(result)
+            self.print_summary_result(measurement_result = result)
+        else: #Volendo posso anche evitare questo settaggio, perchè ci penserà il thread periodico
+            #if self.mongo_db.set_measurement_as_failed_by_id(result['measure_reference']):
+            print(f"Iperf_Coordinator: ignored result. Reason: expired measurement -> {result['measure_reference']}")
 
         
     def handler_received_status(self, probe_sender, type, payload : json):
@@ -157,7 +162,7 @@ class Iperf_Coordinator:
             "payload": {}
         }
         self.mqtt.publish_on_command_topic(probe_id = probe_id, complete_command = json.dumps(json_iperf_stop))
-    
+
 
     def store_measurement_result(self, result : json):
         mongo_result = IperfResultModelMongo(
