@@ -1,9 +1,9 @@
-import os
 import json
+import time
 from datetime import datetime as dt
 from src.modules.mqttModule.mqtt_client import Mqtt_Client
 from bson import ObjectId
-from src.modules.mongoModule.mongoDB import MongoDB
+from src.modules.mongoModule.mongoDB import MongoDB, SECONDS_OLD_MEASUREMENT
 from src.modules.mongoModule.models.measurement_model_mongo import MeasurementModelMongo
 from src.modules.mongoModule.models.ping_result_model_mongo import PingResultModelMongo
 
@@ -44,9 +44,16 @@ class Ping_Coordinator:
         return
     
     def handler_received_result(self, probe_sender, result: json):
-        self.store_measurement_result(result = result)
-        self.mongo_db.set_measurement_as_completed(self.last_mongo_measurement._id)
-        self.print_summary_result(measurement_result = result)
+        if ((time.time() - result["start_timestamp"]) < SECONDS_OLD_MEASUREMENT):
+            self.store_measurement_result(result = result)
+            self.mongo_db.set_measurement_as_completed(self.last_mongo_measurement._id)
+            self.print_summary_result(measurement_result = result)
+        else: #Volendo posso anche evitare questo settaggio, perchè ci penserà il thread periodico
+            #if self.mongo_db.set_measurement_as_failed_by_id(result['measure_reference']):
+            print(f"Ping_Coordinator: ignored result. Reason: expired measurement -> {result['measure_reference']}")
+        
+
+        
         
     
     def send_start_command(self, probe_sender, probe_receiver, destination_ip, source_ip, packets_number = 4, packets_size = 32):
