@@ -78,27 +78,63 @@ class MongoDB:
                                       "state": COMPLETED_STATE} })
         return (update_result.modified_count > 0)
     
+
     def delete_measurements_by_id(self, measurement_id: str) -> bool:
         delete_result = self.measurements_collection.delete_one(
                             {"_id": ObjectId(measurement_id)})
         return (delete_result.deleted_count > 0)
     
+
     def delete_results_by_measure_reference(self, measure_reference) -> bool:
         delete_result = self.results_collection.delete_many(
                             {"measure_reference": ObjectId(measure_reference)})
         return (delete_result.deleted_count > 0)
     
+
     def delete_result_by_id(self, result_id : str) -> bool:
         delete_result = self.results_collection.delete_one(
                             {"_id": ObjectId(result_id)})
         return (delete_result.deleted_count > 0)
     
-    def set_measurement_as_failed(self, measurement_id : str) -> bool:
+
+    def set_measurement_as_failed_by_id(self, measurement_id : str) -> bool:
         replace_result = self.measurements_collection.update_one(
                             {"_id": ObjectId(measurement_id)},
                             {"$set":{
                                 "_id": ObjectId(measurement_id),
-                                "state": "failed"
+                                "state": FAILED_STATE
                                 }
                             })
         return (replace_result.modified_count > 0)
+    
+
+    def find_measurement_by_id(self, measurement_id) -> MeasurementModelMongo:
+        find_result : MeasurementModelMongo = self.measurements_collection.find_one({"_id": ObjectId(measurement_id)})
+        return (find_result)
+    
+
+    def get_measurement_state(self, measurement_id) -> str:
+        measurement_result : MeasurementModelMongo = self.measurements_collection.find_one({"_id": ObjectId(measurement_id)})
+        if measurement_result is None:
+            return None
+        return (measurement_result.state)
+    
+    
+    def get_old_measurements_not_yet_setted_as_failed(self) -> list[MeasurementModelMongo]:
+        twenty_four_hours_ago  = time.time() - SECONDS_OLD_MEASUREMENT
+        old_measurements = self.measurements_collection.find(
+                            {"start_time": {"$lt": twenty_four_hours_ago},
+                             "state": STARTED_STATE})
+        return list(old_measurements)
+    
+    
+    def set_old_measurements_as_failed(self) -> int:
+        twenty_four_hours_ago  = time.time() - SECONDS_OLD_MEASUREMENT
+        replace_result = self.measurements_collection.update_many(
+                            { "start_time": {"$lt": twenty_four_hours_ago} ,
+                              "state": STARTED_STATE },
+                            {"$set":{
+                                "state": FAILED_STATE
+                                }
+                            })
+        return replace_result.modified_count
