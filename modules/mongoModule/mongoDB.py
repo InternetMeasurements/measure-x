@@ -6,6 +6,13 @@ from src.modules.mongoModule.models.ping_result_model_mongo import PingResultMod
 from src.modules.mongoModule.models.iperf_result_model_mongo import IperfResultModelMongo
 from src.modules.mongoModule.models.background_traffic_model_mongo import BackgroundTrafficModelMongo
 
+HOURS_OLD_MEASUREMENT = 24
+SECONDS_OLD_MEASUREMENT = HOURS_OLD_MEASUREMENT * 3600
+STARTED_STATE = "started"
+FAILED_STATE = "failed"
+COMPLETED_STATE = "completed"
+
+
 class MongoDB:
     def __init__(self):
         self.addr_mongo_server = "192.168.1.117" 
@@ -27,37 +34,11 @@ class MongoDB:
         self.measurements_collection = db["measurements"]
         self.results_collection = db["results"]
 
-        #measurements_collection.insert_one({})
-        #results_collection.insert_one()
-        """
-        print("Collezioni esistenti: ")
-        print(db.list_collection_names())
-
-        measurements_data = self.measurements_collection.find()
-        print("Dati dalla collezione 'measurements':")
-        for measurement in measurements_data:
-            print(f"id: {measurement['_id']}")
-            delete_result = measurements_collection.delete_one({"_id": measurement['_id']})
-            if delete_result.deleted_count > 0:
-                print("eliminato")
-            else:
-                print("non eliminato")
-
-        results_data = results_collection.find()
-        print("\nDati dalla collezione 'results':")
-        for result in results_data:
-            print(result)
-            delete_result = results_collection.delete_one({'_id': result['_id']})
-            if delete_result.deleted_count > 0:
-                print("eliminato")
-            else:
-                print("non eliminato")
-        """
     
     def insert_measurement(self, measure : MeasurementModelMongo) -> str:
         try:
             measure.start_time = time.time()
-            measure.state = "started"
+            measure.state = STARTED_STATE
             insert_result = self.measurements_collection.insert_one(measure.to_dict())
             if insert_result.inserted_id:
                 print(f"MongoDB: measurement stored in mongo. ID -> |{insert_result.inserted_id}|")
@@ -66,6 +47,7 @@ class MongoDB:
             print(f"MongoDB: Error while storing the measurment on mongo -> {e}")
             return None
         
+
     def insert_iperf_result(self, result : IperfResultModelMongo) -> str:
         try:
             insert_result = self.results_collection.insert_one(result.to_dict())
@@ -75,6 +57,7 @@ class MongoDB:
         except Exception as e:
             print(f"MongoDB: Error while storing the Iperf result on mongo -> {e}")
             return None
+
 
     def insert_ping_result(self, result : PingResultModelMongo) -> str:
         try:
@@ -86,12 +69,13 @@ class MongoDB:
             print(f"MongoDB: Error while storing the Ping result on mongo -> {e}")
             return None
 
+
     def set_measurement_as_completed(self, measurement_id) -> bool:
         stop_time = time.time()
         update_result = self.measurements_collection.update_one(
                             {"_id": ObjectId(measurement_id)},
                             {"$set": {"stop_time": stop_time,
-                                      "state": "completed"} })
+                                      "state": COMPLETED_STATE} })
         return (update_result.modified_count > 0)
     
     def delete_measurements_by_id(self, measurement_id: str) -> bool:
