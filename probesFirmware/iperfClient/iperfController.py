@@ -5,6 +5,7 @@ from pathlib import Path
 import threading
 import signal
 import psutil
+from shared_resources import shared_state
 from src.probesFirmware.mqttModule.mqttClient import ProbeMqttClient
 
 class IperfController:
@@ -40,42 +41,6 @@ class IperfController:
             print(f"IperfController: registration handler failed. Reason -> {registration_response}")
 
     
-    def iperf_command_handler(self, command : str, payload: json):
-        match command:
-            case 'conf':
-                if self.read_configuration(payload): # if the configuration goes good, then ACK, else NACK
-                    self.send_command_ack(successed_command = command)
-                    if self.last_role == "Server":
-                        self.start_iperf()
-                else:
-                    self.send_command_nack(failed_command=command, error_info=self.last_error)
-            case 'start':
-                if self.last_role == None:
-                    self.send_command_nack(failed_command=command, error_info="No configuration")
-                    return
-                if self.last_role == "Client":
-                    self.measurement_id = payload['measurement_id'] # Only in this moment the probe knows the measurment_id coming from Mongo
-                    if self.measurement_id is None:
-                        self.send_command_nack(failed_command="start", error_info="measure_id is None")
-                        return
-                    execution_code = self.start_iperf()
-                    if execution_code == 0:
-                        self.reset_conf()
-                    elif execution_code == -1:
-                        self.send_command_nack(failed_command=command, error_info="No configuration")
-                    else:
-                        self.send_command_nack(failed_command=command, error_info=str(execution_code))
-            case 'stop':
-                termination_message = self.stop_iperf_server_thread()
-                if termination_message == "OK":
-                    self.send_command_ack(successed_command=command)
-                else:
-                    self.send_command_nack(failed_command=command, error_info=termination_message)
-            case _:
-                print(f"IperfController: command not handled -> {command}")
-                self.send_command_nack(failed_command=command, error_info="Command not handled")
-    
-        
     def read_configuration(self, payload : json) -> bool :
         my_role = payload['role']
         if my_role == "Client":
@@ -121,6 +86,91 @@ class IperfController:
             self.last_error = str(e)
             return False
 
+
+    def iperf_command_handler(self, command : str, payload: json):
+        match command:
+            case 'conf':
+                if self.read_configuration(payload): # if the configuration goes good, then ACK, else NACK
+                    self.send_command_ack(successed_command = command)
+                    if self.last_role == "Server":
+                        self.start_iperf()
+                else:
+                    self.send_command_nack(failed_command=command, error_info=self.last_error)
+            case 'start':
+                if self.last_role == None:
+                    self.send_command_nack(failed_command=command, error_info="No configuration")
+                    return
+                if not shared_state.probe_is_ready():
+                    self.send_command_nack(failed_command=command, error_info="Probe busy")
+                    return
+                shared_state.set_probe_as_busy()
+                if self.last_role == "Client":
+                    self.measurement_id = payload['measurement_id'] # Only in this moment the probe knows the measurment_id coming from Mongo
+                    if self.measurement_id is None:
+                        self.send_command_nack(failed_command="start", error_info="measure_id is None")
+                        return
+                    self.start_iperf()
+                    self.last_execution_code = None
+            case 'stop':
+                termination_message = self.stop_iperf_thread()
+                if termination_message == "OK":
+                    self.send_command_ack(successed_command=command)
+                else:
+                    self.send_command_nack(failed_command=command, error_info=termination_message)
+                """
+                if self.last_role == "Server" or self.last_role:
+                    termination_message = self.stop_iperf_server_thread()
+                    if termination_message == "OK":
+                        self.send_command_ack(successed_command=command)
+                    else:
+                        self.send_command_nack(failed_command=command, error_info=termination_message)
+                elif self.last_role == "Client":
+                    termination_message = self.stop_iperf_server_thread()
+                    if termination_message == "OK":
+                        self.send_command_ack(successed_command=command)
+                    else:
+                        self.send_command_nack(failed_command=command, error_info=termination_message)
+                """
+            case _:
+                print(f"IperfController: command not handled -> {command}")
+                self.send_command_nack(failed_command=command, error_info="Command not handled")
+    
+        
+    def start_iperf(self):
+        if self.last_role is None:
+            shared_state.set_probe_as_ready()
+            self.send_command_nack(failed_command="start", error_info="No configuration")
+            return
+        
+        if self.last_role == "Server":
+            self.iperf_thread = threading.Thread(target=self.run_iperf_execution, args=())
+            self.iperf_thread.start()
+        elif self.last_role == "Client":
+            self.iperf_thread = threading.Thread(target=self.iperf_client_body, args=())
+            self.iperf_thread.start()
+            #self.iperf_thread.join()
+
+
+    def iperf_client_body(self):
+        global probe_state
+        global READY
+
+        repetition_count = 0
+        execution_return_code = -2
+        while repetition_count < self.total_repetition:
+            print(f"\n*************** Repetition: {repetition_count + 1} ***************")
+            execution_return_code = self.run_iperf_execution()
+            if execution_return_code != 0: # 0 is the correct execution code
+                break
+            self.publish_last_output_iperf(repetition = repetition_count, last_result=((repetition_count + 1) == self.total_repetition))
+            repetition_count += 1
+        if execution_return_code != 0 and execution_return_code != signal.SIGTERM:
+            self.send_command_nack(failed_command="start", error_info=self.last_error)
+        else:
+            self.reset_conf()
+        shared_state.set_probe_as_ready()
+        
+
     
     def run_iperf_execution(self) -> int :
         """This method execute the iperf3 program with the pre-loaded config. THIS METHOD IS EXECUTED BY A NEW THREAD, IF THE ROLE IS SERVER"""
@@ -142,7 +192,9 @@ class IperfController:
             result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)        
             
             if result.returncode != 0:
-                print(f"IperfController: Errore nell'esecuzione di iperf: {result.stderr} | return_code: {result.returncode }")
+                if result.returncode != signal.SIGTERM:
+                    self.last_error = result.stderr
+                    print(f"IperfController: Iperf execution error: {self.last_error} | return_code: {result.returncode }")
             else:
                 try: # Reading the result in the stdout
                     self.last_json_result = json.loads(result.stdout)
@@ -165,53 +217,30 @@ class IperfController:
             if result.returncode == 0:
                 print(result.stdout)
             # elif result.returncode == 15: # This returncode 15, means that the subprocess has received a SIG.TERM signal, and then the process has been gently terminated
-            elif result.returncode != 15:
+            elif result.returncode != signal.SIGTERM:
                 print(f"Errore nell'esecuzione di iperf: {result.stderr} {result.stderr} | return_code: {result.returncode }")
-                
+            shared_state.set_probe_as_ready()
         return result.returncode
     
-    
-    def start_iperf(self) -> int:
-        if self.last_role is None:
-            print("IperfController: Can't start -> Not configured")
-            return -1
-        
-        execution_return_code = 0
-        if self.last_role == "Server":
-            self.iperf_thread = threading.Thread(target=self.run_iperf_execution, args=())
-            self.iperf_thread.start()
-        else:
-            repetition_count = 0
-            execution_return_code = -2
-            while repetition_count < self.total_repetition:
-                print(f"\n*************** Repetition: {repetition_count + 1} ***************")
-                execution_return_code = self.run_iperf_execution()
-                if execution_return_code != 0: # 0 is the correct execution code
-                    break
-                self.publish_last_output_iperf(repetition = repetition_count, last_result=((repetition_count + 1) == self.total_repetition))
-                repetition_count += 1
-        return execution_return_code
 
-    
-
-    def stop_iperf_server_thread(self):
-        iperf_server_pid = None
+    def stop_iperf_thread(self):
+        iperf_process_pid = None
         process_name = "iperf3"
-        if self.last_role == "Server" and self.iperf_thread != None:
+        if self.iperf_thread != None and self.last_role != None:
             for process in psutil.process_iter(['pid', 'name']):
                 if process_name in process.info['name']:  # Finding the iperf3 process
-                    iperf_server_pid = process.info['pid']
+                    iperf_process_pid = process.info['pid']
                     break
-            if iperf_server_pid == None:
-                return "Process " + process_name + "-server not in Execution"
+            if iperf_process_pid == None:
+                return "Process " + process_name + "-" + self.last_role + " not in Execution"
             try:
-                os.kill(iperf_server_pid, signal.SIGTERM)
+                os.kill(iperf_process_pid, signal.SIGTERM)
                 self.iperf_thread.join()
                 return "OK"
             except OSError as e:
                 return str(e)
         else:
-            return "Process " + process_name + "-server not in execution"
+            return "Process " + process_name + " not in execution"
 
 
     def send_command_ack(self, successed_command): # Incapsulating of the iperf-server-ip
