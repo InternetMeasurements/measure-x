@@ -65,7 +65,7 @@ class Iperf_Coordinator:
                         # ↓ In any case, i add the probe_id to the probes from which i received its conf-ACK
                         self.received_acks.add(probe_sender)
                     case "stop":
-                         print(f"Iperf_Coordinator: probe |{probe_sender}|->|Iperf-server stopped|->|ACK|")
+                         print(f"Iperf_Coordinator: probe |{probe_sender}|->|Iperf stopped|->|ACK|")
                          self.probes_server_port.pop(probe_sender, None)
                     case _:
                         print(f"ACK received for unkonwn iperf command -> {command_executed_on_probe}")
@@ -76,7 +76,7 @@ class Iperf_Coordinator:
                 match command_failed_on_probe:
                     case "start":
                         print("comando fallito start")
-                        if self.mongo_db.set_measurement_as_failed(measurement_id = self.last_mongo_measurement._id):
+                        if self.mongo_db.set_measurement_as_failed_by_id(measurement_id = self.last_mongo_measurement._id):
                             print(f"Iperf_Coordinator: measurement |{self.last_mongo_measurement._id}| setted as failed")
 
             case _:
