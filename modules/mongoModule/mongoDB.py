@@ -14,25 +14,28 @@ COMPLETED_STATE = "completed"
 
 
 class MongoDB:
-    def __init__(self):
-        self.addr_mongo_server = "192.168.1.117" 
-        self.user = "measurex"
-        self.password = "measurex"
-        self.db_name = "measurex"
-        self.results_collection = None
+    def __init__(self, mongo_config):
+        self.server_ip = mongo_config.ip_server
+        self.server_port = mongo_config.port_server
+        self.user = mongo_config.user
+        self.password = mongo_config.password
+        self.db_name = mongo_config.db_name
+        self.measurements_collection_name = mongo_config.measurements_collection_name
+        self.results_collection_name = mongo_config.results_collection_name
+        self.client = MongoClient("mongodb://" + self.user + ":" + self.password + "@" + self.server_ip + ":" + str(self.server_port) + "/")
         self.measurements_collection = None
-        self.client = MongoClient("mongodb://" + self.user + ":" + self.password + "@" + self.addr_mongo_server + ":27017/")
+        self.results_collection = None
 
         db = self.client[self.db_name] # crea il db measurex
 
-        if "measurements" not in db.list_collection_names(): # if the measurements_collection doesn't exists, then creates it
-            db.create_collection("measurements")
+        if self.measurements_collection_name not in db.list_collection_names(): # if the measurements_collection doesn't exists, then creates it
+            db.create_collection(self.measurements_collection_name)
 
-        if "results" not in db.list_collection_names():  # if the results_collection doesn't exists, then creates it
-            db.create_collection("results")
+        if self.results_collection_name not in db.list_collection_names():  # if the results_collection doesn't exists, then creates it
+            db.create_collection(self.results_collection_name)
         
-        self.measurements_collection = db["measurements"]
-        self.results_collection = db["results"]
+        self.measurements_collection = db[self.measurements_collection_name]
+        self.results_collection = db[self.results_collection_name]
 
     
     def insert_measurement(self, measure : MeasurementModelMongo) -> str:
