@@ -1,24 +1,30 @@
 import threading
 import time
+from pathlib import Path
 from datetime import datetime
+from src.modules.configLoader.config_loader import ConfigLoader
 from src.modules.mqttModule.mqtt_client import Mqtt_Client
 from src.modules.commandsMultiplexer.commands_multiplexer import CommandsMultiplexer
 from src.modules.iperfCoordinator.iperf_coordinator import Iperf_Coordinator
 from src.modules.pingCoordinator.ping_coordinator import Ping_Coordinator 
 from src.modules.mongoModule.mongoDB import MongoDB, SECONDS_OLD_MEASUREMENT, MeasurementModelMongo
 
-probe_ip = {}
+from scapy.all import rdpcap, sendp, IP
 
+probe_ip = {} # Here, i will save the couples {"probe_id": "probe_ip"}
+
+# Default handler for the status probe message reception
 def online_status_handler(probe_sender, type, payload):
     global probe_ip
     if type == "state":
         if payload["state"] == "ONLINE" or payload["state"] == "UPDATE":
             probe_ip[probe_sender] = payload["ip"]
             print(f"probe_sender [{probe_sender}] -> state [{payload['state']}] -> ip [{probe_ip[probe_sender]}]")
-        else:
+        elif payload["state"] == "OFFLINE":
             probe_ip.pop(probe_sender, None)
             print(f"probe_sender [{probe_sender}] -> state [{payload['state']}]")
 
+# Thread body for the check failed measurements
 def update_measurements_collection_thread_body(mongo_db : MongoDB):
     while(True):
         updated_as_failed_measurements = mongo_db.set_old_measurements_as_failed()
@@ -30,7 +36,8 @@ def update_measurements_collection_thread_body(mongo_db : MongoDB):
 def main():
     global probe_ip
     try:
-        mongo_db = MongoDB()
+        cl = ConfigLoader(base_path = Path(__file__).parent, file_name="coordinatorConfif.yaml")
+        mongo_db = MongoDB(mongo_config = cl.mongo_config)
     except Exception as e:
         print(f"Coordinator: connection failed to mongo. -> Exception info: \n{e}")
         return
@@ -138,6 +145,13 @@ def main():
             case "10":
                 delete_count = mongo_db.delete_measurements_by_id("672fb3887189c5212ab6b2be")
                 print(f"Ho eliminato {delete_count} measures")
+            case "11":
+                pcap_file = r"C:/Users/Francesco/Desktop/OnePingPacket.pcap"
+                packets = rdpcap(pcap_file)
+                for packet in packets:
+                    if IP in packet and packet[IP].dst == "192.168.43.1":
+                        sendp(packet, iface="Wi-Fi")  # Sostituisci "eth0" con la tua interfaccia di rete
+                    #time.sleep(0.1)  # Tempo tra i pacchetti (in secondi)
             case _:
                 break
     coordinator_mqtt.disconnect()
