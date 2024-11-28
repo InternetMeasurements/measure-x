@@ -2,7 +2,7 @@ import yaml
 import os
 from pathlib import Path
 import paho.mqtt.client as mqtt
-
+from src.modules.configLoader.config_loader import ConfigLoader, MQTT_KEY
 """
     ******************************************************* Classe MQTT PER IL COORDINATOR *******************************************************
 """
@@ -14,14 +14,20 @@ class Mqtt_Client(mqtt.Client):
     def __init__(self, external_status_handler, external_results_handler):
         self.config = None
         self.probes_command_topic = None
-        base_path = Path(__file__).parent
-        yaml_dir = os.path.join(base_path, "coordinatorConfig.yaml")
-        with open(yaml_dir) as file:
-            self.config = yaml.safe_load(file)
+
+        #Inserisci l'import del ConfigLoader e scrivi il codice per implementare 
+        # il caricamento con il configLoder
+
+        #base_path = Path(__file__).parent
+        #yaml_dir = os.path.join(base_path, "mqttConfig.yaml")
+        #with open(yaml_dir) as file:
+            #self.config = yaml.safe_load(file)
+
+        cl = ConfigLoader(base_path= Path(__file__).parent, file_name = 'mqttConfig.yaml')
 
         self.external_results_handler = external_results_handler
         self.external_status_handler = external_status_handler
-        self.config = self.config['mqtt_client']
+        self.config = cl.mqtt_config[MQTT_KEY]
         self.client_id = self.config['client_id']
         clean_session = self.config['clean_session']
         broker_ip = self.config['broker']['host']
