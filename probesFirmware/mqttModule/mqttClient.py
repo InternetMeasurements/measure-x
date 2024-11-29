@@ -141,7 +141,7 @@ class ProbeMqttClient(mqtt.Client):
         if (state == "ONLINE") or (state == "UPDATE"):
             hostname = socket.gethostname()
             my_ip = socket.gethostbyname(hostname)
-            if my_ip == "127.0.0.1":
+            if my_ip == "127.0.1.1":
                 my_ip = netifaces.ifaddresses(INTERFACE_NAME)[netifaces.AF_INET][0]['addr']
             #my_ip = netifaces.ifaddresses(netifaces.interfaces()[0])[netifaces.AF_INET][0]['addr']
             json_status["payload"]["ip"] = my_ip
