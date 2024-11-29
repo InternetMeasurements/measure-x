@@ -1,4 +1,4 @@
-from src.modules.mongoModule.models.background_traffic_model_mongo import BackgroundTrafficModelMongo
+from modules.mongoModule.models.background_traffic_model_mongo import BackgroundTrafficModelMongo
 
 class MeasurementModelMongo:
     def __init__(self, description, type, source_probe, dest_probe, source_probe_ip, dest_probe_ip, state = None, start_time = None, gps_source_probe = None, gps_dest_probe = None) -> None:

@@ -8,7 +8,7 @@ import psutil
 import socket
 import time
 from pingparsing import PingParsing
-from src.probesFirmware.mqttModule.mqttClient import ProbeMqttClient
+from probesFirmware.mqttModule.mqttClient import ProbeMqttClient
 
 """ Class that implements the latency, packets loss... funcionalities """
 class PingController:

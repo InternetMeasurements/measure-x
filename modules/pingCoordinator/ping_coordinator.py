@@ -1,11 +1,11 @@
 import json
 import time
 from datetime import datetime as dt
-from src.modules.mqttModule.mqtt_client import Mqtt_Client
+from modules.mqttModule.mqtt_client import Mqtt_Client
 from bson import ObjectId
-from src.modules.mongoModule.mongoDB import MongoDB, SECONDS_OLD_MEASUREMENT
-from src.modules.mongoModule.models.measurement_model_mongo import MeasurementModelMongo
-from src.modules.mongoModule.models.ping_result_model_mongo import PingResultModelMongo
+from modules.mongoModule.mongoDB import MongoDB, SECONDS_OLD_MEASUREMENT
+from modules.mongoModule.models.measurement_model_mongo import MeasurementModelMongo
+from modules.mongoModule.models.ping_result_model_mongo import PingResultModelMongo
 
 class Ping_Coordinator:
 

@@ -1,8 +1,6 @@
-import yaml
-import os
 from pathlib import Path
 import paho.mqtt.client as mqtt
-from src.modules.configLoader.config_loader import ConfigLoader, MQTT_KEY
+from modules.configLoader.config_loader import ConfigLoader, MQTT_KEY
 """
     ******************************************************* Classe MQTT PER IL COORDINATOR *******************************************************
 """

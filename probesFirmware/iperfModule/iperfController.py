@@ -6,7 +6,7 @@ import threading
 import signal
 import psutil
 from shared_resources import shared_state
-from src.probesFirmware.mqttModule.mqttClient import ProbeMqttClient
+from probesFirmware.mqttModule.mqttClient import ProbeMqttClient
 
 class IperfController:
     def __init__(self, mqtt_client : ProbeMqttClient, registration_handler_request_function):

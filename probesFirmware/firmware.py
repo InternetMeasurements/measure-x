@@ -1,7 +1,10 @@
-from src.probesFirmware.mqttModule.mqttClient import ProbeMqttClient
-from src.probesFirmware.commandsMultiplexer.commandsMultiplexer import CommandsMultiplexer
-from src.probesFirmware.iperfClient.iperfController import IperfController
-from src.probesFirmware.latencyModule.pingController import PingController
+
+from probesFirmware.mqttModule.mqttClient import ProbeMqttClient
+from probesFirmware.commandsMultiplexer.commandsMultiplexer import CommandsMultiplexer
+from probesFirmware.iperfModule.iperfController import IperfController
+from probesFirmware.pingModule.pingController import PingController
+
+
 
 class Probe:
     def __init__(self, probe_id):

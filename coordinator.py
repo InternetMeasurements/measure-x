@@ -2,12 +2,12 @@ import threading
 import time
 from pathlib import Path
 from datetime import datetime
-from src.modules.configLoader.config_loader import ConfigLoader
-from src.modules.mqttModule.mqtt_client import Mqtt_Client
-from src.modules.commandsMultiplexer.commands_multiplexer import CommandsMultiplexer
-from src.modules.iperfCoordinator.iperf_coordinator import Iperf_Coordinator
-from src.modules.pingCoordinator.ping_coordinator import Ping_Coordinator 
-from src.modules.mongoModule.mongoDB import MongoDB, SECONDS_OLD_MEASUREMENT, MeasurementModelMongo
+from modules.configLoader.config_loader import ConfigLoader
+from modules.mqttModule.mqtt_client import Mqtt_Client
+from modules.commandsMultiplexer.commands_multiplexer import CommandsMultiplexer
+from modules.iperfCoordinator.iperf_coordinator import Iperf_Coordinator
+from modules.pingCoordinator.ping_coordinator import Ping_Coordinator 
+from modules.mongoModule.mongoDB import MongoDB, SECONDS_OLD_MEASUREMENT, MeasurementModelMongo
 
 from scapy.all import rdpcap, sendp, IP
 
@@ -36,7 +36,7 @@ def update_measurements_collection_thread_body(mongo_db : MongoDB):
 def main():
     global probe_ip
     try:
-        cl = ConfigLoader(base_path = Path(__file__).parent, file_name="coordinatorConfif.yaml")
+        cl = ConfigLoader(base_path = Path(__file__).parent, file_name="coordinatorConfig.yaml")
         mongo_db = MongoDB(mongo_config = cl.mongo_config)
     except Exception as e:
         print(f"Coordinator: connection failed to mongo. -> Exception info: \n{e}")
