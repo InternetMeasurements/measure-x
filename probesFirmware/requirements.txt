@@ -1,0 +1,5 @@
+pyyaml
+paho-mqtt
+psutil
+pingparsing
+scapy
