@@ -41,7 +41,7 @@ class Iperf_Coordinator:
 
 
     def handler_received_result(self, probe_sender, result: json):
-        if ((time.time() - result["start_timestamp"]) >= SECONDS_OLD_MEASUREMENT):
+        if ((time.time() - result["start_timestamp"]) < SECONDS_OLD_MEASUREMENT):
             self.store_measurement_result(result)
             self.print_summary_result(measurement_result = result)
         else: #Volendo posso anche evitare questo settaggio, perchè ci penserà il thread periodico
