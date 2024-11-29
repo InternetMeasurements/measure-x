@@ -1,6 +1,6 @@
 import yaml
 import json
-import socket
+import netifaces
 from pathlib import Path
 import os
 import paho.mqtt.client as mqtt
@@ -8,7 +8,7 @@ import paho.mqtt.client as mqtt
 """
     ******************************************************* Classe MQTT PER LE PROBES *******************************************************
 """
-
+INTERFACE_NAME = 'wlan0' # su macchina virtuale --> 'eth0'
 VERBOSE = False
 
 class ProbeMqttClient(mqtt.Client):
@@ -138,8 +138,7 @@ class ProbeMqttClient(mqtt.Client):
             }
         }
         if (state == "ONLINE") or (state == "UPDATE"):
-            hostname = socket.gethostname()
-            my_ip = socket.gethostbyname(hostname)
+            my_ip = netifaces.ifaddresses(INTERFACE_NAME)[netifaces.AF_INET][0]['addr']
             json_status["payload"]["ip"] = my_ip
         self.publish_on_status_topic(json.dumps(json_status))
 
