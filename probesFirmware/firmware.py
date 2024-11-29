@@ -1,4 +1,4 @@
-
+import os
 from mqttModule.mqttClient import ProbeMqttClient
 from commandsMultiplexer.commandsMultiplexer import CommandsMultiplexer
 from iperfModule.iperfController import IperfController
@@ -27,7 +27,10 @@ class Probe:
 
 
 def main():
-    probe1 = Probe("probe4")
+    user_name = os.getlogin()
+    if user_name == "Francesco":
+        user_name = "probe4"
+    probe1 = Probe(user_name)
     while True:
         command = input()
         match command:
