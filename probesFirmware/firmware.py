@@ -1,8 +1,8 @@
 
-from probesFirmware.mqttModule.mqttClient import ProbeMqttClient
-from probesFirmware.commandsMultiplexer.commandsMultiplexer import CommandsMultiplexer
-from probesFirmware.iperfModule.iperfController import IperfController
-from probesFirmware.pingModule.pingController import PingController
+from mqttModule.mqttClient import ProbeMqttClient
+from commandsMultiplexer.commandsMultiplexer import CommandsMultiplexer
+from iperfModule.iperfController import IperfController
+from pingModule.pingController import PingController
 
 
 
