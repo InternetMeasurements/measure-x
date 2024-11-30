@@ -1,3 +1,4 @@
+---
 - name: Setup Raspberry Pi Coordinator
   hosts: coordinator
   become: yes
@@ -5,6 +6,7 @@
     path_base: "/home/{{ inventory_hostname }}/measureX"
 
   tasks:
+    # 1. Install pip and virtualenv if not already installed
     - name: Install pip and virtualenv if not already installed
       apt:
         name:
@@ -12,54 +14,74 @@
           - python3-venv
         state: present
 
+    # 2. Create a virtual environment named measurex_venv
     - name: Create a virtual environment named measurex_venv
       command:
         cmd: python3 -m venv /home/{{ inventory_hostname }}/measurex_venv
         creates: /home/{{ inventory_hostname }}/measurex_venv
 
+    # 3. Install dependencies from requirements.txt into virtualenv
     - name: Install dependencies from requirements.txt into virtualenv
       pip:
         requirements: "{{ path_base }}/requirements.txt"
         virtualenv: "/home/{{ inventory_hostname }}/measurex_venv"
         state: present
 
-    - name: Import MongoDB GPG key
+    # 4. Remove any existing MongoDB installation
+    - name: Remove existing MongoDB installation
+      apt:
+        name: mongodb-org
+        state: absent
+      ignore_errors: yes
+
+    # 5. Add MongoDB GPG key for version 4.4
+    - name: Import MongoDB GPG key for version 4.4
       apt_key:
-        keyserver: hkp://keyserver.ubuntu.com:80
-        id: 7F0CEB10
+        url: https://www.mongodb.org/static/pgp/server-4.4.asc
         state: present
 
-    - name: Add MongoDB repository
+    # 6. Add MongoDB 4.4 repository
+    - name: Add MongoDB 4.4 repository
       apt_repository:
-        repo: 'deb http://downloads-distro.mongodb.org/repo/ubuntu-upstart dist 10gen'
+        repo: "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/4.4 multiverse"
         state: present
-
+    # 7. Update apt cache
     - name: Update apt cache
       apt:
         update_cache: yes
 
-    - name: Install MongoDB
+    # 8. Install MongoDB 4.4
+    - name: Install MongoDB 4.4
       apt:
-        pkg: mongodb-org
-        state: latest
-        update_cache: yes
-
-    - name: Install MongoDB client
-      apt:
-        name: mongodb-org-shell
+        name: mongodb-org
         state: present
 
-    - name: Enable and start MongoDB service
-      service:
-        name: mongod
-        state: started
-        enabled: yes
+    - name: Configure MongoDB to bind to all IP addresses
+      lineinfile:
+        path: /etc/mongod.conf
+        regexp: '^  bindIp: 127.0.0.1'  # Cerchiamo la riga che contiene bindIp con 127.0.0.1
+        line: '  bindIp: 0.0.0.0'  # Sostituire con bindIp: 0.0.0.0
 
-    - name: Create MongoDB user for measurex
+    # 9. Enable MongoDB service to start on boot
+    - name: Enable and start MongoDB service
+      systemd:
+        name: mongod
+        enabled: yes
+        state: started
+
+    # 10. Create MongoDB user for measurexDB
+    - name: Create MongoDB user for measurexDB
       command: >
-        mongo admin --eval "db.createUser({
+        mongosh admin --eval "db.createUser({
           user: 'measurex',
           pwd: 'measurex',
           roles: [{ role: 'readWrite', db: 'measurexDB' }]
         })"
       ignore_errors: yes
+
+  # Optional: Restart MongoDB if needed
+  handlers:
+    - name: restart mongodb
+      systemd:
+        name: mongod
+        state: restarted
