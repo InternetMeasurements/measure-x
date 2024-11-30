@@ -1,28 +1,58 @@
 ---
-- name: Setup virtual environment and install dependencies
+- name: Setup Raspberry Pi Coordinator
   hosts: coordinator
   become: yes
   vars:
-    path_base: "/home/{{ inventory_hostname }}/measureX"
+    mongo_admin_user: "admin"
+    mongo_admin_password: "adminPassword"  # Cambia se necessario
+    mongo_user: "measurex"
+    mongo_password: "measurex"
+    mongo_database: "measurexDB"
 
   tasks:
-    - name: Install pip and virtualenv if not already installed
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install required packages for Python and MongoDB
       apt:
         name:
           - python3-pip
           - python3-venv
+          - wget
+          - gnupg
         state: present
 
-    - name: Create a virtual environment named measurex_venv
-      command:
-        cmd: python3 -m venv /home/{{ inventory_hostname }}/measurex_venv
-        creates: /home/{{ inventory_hostname }}/measurex_venv
-    - name: Install dependencies from requirements.txt into virtualenv
-      pip:
-        requirements: "{{ path_base }}/requirements.txt"
-        virtualenv: "/home/{{ inventory_hostname }}/measurex_venv"
+    - name: Import MongoDB GPG key
+      apt_key:
+        url: https://www.mongodb.org/static/pgp/server-6.0.asc
         state: present
-    - name: Install mongo server
+
+    - name: Add MongoDB repository
+      copy:
+        dest: /etc/apt/sources.list.d/mongodb-org-6.0.list
+        content: |
+          deb [ arch=arm64,armhf ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/6.0 multiverse
+
+    - name: Update apt cache after adding MongoDB repository
+      apt:
+        update_cache: yes
+
+    - name: Install MongoDB
       apt:
         name: mongodb-org
         state: present
+
+    - name: Enable and start MongoDB service
+      systemd:
+        name: mongod
+        enabled: yes
+        state: started
+
+    - name: Create MongoDB user
+      shell: |
+        mongo admin --eval "db.createUser({
+          user: '{{ mongo_user }}',
+          pwd: '{{ mongo_password }}',
+          roles: [{ role: 'readWrite', db: '{{ mongo_database }}' }]
+        })"
