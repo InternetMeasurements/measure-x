@@ -3,7 +3,7 @@ import json
 import yaml
 import time
 from pathlib import Path
-from src.modules.mqttModule.mqtt_client import Mqtt_Client
+from modules.mqttModule.mqtt_client import Mqtt_Client
 from bson import ObjectId
 from modules.mongoModule.mongoDB import MongoDB, SECONDS_OLD_MEASUREMENT
 from modules.mongoModule.models.measurement_model_mongo import MeasurementModelMongo
