@@ -1,58 +1,65 @@
----
 - name: Setup Raspberry Pi Coordinator
   hosts: coordinator
   become: yes
   vars:
-    mongo_admin_user: "admin"
-    mongo_admin_password: "adminPassword"  # Cambia se necessario
-    mongo_user: "measurex"
-    mongo_password: "measurex"
-    mongo_database: "measurexDB"
+    path_base: "/home/{{ inventory_hostname }}/measureX"
 
   tasks:
-    - name: Update apt cache
-      apt:
-        update_cache: yes
-
-    - name: Install required packages for Python and MongoDB
+    - name: Install pip and virtualenv if not already installed
       apt:
         name:
           - python3-pip
           - python3-venv
-          - wget
-          - gnupg
+        state: present
+
+    - name: Create a virtual environment named measurex_venv
+      command:
+        cmd: python3 -m venv /home/{{ inventory_hostname }}/measurex_venv
+        creates: /home/{{ inventory_hostname }}/measurex_venv
+
+    - name: Install dependencies from requirements.txt into virtualenv
+      pip:
+        requirements: "{{ path_base }}/requirements.txt"
+        virtualenv: "/home/{{ inventory_hostname }}/measurex_venv"
         state: present
 
     - name: Import MongoDB GPG key
       apt_key:
-        url: https://www.mongodb.org/static/pgp/server-6.0.asc
+        keyserver: hkp://keyserver.ubuntu.com:80
+        id: 7F0CEB10
         state: present
 
     - name: Add MongoDB repository
-      copy:
-        dest: /etc/apt/sources.list.d/mongodb-org-6.0.list
-        content: |
-          deb [ arch=arm64,armhf ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/6.0 multiverse
+      apt_repository:
+        repo: 'deb http://downloads-distro.mongodb.org/repo/ubuntu-upstart dist 10gen'
+        state: present
 
-    - name: Update apt cache after adding MongoDB repository
+    - name: Update apt cache
       apt:
         update_cache: yes
 
     - name: Install MongoDB
       apt:
-        name: mongodb-org
+        pkg: mongodb-org
+        state: latest
+        update_cache: yes
+
+    - name: Install MongoDB client
+      apt:
+        name: mongodb-org-shell
         state: present
 
     - name: Enable and start MongoDB service
-      systemd:
+      service:
         name: mongod
-        enabled: yes
         state: started
+        enabled: yes
 
-    - name: Create MongoDB user
-      shell: |
+    - name: Create MongoDB user for measurex
+      command: >
         mongo admin --eval "db.createUser({
-          user: '{{ mongo_user }}',
-          pwd: '{{ mongo_password }}',
-          roles: [{ role: 'readWrite', db: '{{ mongo_database }}' }]
+          user: 'measurex',
+          pwd: 'measurex',
+          roles: [{ role: 'readWrite', db: 'measurexDB' }]
         })"
+      ignore_errors: yes
