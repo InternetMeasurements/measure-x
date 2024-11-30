@@ -1,0 +1,28 @@
+---
+- name: Setup virtual environment and install dependencies
+  hosts: coordinator
+  become: yes
+  vars:
+    path_base: "/home/{{ inventory_hostname }}/measureX"
+
+  tasks:
+    - name: Install pip and virtualenv if not already installed
+      apt:
+        name:
+          - python3-pip
+          - python3-venv
+        state: present
+
+    - name: Create a virtual environment named measurex_venv
+      command:
+        cmd: python3 -m venv /home/{{ inventory_hostname }}/measurex_venv
+        creates: /home/{{ inventory_hostname }}/measurex_venv
+    - name: Install dependencies from requirements.txt into virtualenv
+      pip:
+        requirements: "{{ path_base }}/requirements.txt"
+        virtualenv: "/home/{{ inventory_hostname }}/measurex_venv"
+        state: present
+    - name: Install mongo server
+      apt:
+        name: mongodb-org
+        state: present
