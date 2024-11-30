@@ -1,10 +1,10 @@
 import time
 from bson import ObjectId
 from pymongo import MongoClient
-from src.modules.mongoModule.models.measurement_model_mongo import MeasurementModelMongo
-from src.modules.mongoModule.models.ping_result_model_mongo import PingResultModelMongo
-from src.modules.mongoModule.models.iperf_result_model_mongo import IperfResultModelMongo
-from src.modules.mongoModule.models.background_traffic_model_mongo import BackgroundTrafficModelMongo
+from modules.mongoModule.models.measurement_model_mongo import MeasurementModelMongo
+from modules.mongoModule.models.ping_result_model_mongo import PingResultModelMongo
+from modules.mongoModule.models.iperf_result_model_mongo import IperfResultModelMongo
+from modules.mongoModule.models.background_traffic_model_mongo import BackgroundTrafficModelMongo
 
 HOURS_OLD_MEASUREMENT = 24
 SECONDS_OLD_MEASUREMENT = HOURS_OLD_MEASUREMENT * 3600

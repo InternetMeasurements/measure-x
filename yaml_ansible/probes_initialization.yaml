@@ -1,0 +1,29 @@
+---
+- name: Setup virtual environment and install dependencies
+  hosts: probes
+  become: yes
+  vars:
+    path_base: "/home/{{ inventory_hostname }}/measureX/probesFirmware"  # Cambia con il percorso corretto
+
+  tasks:
+    - name: Install pip and virtualenv if not already installed
+      apt:
+        name:
+          - python3-pip
+          - python3-venv
+        state: present
+
+    - name: Create a virtual environment named measurex_venv
+      command:
+        cmd: python3 -m venv /home/{{ inventory_hostname }}/measurex_venv
+        creates: /home/{{ inventory_hostname }}/measurex_venv
+    - name: Iperf3 installation
+      apt:
+        name: iperf3
+        state: present
+        update_cache: yes
+    - name: Install dependencies from requirements.txt into virtualenv
+      pip:
+        requirements: "{{ path_base }}/requirements.txt"
+        virtualenv: "/home/{{ inventory_hostname }}/measurex_venv"
+        state: present
