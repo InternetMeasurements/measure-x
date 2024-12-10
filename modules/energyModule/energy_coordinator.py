@@ -56,5 +56,22 @@ class EnergyCoordinator:
         }
         self.mqtt_client.publish_on_command_topic(probe_id = probe_id, 
                                                   complete_command = json.dumps(json_check_i2C_command))
-
+        
+    def send_start_command(self, probe_id):
+        json_energy_start = {
+            "handler": "energy",
+            "command": "start",
+            "payload": {}
+        }
+        self.mqtt_client.publish_on_command_topic(probe_id = probe_id,
+                                                  complete_command=json.dumps(json_energy_start))
+    
+    def send_stop_command(self, probe_id):
+        json_energy_stop = {
+            "handler": "energy",
+            "command": "stop",
+            "payload": {}
+        }
+        self.mqtt_client.publish_on_command_topic(probe_id = probe_id,
+                                                  complete_command=json.dumps(json_energy_stop))
     

@@ -161,6 +161,12 @@ def main():
             case "a":
                 print("Consumption test: INA2019 VS Qoitec ACE")
                 energy_coordinator.send_check_i2C_command(probe_id = "probe2")
+            case "b":
+                print("Consumption test: start measurement")
+                energy_coordinator.send_start_command(probe_id = "probe2")
+            case "c":
+                print("Consumption test: stop measurement")
+                energy_coordinator.send_stop_command(probe_id = "probe2")
             case _:
                 break
     coordinator_mqtt.disconnect()
