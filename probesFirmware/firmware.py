@@ -3,7 +3,7 @@ from mqttModule.mqttClient import ProbeMqttClient
 from commandsMultiplexer.commandsMultiplexer import CommandsMultiplexer
 from iperfModule.iperfController import IperfController
 from pingModule.pingController import PingController
-
+from energyModule.energyController import EnergyController
 
 
 class Probe:
@@ -17,6 +17,8 @@ class Probe:
                                                 self.commands_multiplexer.registration_handler_request) # ENABLE THROUGHPUT FUNCTIONALITY
         self.ping_controller = PingController(self.mqtt_client,
                                               self.commands_multiplexer.registration_handler_request)   # ENABLE LATENCY FUNCTIONALITY
+        self.energy_controller = EnergyController(self.mqtt_client,
+                                                  self.commands_multiplexer.registration_handler_request) # ENABLE POWER CONSUMPTION FUNCTIONALITY
         
         
     def check_for_ready(self):
