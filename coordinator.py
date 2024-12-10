@@ -67,7 +67,7 @@ def main():
     energy_coordinator = EnergyCoordinator(
         mqtt_client=coordinator_mqtt,
         registration_handler_error=commands_multiplexer.add_error_handler, 
-        registration_handler_result=commands_multiplexer.add_status_handler,
+        registration_handler_result=commands_multiplexer.add_result_handler,
         mongo_db=mongo_db)
 
     commands_multiplexer.add_status_handler('probe_state', online_status_handler)
