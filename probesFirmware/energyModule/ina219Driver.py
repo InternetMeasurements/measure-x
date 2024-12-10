@@ -18,6 +18,9 @@ class Ina219Driver:
 
         if not self.ina219.is_device_present():
             raise Exception("INA219 NOT FOUND ON i2C BUS")
+        
+    def i2C_INA_check(self):
+        return self.ina219.is_device_present()
 
     def start_current_measurement(self, filename = None) -> str:
         try:
