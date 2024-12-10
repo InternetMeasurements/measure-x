@@ -1,0 +1,41 @@
+import json
+from modules.mongoModule.mongoDB import MongoDB
+from modules.mqttModule.mqtt_client import Mqtt_Client
+
+class EnergyCoordinator:
+    def __init__(self, mqtt_client : Mqtt_Client, registration_handler_error, registration_handler_result, mongo_db : MongoDB):
+        self.mqtt_client = mqtt_client
+        self.mongo_db = mongo_db
+
+        # Requests to CommandsDemultiplexer
+        registration_response = registration_handler_error(
+            interested_status = "energy",
+            handler = self.handler_error_messages)
+        if registration_response == "OK" :
+            print(f"EnergyCoordinator: registered handler for error -> energy")
+        else:
+            print(f"EnergyCoordinator: registration handler failed. Reason -> {registration_response}")
+
+        # Requests to CommandsDemultiplexer
+        registration_response = registration_handler_result(
+            interested_result = "energy",
+            handler = self.handler_received_result)
+        if registration_response == "OK" :
+            print(f"EnergyCoordinator: registered handler for result -> energy")
+        else:
+            print(f"EnergyCoordinator: registration handler failed. Reason -> {registration_response}")
+        
+    def handler_error_messages(self, payload : json):
+        print(f"EnergyCoordinator: received error msg -> {payload}")
+    
+    def handler_received_result(self, probe_sender, result: json):
+        print(f"EnergyCoordinator: result received from {probe_sender}")
+
+    def send_check_i2C_command(self, probe_id):
+        json_check_i2C_command = {
+            "handler": "energy",
+            "command": "check",
+            "payload": {}
+        }
+        self.mqtt_client.publish_on_command_topic(probe_id = probe_id, 
+                                                  complete_command = json.dumps(json_check_i2C_command))
