@@ -3,3 +3,6 @@ paho-mqtt
 psutil
 pingparsing
 scapy
+smbus2
+gpiozero
+lgpio
