@@ -53,3 +53,5 @@ class CommandsMultiplexer:
         except json.JSONDecodeError as e:
             print(f"CommandsMultiplexer: status_multiplexer:: json exception -> {e}")
 
+    def errors_multiplexer(self, probe_sender, error):
+        print(f"CommandsMultiplexer: error msg from |{probe_sender}| --> {error}")

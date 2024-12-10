@@ -50,7 +50,8 @@ def main():
     commands_multiplexer = CommandsMultiplexer()
     coordinator_mqtt = Mqtt_Client(
         external_status_handler = commands_multiplexer.status_multiplexer, 
-        external_results_handler = commands_multiplexer.result_multiplexer)
+        external_results_handler = commands_multiplexer.result_multiplexer,
+        external_errors_handler = commands_multiplexer.errors_multiplexer)
     
     iperf_coordinator = Iperf_Coordinator(
         mqtt = coordinator_mqtt,

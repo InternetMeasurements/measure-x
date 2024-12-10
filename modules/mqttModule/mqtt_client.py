@@ -9,7 +9,7 @@ VERBOSE = False
 
 class Mqtt_Client(mqtt.Client):
 
-    def __init__(self, external_status_handler, external_results_handler):
+    def __init__(self, external_status_handler, external_results_handler, external_errors_handler):
         self.config = None
         self.probes_command_topic = None
 
@@ -25,6 +25,8 @@ class Mqtt_Client(mqtt.Client):
 
         self.external_results_handler = external_results_handler
         self.external_status_handler = external_status_handler
+        self.external_errors_handler = external_errors_handler
+
         self.config = cl.mqtt_config[MQTT_KEY]
         self.client_id = self.config['client_id']
         clean_session = self.config['clean_session']
@@ -68,6 +70,8 @@ class Mqtt_Client(mqtt.Client):
             self.external_results_handler(probe_sender, message.payload.decode('utf-8'))
         elif str(message.topic).endswith("status"):
             self.external_status_handler(probe_sender, message.payload.decode('utf-8'))
+        elif str(message.topic).endswith("errors"):
+            self.external_errors_handler(probe_sender, message.payload.decode('utf-8'))
         else:
             print(f"MqttClient: topic registered but non handled -> {message.topic}")
 
