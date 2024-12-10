@@ -1,6 +1,7 @@
 import smbus
 import time
-import gpiod
+import subprocess
+from gpiozero import PIN
 import csv
 import threading
 
@@ -9,17 +10,19 @@ DEFAULT_CURRENT_MEASUREMENT_FILE = "ina219_measurements.csv"
 
 class Ina219Driver:
     def __init__(self, current_compare : bool = False):
-        self.chip = gpiod.Chip('gpiochip4')
-        self.otii_sync_pin = self.chip.get_line(SYNC_OTII_PIN)
-        self.otii_sync_pin.request(consumer='LED', type=gpiod.LINE_REQ_DIR_OUT)
+        #self.chip = gpiod.Chip('gpiochip4')
+        #self.otii_sync_pin = self.chip.get_line(SYNC_OTII_PIN)
+        #self.otii_sync_pin.request(consumer='LED', type=gpiod.LINE_REQ_DIR_OUT)
+        self.otii_sync_pin = PIN(SYNC_OTII_PIN)
+        self.otii_sync_pin.off()
         self.ina219 = INA219(addr=0x40)
         self.stop_thread_event = threading.Event()
         self.measurement_thread = None
         self.last_filename = None
         self.current_compare = current_compare
 
-        if not self.ina219.is_device_present():
-            raise Exception("INA219 NOT FOUND ON i2C BUS")
+        #if not self.ina219.is_device_present():
+            #raise Exception("INA219 NOT FOUND ON i2C BUS")
 
     def start_current_measurement(self, filename = None) -> str:
         try:
@@ -46,7 +49,8 @@ class Ina219Driver:
             try:
                 if self.current_compare:
                     print(f"[CURRENT_COMPARE] SYNC GPIO{SYNC_OTII_PIN} HIGH")
-                self.otii_sync_pin.set_value(1)
+                #self.otii_sync_pin.set_value(1)
+                self.otii_sync_pin.on()
                 while not self.stop_thread_event.is_set():
                     #GPIO.output(otii_sync_pin, not GPIO.input(otii_sync_pin))
                     current = self.ina219.getCurrent_mA() / 1000
@@ -61,12 +65,13 @@ class Ina219Driver:
             except KeyboardInterrupt:
                 print("Measurement stopped from keyboard")
             finally:
-                self.otii_sync_pin.set_value(0)
+                #self.otii_sync_pin.set_value(0)
+                self.otii_sync_pin.off()
                 if self.current_compare:
                     print(f"[CURRENT_COMPARE] SYNC GPIO{SYNC_OTII_PIN} LOW")
                 csv_file.close()
-                self.otii_sync_pin.release()
-                self.chip.close()
+                #self.otii_sync_pin.release()
+                #self.chip.close()
         
 # --------------------------------- CLASS INA219 - LOW LEVEL ---------------------------------
 
