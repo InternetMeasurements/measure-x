@@ -23,6 +23,8 @@ class Ina219Driver:
         return self.ina219.is_device_present()
 
     def start_current_measurement(self, filename = None) -> str:
+        if self.measurement_thread is not None:
+            return "There is already a measurement thread in execution"
         try:
             self.last_filename = DEFAULT_CURRENT_MEASUREMENT_FILE if filename is None else filename
             self.measurement_thread = threading.Thread(target=self.body_measurement_thread, args=())
@@ -32,7 +34,7 @@ class Ina219Driver:
             return str(e)
 
     def stop_current_measurement(self) -> str:
-        if self.measurement_thread != None:
+        if self.measurement_thread is not None:
             self.stop_thread_event.set()
             self.measurement_thread.join()
             return "OK"
