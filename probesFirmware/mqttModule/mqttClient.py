@@ -8,7 +8,7 @@ import psutil
 import paho.mqtt.client as mqtt
 
 """
-    ******************************************************* Classe MQTT PER LE PROBES *******************************************************
+    ******************************************************* Classe MQTT FOR THE PROBES *******************************************************
 """
 WLAN_IFACE = 'wlan0'
 ETHERNET_IFACE = 'eth0'
@@ -39,8 +39,12 @@ class ProbeMqttClient(mqtt.Client):
         broker_ip = self.config['broker']['host']
         broker_port = self.config['broker']['port']
         keep_alive = self.config['broker']['keep_alive']
+
+        """ ******************************************************* PROBE TOPICS *******************************************************"""
         self.status_topic = str(self.config['publishing']['status_topic']).replace('PROBE_ID', self.probe_id)
         self.results_topic = str(self.config['publishing']['results_topic']).replace('PROBE_ID', self.probe_id)
+        self.error_topic = str(self.config['publishing']['error_topic']).replace('PROBE_ID', self.probe_id)
+        """ ****************************************************************************************************************************"""
 
         super().__init__(client_id = self.probe_id, clean_session = clean_session)
 
@@ -68,7 +72,7 @@ class ProbeMqttClient(mqtt.Client):
                 print(f"{self.probe_id}: Subscription to topic --> [{topic}]")
 
     def message_rcvd_event_handler(self, client, userdata, message):
-        # Invoked when a new message has arrived from the broker     
+        # Invoked when a new message has arrived from the broker. The handler is CommandsDemultiplexer   
         if VERBOSE: 
             print(f"MQTT {self.probe_id}: Received msg on topic -> | {message.topic} | {message.payload.decode('utf-8')} |")
         self.external_mqtt_msg_handler(message.payload.decode('utf-8'))
@@ -95,24 +99,31 @@ class ProbeMqttClient(mqtt.Client):
             retain = self.config['publishing']['retain'] )
         if VERBOSE:
             print(f"MqttClient: sent on topic |{self.results_topic}| -> {result}")
+
+    def publish_on_error_topic(self, error_msg):
+        self.publish(
+            topic = self.error_topic,
+            payload = error_msg,
+            qos = self.config['publishing']['qos'],
+            retain = self.config['publishing']['retain'] )
+        if VERBOSE:
+            print(f"MqttClient: sent on topic |{self.error_topic}| -> {error_msg}")
         
     def publish_command_ACK(self, handler, payload):
         json_ACK = {
-            "handler": handler, #'iperf'
-            "type" : "ACK", #'ACK'
+            "handler": handler,
+            "type" : "ACK",
             "payload": payload
         }
         self.publish_on_status_topic(json.dumps(json_ACK))
-        self.last_error = None
 
     def publish_command_NACK(self, handler, payload):
         json_NACK = {
-            "handler": handler, #'iperf'
-            "type" : "NACK", #NACK'
+            "handler": handler,
+            "type" : "NACK",
             "payload": payload
         }
         self.publish_on_status_topic(json.dumps(json_NACK))
-        self.last_error = None
 
     def check_return_code(self, rc):
         match rc:
@@ -153,6 +164,12 @@ class ProbeMqttClient(mqtt.Client):
             json_status["payload"]["ip"] = my_ip
         self.publish_on_status_topic(json.dumps(json_status))
 
+    def publish_error(self, handler, payload):
+        json_error = {
+            "handler": handler,
+            "payload": payload
+        }
+        self.publish_on_error_topic(json.dumps(json_error))
 
     def disconnect(self):
         # Invoked to inform the broker to release the allocated resources
