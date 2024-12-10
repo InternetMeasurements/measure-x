@@ -1,6 +1,7 @@
 import json
 from energyModule.ina219Driver import Ina219Driver
-from probesFirmware.mqttModule.mqttClient import ProbeMqttClient
+from mqttModule.mqttClient import ProbeMqttClient
+
 class EnergyController:
     def __init__(self, mqtt_client : ProbeMqttClient, registration_handler_request_function):
         self.mqtt_client = mqtt_client
