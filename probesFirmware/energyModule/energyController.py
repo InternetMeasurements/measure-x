@@ -5,12 +5,12 @@ from mqttModule.mqttClient import ProbeMqttClient
 class EnergyController:
     def __init__(self, mqtt_client : ProbeMqttClient, registration_handler_request_function):
         self.mqtt_client = mqtt_client
-        try:
-            self.driverINA = Ina219Driver()
-        except Exception as e:
-            self.mqtt_client.publish_error(handler="energy", payload=str(e))
-            print(f"{e}")
-            return
+        #try:
+        self.driverINA = Ina219Driver()
+        #except Exception as e:
+        #    self.mqtt_client.publish_error(handler="energy", payload=str(e))
+        #    print(f"{e}")
+        #    return
         
         # Requests to commands_multiplexer
         registration_response = registration_handler_request_function(
