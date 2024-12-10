@@ -16,8 +16,8 @@ class Ina219Driver:
         self.last_filename = None
         self.current_compare = current_compare
 
-        if not self.ina219.is_device_present():
-            raise Exception("INA219 NOT FOUND ON i2C BUS")
+        #if not self.ina219.is_device_present():
+            #raise Exception("INA219 NOT FOUND ON i2C BUS")
         
     def i2C_INA_check(self):
         return self.ina219.is_device_present()
@@ -56,7 +56,7 @@ class Ina219Driver:
                     timestamp = time.time()
                     writer.writerow({"Timestamp": timestamp, "Current": current})
 
-                    #print(f"Timestamp: {timestamp}, Current: {current} A")
+                    print(f"Timestamp: {timestamp}, Current: {current} A")
 
                     time.sleep(0.034)  # tempo di sleep per 32 campioni a 12 bit
 
