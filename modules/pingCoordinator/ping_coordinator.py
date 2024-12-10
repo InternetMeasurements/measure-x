@@ -14,7 +14,7 @@ class Ping_Coordinator:
         self.mongo_db = mongo_db
         self.last_mongo_measurement = None
 
-        # Requests to commands_multiplexer
+        # Requests to CommandsDemultiplexer
         registration_response = registration_handler_status(
             interested_status = "ping",
             handler = self.handler_received_status)
@@ -23,7 +23,7 @@ class Ping_Coordinator:
         else:
             print(f"Ping_Coordinator: registration handler failed. Reason -> {registration_response}")
 
-        # Requests to commands_multiplexer
+        # Requests to CommandsDemultiplexer
         registration_response = registration_handler_result(
             interested_result = "ping",
             handler = self.handler_received_result)
@@ -51,11 +51,8 @@ class Ping_Coordinator:
         else: #Volendo posso anche evitare questo settaggio, perchè ci penserà il thread periodico
             #if self.mongo_db.set_measurement_as_failed_by_id(result['measure_reference']):
             print(f"Ping_Coordinator: ignored result. Reason: expired measurement -> {result['measure_reference']}")
-        
-
-        
-        
     
+
     def send_start_command(self, probe_sender, probe_receiver, destination_ip, source_ip, packets_number = 4, packets_size = 32):
         self.last_mongo_measurement = MeasurementModelMongo(
             description = "Latency measure with ping tool",
@@ -81,7 +78,7 @@ class Ping_Coordinator:
             }
         }
         self.mqtt_client.publish_on_command_topic(probe_id = probe_sender, complete_command=json.dumps(json_ping_start))
-        
+
 
     def send_stop_command(self, probe_destination):
         json_ping_stop = {
