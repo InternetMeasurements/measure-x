@@ -49,7 +49,7 @@ class CommandsMultiplexer:
             if handler in self.status_handler_list:
                 self.status_handler_list[handler](probe_sender, type, payload) # Multiplexing
             else:
-                print(f"CommandsMultiplexer: status_multiplexer: no registered handler for |{handler}|. PRINT: -> {payload}")
+                print(f"CommandsMultiplexer: status_multiplexer: no registered handler for |{handler}|. TYPE: {type}|\n-> PRINT: -> {payload}")
         except json.JSONDecodeError as e:
             print(f"CommandsMultiplexer: status_multiplexer:: json exception -> {e}")
 
