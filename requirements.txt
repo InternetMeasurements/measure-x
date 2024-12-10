@@ -1,3 +1,4 @@
 pyyaml
 paho-mqtt
 pymongo
+scapy
