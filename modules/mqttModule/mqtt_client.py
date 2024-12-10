@@ -2,7 +2,7 @@ from pathlib import Path
 import paho.mqtt.client as mqtt
 from modules.configLoader.config_loader import ConfigLoader, MQTT_KEY
 """
-    ******************************************************* Classe MQTT PER IL COORDINATOR *******************************************************
+    ******************************************************* Classe FOR THE COORDINATOR *******************************************************
 """
 
 VERBOSE = False
