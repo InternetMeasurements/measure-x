@@ -9,7 +9,7 @@ class EnergyCoordinator:
 
         # Requests to CommandsDemultiplexer
         registration_response = registration_handler_error(
-            interested_status = "energy",
+            interested_error = "energy",
             handler = self.handler_error_messages)
         if registration_response == "OK" :
             print(f"EnergyCoordinator: registered handler for error -> energy")
