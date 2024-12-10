@@ -1,7 +1,7 @@
 import smbus
 import time
 import subprocess
-from gpiozero import PIN
+from gpiozero import LED
 import csv
 import threading
 
@@ -13,7 +13,7 @@ class Ina219Driver:
         #self.chip = gpiod.Chip('gpiochip4')
         #self.otii_sync_pin = self.chip.get_line(SYNC_OTII_PIN)
         #self.otii_sync_pin.request(consumer='LED', type=gpiod.LINE_REQ_DIR_OUT)
-        self.otii_sync_pin = PIN(SYNC_OTII_PIN)
+        self.otii_sync_pin = LED(SYNC_OTII_PIN)
         self.otii_sync_pin.off()
         self.ina219 = INA219(addr=0x40)
         self.stop_thread_event = threading.Event()
