@@ -19,18 +19,18 @@ class EnergyController:
         if registration_response != "OK" :
             self.mqtt_client.publish_error(handler="energy", payload=registration_response)
             print(f"EnergyController: registration handler failed. Reason -> {registration_response}")
-        self.mqtt_client.publish_command_ACK(handler="energy", payload="OK")
+        #self.mqtt_client.publish_command_ACK(handler="energy", payload="OK")
 
         
     def energy_command_handler(self, command : str, payload: json):
-        print(f"command -> {command} | payload-> {payload}")
+        print(f"EnergyController: command -> {command} | payload-> {payload}")
         match command:
             case "check":
-                if self.driverINA.ina219.is_device_present():
+                if self.driverINA.i2C_INA_check():
                     check_msg = "i2C INA219 Found"
                     self.mqtt_client.publish_command_ACK(handler="energy", payload=check_msg)
                 else:
-                    check_msg = "i2C INA219 Found"
+                    check_msg = "i2C INA219 NOT Found"
                     self.mqtt_client.publish_command_NACK(handler="energy", payload=check_msg)
             case _:
                 print(f"EnergyController: commant not known -> {command}")
