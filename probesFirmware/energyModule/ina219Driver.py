@@ -1,14 +1,12 @@
 import smbus
 import time
-import gpiod
+from gpiozero import LED
 import csv
 import threading
 
-SYNC_OTII_PIN = 4
+SYNC_OTII_PIN_NUMBER = 4
 DEFAULT_CURRENT_MEASUREMENT_FILE = "ina219_measurements.csv"
-chip = gpiod.Chip('gpiochip4')
-line = chip.get_line(SYNC_OTII_PIN)
-line.request(consumer='blink', type=gpiod.LINE_REQ_DIR_OUT)
+SYNC_OTII_PIN = LED(SYNC_OTII_PIN_NUMBER)
 
 class Ina219Driver:
     def __init__(self, current_compare : bool = False):
@@ -46,7 +44,8 @@ class Ina219Driver:
             try:
                 if self.current_compare:
                     print(f"[CURRENT_COMPARE] SYNC GPIO{SYNC_OTII_PIN} HIGH")
-                line.set_value(1)
+                #line.set_value(1)
+                SYNC_OTII_PIN.on()
                 while not self.stop_thread_event.is_set():
                     #GPIO.output(otii_sync_pin, not GPIO.input(otii_sync_pin))
                     current = self.ina219.getCurrent_mA() / 1000
@@ -61,12 +60,10 @@ class Ina219Driver:
             except KeyboardInterrupt:
                 print("Measurement stopped from keyboard")
             finally:
-                line.set_value(0)
+                SYNC_OTII_PIN.off()
                 if self.current_compare:
                     print(f"[CURRENT_COMPARE] SYNC GPIO{SYNC_OTII_PIN} LOW")
                 csv_file.close()
-                line.release()
-                chip.close()
         
 # --------------------------------- CLASS INA219 - LOW LEVEL ---------------------------------
 
