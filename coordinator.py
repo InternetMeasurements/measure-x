@@ -152,6 +152,10 @@ def main():
                     if IP in packet and packet[IP].dst == "192.168.43.1":
                         sendp(packet, iface="Wi-Fi")  # Sostituisci "eth0" con la tua interfaccia di rete
                     #time.sleep(0.1)  # Tempo tra i pacchetti (in secondi)
+
+            case "a":
+                print("Consumption test: INA2019 VS Qoitec ACE")
+                coordinator_mqtt.publish_on_command_topic("probe2", "Ciao")
             case _:
                 break
     coordinator_mqtt.disconnect()
