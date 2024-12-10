@@ -1,5 +1,5 @@
 import json
-from energyModule.ina219Driver import Ina219Driver
+from energyModule.ina219Driver import Ina219Driver, SYNC_OTII_PIN
 from mqttModule.mqttClient import ProbeMqttClient
 
 class EnergyController:
@@ -28,10 +28,24 @@ class EnergyController:
             case "check":
                 if self.driverINA.i2C_INA_check():
                     check_msg = "i2C INA219 Found"
+                    SYNC_OTII_PIN.on()
                     self.mqtt_client.publish_command_ACK(handler="energy", payload=check_msg)
+                    SYNC_OTII_PIN.off()
                 else:
                     check_msg = "i2C INA219 NOT Found"
                     self.mqtt_client.publish_command_NACK(handler="energy", payload=check_msg)
+            case "start":
+                    start_msg = self.driverINA.start_current_measurement()
+                    if start_msg != "OK":
+                         self.mqtt_client.publish_command_NACK(handler="energy", payload=start_msg)
+                    else:
+                         self.mqtt_client.publish_command_ACK(handler="energy", payload=command)
+            case "stop":
+                    stop_msg = self.driverINA.stop_current_measurement()
+                    if stop_msg != "OK":
+                         self.mqtt_client.publish_command_NACK(handler="energy", payload=stop_msg)
+                    else:
+                         self.mqtt_client.publish_command_ACK(handler="energy", payload=command)
             case _:
                 print(f"EnergyController: commant not known -> {command}")
         
