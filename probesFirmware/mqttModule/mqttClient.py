@@ -9,7 +9,9 @@ import paho.mqtt.client as mqtt
 """
     ******************************************************* Classe MQTT PER LE PROBES *******************************************************
 """
-INTERFACE_NAME = 'wlan0' # su macchina virtuale --> 'eth0'
+WLAN_IFACE = 'wlan0'
+ETHERNET_IFACE = 'eth0'
+HAT_IFACE = 'rmnet_mhi0.1'
 VERBOSE = False
 
 class ProbeMqttClient(mqtt.Client):
@@ -139,11 +141,20 @@ class ProbeMqttClient(mqtt.Client):
             }
         }
         if (state == "ONLINE") or (state == "UPDATE"):
-            hostname = socket.gethostname()
-            my_ip = socket.gethostbyname(hostname)
-            if my_ip == "127.0.1.1":
-                my_ip = netifaces.ifaddresses(INTERFACE_NAME)[netifaces.AF_INET][0]['addr']
+            #hostname = socket.gethostname()
+            #my_ip = socket.gethostbyname(hostname)
+            #if my_ip == "127.0.1.1":
+                #my_ip = netifaces.ifaddresses(INTERFACE_NAME)[netifaces.AF_INET][0]['addr']
             #my_ip = netifaces.ifaddresses(netifaces.interfaces()[0])[netifaces.AF_INET][0]['addr']
+            available_interfaces = netifaces.interfaces()
+            if ETHERNET_IFACE in available_interfaces:
+                my_ip = netifaces.ifaddresses(ETHERNET_IFACE)[netifaces.AF_INET][0]['addr']
+            elif WLAN_IFACE in available_interfaces:
+                my_ip = netifaces.ifaddresses(WLAN_IFACE)[netifaces.AF_INET][0]['addr']
+            elif HAT_IFACE in available_interfaces:
+                my_ip = netifaces.ifaddresses(HAT_IFACE)[netifaces.AF_INET][0]['addr']
+            else:
+                raise Exception("No network interfaces found!")
             json_status["payload"]["ip"] = my_ip
         self.publish_on_status_topic(json.dumps(json_status))
 
