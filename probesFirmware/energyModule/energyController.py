@@ -1,5 +1,5 @@
 import json
-from ina219Driver import Ina219Driver
+from energyModule.ina219Driver import Ina219Driver
 from mqttModule.mqttClient import ProbeMqttClient
 
 class EnergyController:
