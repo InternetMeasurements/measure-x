@@ -4,6 +4,7 @@ import socket
 import netifaces
 from pathlib import Path
 import os
+import psutil
 import paho.mqtt.client as mqtt
 
 """
@@ -146,15 +147,9 @@ class ProbeMqttClient(mqtt.Client):
             #if my_ip == "127.0.1.1":
                 #my_ip = netifaces.ifaddresses(INTERFACE_NAME)[netifaces.AF_INET][0]['addr']
             #my_ip = netifaces.ifaddresses(netifaces.interfaces()[0])[netifaces.AF_INET][0]['addr']
-            available_interfaces = netifaces.interfaces()
-            if ETHERNET_IFACE in available_interfaces:
-                my_ip = netifaces.ifaddresses(ETHERNET_IFACE)[netifaces.AF_INET][0]['addr']
-            elif WLAN_IFACE in available_interfaces:
-                my_ip = netifaces.ifaddresses(WLAN_IFACE)[netifaces.AF_INET][0]['addr']
-            elif HAT_IFACE in available_interfaces:
-                my_ip = netifaces.ifaddresses(HAT_IFACE)[netifaces.AF_INET][0]['addr']
-            else:
-                raise Exception("No network interfaces found!")
+            
+            #raise Exception(f"No network interfaces found! List -> {available_interfaces}")
+            my_ip = self.get_ip()
             json_status["payload"]["ip"] = my_ip
         self.publish_on_status_topic(json.dumps(json_status))
 
@@ -166,3 +161,19 @@ class ProbeMqttClient(mqtt.Client):
         super().disconnect()
         self.connected_to_broker = False
         print(f"{self.probe_id}: Disconnected")
+
+    def get_ip(self):
+        """
+        available_interfaces = psutil.net_if_addrs().keys()
+        print(f"{available_interfaces}")
+        if ETHERNET_IFACE in available_interfaces:
+            my_ip = netifaces.ifaddresses(ETHERNET_IFACE)[netifaces.AF_INET][0]['addr']
+        elif "Wi-Fi" in available_interfaces:
+            my_ip = netifaces.ifaddresses("Wi-Fi")[netifaces.AF_INET][0]['addr']
+        elif HAT_IFACE in available_interfaces:
+            my_ip = netifaces.ifaddresses(HAT_IFACE)[netifaces.AF_INET][0]['addr']
+        else:
+            raise Exception(f"No network interfaces found! List -> {available_interfaces}")
+        """
+        my_ip = "DA CORREGGERE"
+        return my_ip
