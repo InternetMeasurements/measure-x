@@ -8,6 +8,7 @@ from modules.commandsMultiplexer.commands_multiplexer import CommandsMultiplexer
 from modules.iperfCoordinator.iperf_coordinator import Iperf_Coordinator
 from modules.pingCoordinator.ping_coordinator import Ping_Coordinator 
 from modules.mongoModule.mongoDB import MongoDB, SECONDS_OLD_MEASUREMENT, MeasurementModelMongo
+from modules.energyModule.energy_coordinator import EnergyCoordinator
 
 from scapy.all import rdpcap, sendp, IP
 
@@ -62,12 +63,14 @@ def main():
         registration_handler_result=commands_multiplexer.add_result_handler, 
         registration_handler_status=commands_multiplexer.add_status_handler,
         mongo_db=mongo_db)
+    
+    energy_coordinator = EnergyCoordinator(
+        mqtt_client=coordinator_mqtt,
+        registration_handler_error=commands_multiplexer.add_error_handler, 
+        registration_handler_status=commands_multiplexer.add_status_handler,
+        mongo_db=mongo_db)
 
     commands_multiplexer.add_status_handler('probe_state', online_status_handler)
-
-
-
-
 
     while True:
         print("PRESS 0 -> exit")
@@ -155,7 +158,7 @@ def main():
 
             case "a":
                 print("Consumption test: INA2019 VS Qoitec ACE")
-                coordinator_mqtt.publish_on_command_topic("probe2", "Ciao")
+                energy_coordinator.send_check_i2c_communication_command(probe_id = "probe2")
             case _:
                 break
     coordinator_mqtt.disconnect()
