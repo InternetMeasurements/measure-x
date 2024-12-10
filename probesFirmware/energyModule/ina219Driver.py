@@ -37,8 +37,8 @@ class Ina219Driver:
         if self.measurement_thread is not None:
             self.stop_thread_event.set()
             self.measurement_thread.join()
+            self.measurement_thread = None
             return "OK"
-        self.measurement_thread = None
         return "No current measurement started"
 
     def body_measurement_thread(self):
