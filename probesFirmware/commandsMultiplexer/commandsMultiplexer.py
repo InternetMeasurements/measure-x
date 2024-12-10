@@ -22,7 +22,11 @@ class CommandsMultiplexer():
             return "There is already a registered handler for |" + interested_command + "|"
 
     def decode_command(self, complete_command):
-        nested_command = json.loads(complete_command)
+        try:
+            nested_command = json.loads(complete_command)
+        except Exception as e:
+            print(f"Json Command format Wrong! -> {complete_command}")
+            return
         # Il Decode command deve interpretare il JSON
         print(f"command_multiplexer: complete_command -> {nested_command} ")
         handler = nested_command["handler"]
