@@ -4,6 +4,7 @@ class CommandsMultiplexer:
     def __init__(self):
         self.results_handler_list = {}
         self.status_handler_list = {}
+        self.error_handeler_list = {}
     
     def add_result_handler(self, interested_result, handler):
         if interested_result not in self.results_handler_list:
@@ -18,6 +19,13 @@ class CommandsMultiplexer:
             return "OK" #print(f"CommandsMultiplexer: Registered status handler for [{interested_status}]")
         else:
             return "There is already a registered handler for " + interested_status
+        
+    def add_error_handler(self, interested_error, handler):
+        if interested_error not in self.error_handeler_list:
+            self.error_handeler_list[interested_error] = handler
+            return "OK" #print(f"CommandsMultiplexer: Registered status handler for [{interested_status}]")
+        else:
+            return "There is already a registered handler for " + interested_error
 
     def result_multiplexer(self, probe_sender: str, nested_result):
         try:
