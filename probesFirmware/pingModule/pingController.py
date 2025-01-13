@@ -17,7 +17,7 @@ class PingController:
         self.ping_thread = None
         self.ping_result = None
 
-        # Requests to commands_multiplexer
+        # Requests to commands_demultiplexer
         registration_response = registration_handler_request_function(
             interested_command = "ping",
             handler = self.ping_command_handler)

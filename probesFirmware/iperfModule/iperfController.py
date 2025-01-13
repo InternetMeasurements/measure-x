@@ -33,7 +33,7 @@ class IperfController:
         # Iperf Server - Parameters
         self.listening_port = None
 
-        # Requests to commands_multiplexer
+        # Requests to commands_demultiplexer
         registration_response = registration_handler_request_function(
             interested_command = "iperf",
             handler = self.iperf_command_handler)

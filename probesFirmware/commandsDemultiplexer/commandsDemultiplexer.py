@@ -1,7 +1,6 @@
-# Classe che rappresenta la funzionalità di decodifica ed esecuzione dei vari moduli sulle porbes
 import json
 
-class CommandsMultiplexer():
+class CommandsDemultiplexer():
     def __init__(self):
         self.commands_handler_list = {}
         #self.status_handler_list = {} # For the future. Is necessary that the probe knows about the Coordinator state? Or another probe state?
@@ -25,14 +24,14 @@ class CommandsMultiplexer():
         try:
             nested_command = json.loads(complete_command)
         except Exception as e:
-            print(f"Json Command format Wrong! -> {complete_command}")
+            print(f"CommandsDemultiplexer: Json Command format Wrong! -> {complete_command}")
             return
         # Il Decode command deve interpretare il JSON
-        print(f"command_multiplexer: complete_command -> {nested_command} ")
+        print(f"CommandsDemultiplexer: complete_command -> {nested_command} ")
         handler = nested_command["handler"]
         command = nested_command["command"]
         payload = nested_command["payload"]
         if handler in self.commands_handler_list:
             self.commands_handler_list[handler](command, payload)
         else:
-            print(f"CommandsMultiplexer: no registered handler for |{handler}|")
+            print(f"CommandsDemultiplexer: no registered handler for |{handler}|")
