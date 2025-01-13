@@ -6,3 +6,4 @@ scapy
 smbus2
 gpiozero
 lgpio
+netifaces
