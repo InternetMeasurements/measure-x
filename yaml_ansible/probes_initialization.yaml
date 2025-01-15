@@ -1,6 +1,6 @@
 ---
 - name: Setup virtual environment and install dependencies
-  hosts: probes
+  hosts: probe4
   become: yes
   vars:
     path_base: "/home/{{ inventory_hostname }}/measureX/probesFirmware"  # Cambia con il percorso corretto
