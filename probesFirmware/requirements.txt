@@ -3,7 +3,7 @@ paho-mqtt
 psutil
 pingparsing
 scapy
-smbus
+smbus==1.1.post2
 smbus2
 gpiozero
 lgpio
