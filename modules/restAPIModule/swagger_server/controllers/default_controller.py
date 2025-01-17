@@ -1,5 +1,8 @@
 import connexion
 import six
+from flask import current_app
+from modules.restAPIModule.swagger_server.rest_server import KEY_FOR_RETRIEVE_MONGO_INSTANCE
+from modules.mongoModule.mongoDB import MongoDB
 
 from modules.mongoModule.models.error_model import ErrorModel  # noqa: E501
 from modules.mongoModule.models.measurement_model_mongo import MeasurementModelMongo  # noqa: E501
@@ -57,7 +60,13 @@ def get_measurement_by_id(measurement_id):  # noqa: E501
 
     :rtype: MeasurementModelMongo
     """
-    return 'do some magic!'
+    mongo_instance : MongoDB = current_app[KEY_FOR_RETRIEVE_MONGO_INSTANCE]
+    measurement_readed = mongo_instance.find_measurement_by_id(measurement_id=measurement_id)
+    if measurement_readed is None:
+        api_response = ErrorModel(object_ref_id=measurement_id, object_ref_type="measurement", error_description="Not found", error_cause="Wrong ID?").to_dict()
+    else:
+        api_response = measurement_readed
+    return api_response
 
 
 def get_measurex_general_info():  # noqa: E501
