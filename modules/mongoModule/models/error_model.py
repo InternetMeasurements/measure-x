@@ -5,3 +5,10 @@ class ErrorModel():
         self.object_ref_type = object_ref_type
         self.error_description = error_description
         self.error_cause = error_cause
+
+    def to_dict(self):
+        return {
+            "object_ref_id": self.object_ref_id,
+            "object_ref_type": self.object_ref_type,
+            "error_description": self.error_description,
+            "error_cause": self.error_cause}
