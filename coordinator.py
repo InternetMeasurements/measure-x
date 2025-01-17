@@ -10,6 +10,8 @@ from modules.pingCoordinator.ping_coordinator import Ping_Coordinator
 from modules.mongoModule.mongoDB import MongoDB, SECONDS_OLD_MEASUREMENT, MeasurementModelMongo
 from modules.energyModule.energy_coordinator import EnergyCoordinator
 
+from modules.restAPIModule.swagger_server.rest_server import RestServer
+
 from scapy.all import rdpcap, sendp, IP
 
 probe_ip = {} # Here, i will save the couples {"probe_id": "probe_ip"}
@@ -73,6 +75,9 @@ def main():
         mongo_db=mongo_db)
 
     commands_multiplexer.add_status_handler('probe_state', online_status_handler)
+    
+    rest_server = RestServer()
+    rest_server.start_REST_API_server()
 
     while True:
         print("PRESS 0 -> exit")
