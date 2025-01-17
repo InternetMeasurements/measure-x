@@ -60,7 +60,7 @@ def get_measurement_by_id(measurement_id):  # noqa: E501
 
     :rtype: MeasurementModelMongo
     """
-    mongo_instance : MongoDB = current_app[KEY_FOR_RETRIEVE_MONGO_INSTANCE]
+    mongo_instance : MongoDB = current_app.config.get(KEY_FOR_RETRIEVE_MONGO_INSTANCE)
     measurement_readed = mongo_instance.find_measurement_by_id(measurement_id=measurement_id)
     if measurement_readed is None:
         api_response = ErrorModel(object_ref_id=measurement_id, object_ref_type="measurement", error_description="Not found", error_cause="Wrong ID?").to_dict()
