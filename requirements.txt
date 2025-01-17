@@ -22,4 +22,4 @@ connexion==2.14.2
 connexion[swagger-ui]
 python_dateutil==2.8.2
 setuptools==67.8.0
-swagger-ui-bundle==0.0.10
+swagger-ui-bundle
