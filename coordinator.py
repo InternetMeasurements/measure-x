@@ -75,8 +75,8 @@ def main():
         mongo_db=mongo_db)
 
     commands_multiplexer.add_status_handler('probe_state', online_status_handler)
-    
-    rest_server = RestServer()
+
+    rest_server = RestServer(mongo_instance=mongo_db)
     rest_server.start_REST_API_server()
 
     while True:
