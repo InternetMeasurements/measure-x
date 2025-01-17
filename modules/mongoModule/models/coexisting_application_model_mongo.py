@@ -1,4 +1,4 @@
-class BackgroundTrafficModelMongo:
+class CoexistingApplicationModelMongo:
     def __init__(self, description, source_probe, dest_probe, type):
         self.id = None
         self.description = description

@@ -4,7 +4,7 @@ from pymongo import MongoClient
 from modules.mongoModule.models.measurement_model_mongo import MeasurementModelMongo
 from modules.mongoModule.models.ping_result_model_mongo import PingResultModelMongo
 from modules.mongoModule.models.iperf_result_model_mongo import IperfResultModelMongo
-from modules.mongoModule.models.background_traffic_model_mongo import BackgroundTrafficModelMongo
+from modules.mongoModule.models.coexisting_application_model_mongo import CoexistingApplicationModelMongo
 
 HOURS_OLD_MEASUREMENT = 24
 SECONDS_OLD_MEASUREMENT = HOURS_OLD_MEASUREMENT * 3600
