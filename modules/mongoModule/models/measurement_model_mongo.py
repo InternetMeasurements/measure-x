@@ -1,7 +1,8 @@
-from modules.mongoModule.models.background_traffic_model_mongo import BackgroundTrafficModelMongo
+from modules.mongoModule.models.coexisting_application_model_mongo import CoexistingApplicationModelMongo
 
 class MeasurementModelMongo:
-    def __init__(self, description, type, source_probe, dest_probe, source_probe_ip, dest_probe_ip, state = None, start_time = None, gps_source_probe = None, gps_dest_probe = None) -> None:
+    def __init__(self, description, type, source_probe, dest_probe, source_probe_ip, dest_probe_ip, 
+                 state = None, start_time = None, gps_source_probe = None, gps_dest_probe = None):
         self._id = None
         self.description = description
         self.type = type
@@ -13,7 +14,7 @@ class MeasurementModelMongo:
         self.dest_probe_ip = dest_probe_ip,
         self.gps_source_probe = gps_source_probe
         self.gps_dest_probe = gps_dest_probe
-        self.background_traffic = None #BackgroundTrafficModelMongo()
+        self.coexisting_application = None #CoexistingApplicationModelMongo()
         self.stop_time = None
 
     def to_dict(self):

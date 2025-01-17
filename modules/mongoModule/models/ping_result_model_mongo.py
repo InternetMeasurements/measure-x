@@ -1,7 +1,8 @@
 
 
 class PingResultModelMongo:
-    def __init__(self, measure_reference, start_timestamp, rtt_avg, rtt_max, rtt_min, rtt_mdev, packets_sent, packets_received, packets_loss_count, packets_loss_rate, icmp_replies) -> None:
+    def __init__(self, measure_reference, start_timestamp, rtt_avg, rtt_max, rtt_min, rtt_mdev,
+                packets_sent, packets_received, packets_loss_count, packets_loss_rate, icmp_replies):
         self._id = None
         self.measure_reference = measure_reference
         self.start_timestamp = start_timestamp
