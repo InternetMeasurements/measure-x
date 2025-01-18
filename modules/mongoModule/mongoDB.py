@@ -1,6 +1,7 @@
 import time
 from bson import ObjectId
 from pymongo import MongoClient
+from modules.mongoModule.models.error_model import ErrorModel
 from modules.mongoModule.models.measurement_model_mongo import MeasurementModelMongo
 from modules.mongoModule.models.ping_result_model_mongo import PingResultModelMongo
 from modules.mongoModule.models.iperf_result_model_mongo import IperfResultModelMongo
@@ -111,9 +112,16 @@ class MongoDB:
         return (replace_result.modified_count > 0)
     
 
-    def find_measurement_by_id(self, measurement_id) -> MeasurementModelMongo:
-        find_result : MeasurementModelMongo = self.measurements_collection.find_one({"_id": ObjectId(measurement_id)})
-        return (find_result)
+    def find_measurement_by_id(self, measurement_id):
+        try:
+            find_result = self.measurements_collection.find_one({"_id": ObjectId(measurement_id)})
+            if find_result is None:
+                find_result = ErrorModel(object_ref_id=measurement_id, object_ref_type="measurement", error_description="Measurement not found")
+            find_result = MeasurementModelMongo.cast_dic_in_MeasurementModelMongo(find_result)
+        except Exception as e:
+            print(f"Motivo -> {e}")
+            find_result = ErrorModel(object_ref_id=measurement_id, object_ref_type="measurement", error_description="The measurement_id is not a valid ID")
+        return (find_result.to_dict())
     
 
     def get_measurement_state(self, measurement_id) -> str:
