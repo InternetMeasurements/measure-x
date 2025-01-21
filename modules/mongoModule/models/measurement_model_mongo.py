@@ -1,7 +1,7 @@
 from modules.mongoModule.models.coexisting_application_model_mongo import CoexistingApplicationModelMongo
 
 class MeasurementModelMongo:
-    def __init__(self, description, type, source_probe, dest_probe, source_probe_ip, dest_probe_ip, _id = None,
+    def __init__(self, description, type, source_probe, dest_probe, source_probe_ip : str, dest_probe_ip : str, _id = None,
                  state = None, start_time = None, gps_source_probe = None, gps_dest_probe = None,
                  coexisting_application = None, stop_time = None):
         self._id = _id
@@ -11,8 +11,8 @@ class MeasurementModelMongo:
         self.start_time = start_time # This field is setted when the coordinator send the START command
         self.source_probe = source_probe
         self.dest_probe = dest_probe
-        self.source_probe_ip = source_probe_ip,
-        self.dest_probe_ip = dest_probe_ip,
+        self.source_probe_ip = source_probe_ip
+        self.dest_probe_ip = dest_probe_ip
         self.gps_source_probe = gps_source_probe
         self.gps_dest_probe = gps_dest_probe
         self.coexisting_application = coexisting_application #CoexistingApplicationModelMongo()
