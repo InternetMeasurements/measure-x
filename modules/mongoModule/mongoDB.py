@@ -116,11 +116,16 @@ class MongoDB:
         try:
             find_result = self.measurements_collection.find_one({"_id": ObjectId(measurement_id)})
             if find_result is None:
-                find_result = ErrorModel(object_ref_id=measurement_id, object_ref_type="measurement", error_description="Measurement not found")
-            find_result = MeasurementModelMongo.cast_dic_in_MeasurementModelMongo(find_result)
+                find_result = ErrorModel(object_ref_id=measurement_id, object_ref_type="measurement",
+                                         error_description="Measurement not found in DB",
+                                         error_cause="Wrong measurement_id")
+            else:
+                find_result = MeasurementModelMongo.cast_dic_in_MeasurementModelMongo(find_result)
         except Exception as e:
             print(f"Motivo -> {e}")
-            find_result = ErrorModel(object_ref_id=measurement_id, object_ref_type="measurement", error_description="The measurement_id is not a valid ID")
+            find_result = ErrorModel(object_ref_id=measurement_id, object_ref_type="measurement", 
+                                     error_description="It must be a 12-byte input or a 24-character hex string",
+                                     error_cause="measurement_id NOT VALID")
         return (find_result.to_dict())
     
 
@@ -149,3 +154,21 @@ class MongoDB:
                                 }
                             })
         return replace_result.modified_count
+    
+    def find_all_results_by_measurement_id(self, measurement_id):
+        try:
+            cursor = self.results_collection.find({"measure_reference": ObjectId(measurement_id)})
+            documents = list(cursor)
+            result_list = []
+            for document in documents:
+                if 'measure_reference' in document:
+                    result_list.append(document)
+                    #if measurement_type == "iperf":
+            print(f"lista-> {result_list} ")
+            return result_list
+        except Exception as e:
+            print(f"Motivo -> {e}")
+            find_result = ErrorModel(object_ref_id=measurement_id, object_ref_type="list of results", 
+                                     error_description="It must be a 12-byte input or a 24-character hex string",
+                                     error_cause="measurement_id NOT VALID")
+        return (find_result.to_dict())
