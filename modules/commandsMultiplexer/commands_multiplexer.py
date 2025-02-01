@@ -51,7 +51,17 @@ class CommandsMultiplexer:
             else:
                 print(f"CommandsMultiplexer: status_multiplexer: no registered handler for |{handler}|. TYPE: {type}|\n-> PRINT: -> {payload}")
         except json.JSONDecodeError as e:
-            print(f"CommandsMultiplexer: status_multiplexer:: json exception -> {e}")
+            print(f"CommandsMultiplexer: status_multiplexer: json exception -> {e}")
 
-    def errors_multiplexer(self, probe_sender, error):
-        print(f"CommandsMultiplexer: error msg from |{probe_sender}| --> {error}")
+    def errors_multiplexer(self, probe_sender, nested_error):
+        try:
+            nested_error_json = json.loads(nested_error)
+            error_handler = nested_error_json['handler']
+            error_payload = nested_error_json['payload']
+            if error_handler in self.error_handeler_list:
+                self.error_handeler_list[error_handler](probe_sender, error_payload)
+            else:
+                print(f"CommandsMultiplexer: default error hanlder -> msg from |{probe_sender}| --> {nested_error}")
+        except json.JSONDecodeError as e:
+            print(f"CommandsMultiplexer: error_multiplexer: json exception -> {e}")
+        
