@@ -45,6 +45,15 @@ def main():
         print(f"Coordinator: connection failed to mongo. -> Exception info: \n{e}")
         return
     
+    """
+    # Codice DEBUG per l'inserimento di una misurazione test
+    measure_test = MeasurementModelMongo(description="test measurement", type="test",
+                                         source_probe="probe_test", dest_probe="probe_test",
+                                         source_probe_ip="192.168.1.1", dest_probe_ip="192.168.1.2")
+    measurement_test_id = mongo_db.insert_measurement(measure=measure_test)
+    print(f"Stored test measurement: {measurement_test_id}")
+    """
+    
     measurement_collection_update_thread = threading.Thread(target=update_measurements_collection_thread_body, args=(mongo_db,))
     measurement_collection_update_thread.daemon = True
     measurement_collection_update_thread.start()
@@ -76,7 +85,7 @@ def main():
 
     commands_multiplexer.add_status_handler('probe_state', online_status_handler)
 
-    rest_server = RestServer(mongo_instance=mongo_db)
+    rest_server = RestServer(mongo_instance = mongo_db)
     rest_server.start_REST_API_server()
 
     while True:
