@@ -39,8 +39,8 @@ class EnergyCoordinator:
         else:
             print(f"EnergyCoordinator: registration handler failed. Reason -> {registration_response}")
         
-    def handler_error_messages(self, payload : json):
-        print(f"EnergyCoordinator: received error msg -> {payload}")
+    def handler_error_messages(self, probe_sender, payload : json):
+        print(f"EnergyCoordinator: received error msg from |{probe_sender}| --> |{payload}|")
     
     def handler_received_status(self, probe_sender, type, payload):
         print(f"EnergyCoordinator: status sender->|{probe_sender}| type->|{type}| payload->|{payload}|")
