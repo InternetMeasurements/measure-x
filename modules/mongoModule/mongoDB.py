@@ -120,7 +120,7 @@ class MongoDB:
                                          error_description="Measurement not found in DB",
                                          error_cause="Wrong measurement_id")
             else:
-                find_result = MeasurementModelMongo.cast_dic_in_MeasurementModelMongo(find_result)
+                find_result = MeasurementModelMongo.cast_dict_in_MeasurementModelMongo(find_result)
         except Exception as e:
             print(f"Motivo -> {e}")
             find_result = ErrorModel(object_ref_id=measurement_id, object_ref_type="measurement", 
