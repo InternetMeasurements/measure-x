@@ -32,7 +32,7 @@ class Probe:
 def main():
     user_name = os.getlogin()
     if user_name == "coordinator": # Trick for execute the firmware on the coordinator
-        user_name = "probe0"
+        user_name = "probe1"
     probe1 = Probe(user_name)
     while True:
         command = input()
