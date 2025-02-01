@@ -20,10 +20,11 @@ def json_serial(obj):
         return str(obj)  # Converte l'ObjectId in stringa
     raise TypeError("Type not serializable")
 
+
 def create_measurement(body):  # noqa: E501
     """Create a new measurement.
 
-    With this enpoint, you can create a the measurement in the payload.   Beware of required measurement fields.  Returns an error if required fields are missing. # noqa: E501
+    With this enpoint, you can create a the measurement in the payload. Beware of required measurement fields.  Returns an error if required fields are missing. # noqa: E501
 
     :param body: 
     :type body: dict | bytes
@@ -31,7 +32,47 @@ def create_measurement(body):  # noqa: E501
     :rtype: MeasurementModelMongo
     """
     if connexion.request.is_json:
-        body = MeasurementModelMongo.from_dict(connexion.request.get_json())  # noqa: E501
+        try:
+            body = MeasurementModelMongo.from_dict(connexion.request.get_json())  # noqa: E501
+            return "OK", 200
+        except Exception as e:
+            json_msg = connexion.request.get_json()
+            measurement_id = json_msg['measurement_id'] if 'measurement_id' in  json_msg else None
+            if measurement_id is None:
+                error_msg_to_return = ErrorModel(object_ref_id='No id', object_ref_type="measurement", error_description="No ")
+
+    return 'do some magic!'
+
+
+def get_measurement_by_id(measurement_id):  # noqa: E501
+    """Retrieve a specific measurement by ID.
+
+    Returns the JSON object representing the measurement with the specified ID.  If the ID does not exist, a 500 error is returned. # noqa: E501
+
+    :param measurement_id: The parameter measurement_id is the ID of the measurement to retrieve from mongoDB server.
+    :type measurement_id: int
+
+    :rtype: MeasurementModelMongo
+    """
+
+    mongo_instance : MongoDB = current_app.config.get(KEY_FOR_RETRIEVE_MONGO_INSTANCE)
+    measurement_readed = mongo_instance.find_measurement_by_id(measurement_id=measurement_id)
+    if isinstance(measurement_readed, ErrorModel): #"error_cause" in measurement_readed:
+        return measurement_readed, 500 # Meglio indicare come codice di errore, il 400
+    return measurement_readed, 200
+
+
+def get_measurement_results_by_measurement_id(measurement_id):  # noqa: E501
+    """Retrieve all the measurement results
+
+    Returns the list of JSON objects representing the results related to the specified measurement.  If the specified measurement does not have any results, it will be returned an empty list. Otherwise, if the specified ID does not exist or is not valid, an error will be returned. # noqa: E501
+
+    :param measurement_id: The parameter measurement_id is the ID of the measurement to retrieve its results, if any, from mongoDB server.
+    :type measurement_id: str
+
+    :rtype: List[Object]
+    """
+    print("get_measurement_results_by_measurement_id()")
     return 'do some magic!'
 
 
@@ -56,36 +97,6 @@ def get_all_results():  # noqa: E501
     """
     return 'do some magic!'
 
-
-def get_measurement_by_id(measurement_id):  # noqa: E501
-    """Retrieve a specific measurement by ID.
-
-    Returns the JSON object representing the measurement with the specified ID.  If the ID does not exist, a 500 error is returned. # noqa: E501
-
-    :param measurement_id: The parameter measurement_id is the ID of the measurement to retrieve from mongoDB server.
-    :type measurement_id: int
-
-    :rtype: MeasurementModelMongo
-    """
-
-    mongo_instance : MongoDB = current_app.config.get(KEY_FOR_RETRIEVE_MONGO_INSTANCE)
-    measurement_readed = mongo_instance.find_measurement_by_id(measurement_id=measurement_id)
-    if isinstance(measurement_readed, ErrorModel): #"error_cause" in measurement_readed:
-        return measurement_readed, 500
-    return measurement_readed, 200
-
-def get_measurement_results_by_measurement_id(measurement_id):  # noqa: E501
-    """Retrieve all the measurement results
-
-    Returns the list of JSON objects representing the results related to the specified measurement.  If the specified measurement does not have any results, it will be returned an empty list. Otherwise, if the specified ID does not exist or is not valid, an error will be returned. # noqa: E501
-
-    :param measurement_id: The parameter measurement_id is the ID of the measurement to retrieve its results, if any, from mongoDB server.
-    :type measurement_id: str
-
-    :rtype: List[Object]
-    """
-    print("get_measurement_results_by_measurement_id()")
-    return 'do some magic!'
 
 def get_measurex_general_info():  # noqa: E501
     """Get MeasureX system info
@@ -114,9 +125,6 @@ def get_result_by_measurement_id(measurement_id):  # noqa: E501
     if isinstance(result_list_as_dic, ErrorModel): #"error_cause" in measurement_readed:
         return result_list_as_dic, 500
     return jsonify(results=json.loads(json.dumps(result_list_as_dic, default=json_serial))), 200
-    
-    
-    return 'do some magic!'
 
 
 def stop_measurement_by_id(measurement_id):  # noqa: E501
