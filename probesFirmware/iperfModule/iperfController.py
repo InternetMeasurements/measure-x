@@ -15,6 +15,7 @@ class IperfController:
         self.last_role = None
         self.last_error = None
         self.iperf_thread = None
+        self.last_measurement_id = None
         
         # Iperf Client - Parameters
         self.destination_server_ip = ""
@@ -22,7 +23,6 @@ class IperfController:
         self.tcp_protocol = None
         self.parallel_connections = None
         self.output_json_filename = None
-        self.measurement_id = None
         self.output_iperf_dir = None
         self.reverse_function = None
         self.verbose_function = False # common parameter
@@ -42,6 +42,9 @@ class IperfController:
 
     
     def read_configuration(self, payload : json) -> bool :
+        if 'role' not in payload:
+            self.last_error = "Missing Role!"
+            return False
         my_role = payload['role']
         if my_role == "Client":
             return self.read_client_configuration(payload)
@@ -56,6 +59,7 @@ class IperfController:
         try:
             self.listening_port = payload_conf['listen_port']
             self.verbose_function = payload_conf['verbose']
+            self.last_measurement_id = payload_conf['measurement_id']
             self.last_role = "Server"
             self.last_error = None
             return True
@@ -72,12 +76,12 @@ class IperfController:
             self.transport_protocol = payload_conf['transport_protocol']
             self.parallel_connections = int(payload_conf['parallel_connections'])
             self.output_json_filename = payload_conf['result_measurement_filename']
-            self.measurement_id = payload_conf['measurement_id'] # REMEMBER --> You will read None during the configuration phase!
+            #self.measurement_id = payload_conf['measurement_id'] # REMEMBER --> You will read None during the configuration phase!
             self.reverse_function = payload_conf['reverse']
             self.verbose_function = payload_conf['verbose']
             self.total_repetition = int(payload_conf['total_repetition'])
             self.save_result_on_flash = payload_conf["save_result_on_flash"]
-
+            self.last_measurement_id = payload_conf['measurement_id']
             self.last_role = "Client"
             self.last_error = None
             return True
@@ -105,8 +109,8 @@ class IperfController:
                     return
                 shared_state.set_probe_as_busy()
                 if self.last_role == "Client":
-                    self.measurement_id = payload['measurement_id'] # Only in this moment the probe knows the measurment_id coming from Mongo
-                    if self.measurement_id is None:
+                    #self.measurement_id = payload['measurement_id'] # Only in this moment the probe knows the measurment_id coming from Mongo
+                    if self.last_measurement_id is None:
                         self.send_command_nack(failed_command="start", error_info="measure_id is None")
                         return
                     self.start_iperf()
@@ -117,6 +121,7 @@ class IperfController:
                     self.send_command_ack(successed_command=command)
                 else:
                     self.send_command_nack(failed_command=command, error_info=termination_message)
+                self.last_measurement_id = None
                 """
                 if self.last_role == "Server" or self.last_role:
                     termination_message = self.stop_iperf_server_thread()
@@ -200,7 +205,7 @@ class IperfController:
                     self.last_json_result = json.loads(result.stdout)
                     if self.save_result_on_flash: # if the save_on_flash mode in enabled...
                         base_path = Path(__file__).parent
-                        complete_output_json_dir = os.path.join(base_path, self.output_iperf_dir , self.output_json_filename + self.measurement_id + ".json")
+                        complete_output_json_dir = os.path.join(base_path, self.output_iperf_dir , self.output_json_filename + self.last_measurement_id + ".json")
                         with open(complete_output_json_dir, "w") as output_file:
                             json.dump(self.last_json_result, output_file, indent=4)
                         print(f"IperfController: results saved in: {complete_output_json_dir}")
@@ -245,6 +250,7 @@ class IperfController:
 
     def send_command_ack(self, successed_command): # Incapsulating of the iperf-server-ip
         json_ack = { "command": successed_command }
+        json_ack['measurement_id'] = self.last_measurement_id
         if (successed_command == "conf") and (self.last_role == "Server"):
             json_ack['port'] = self.listening_port
         print(f"IperfController: ACK sending -> {json_ack}")
@@ -253,14 +259,15 @@ class IperfController:
     def send_command_nack(self, failed_command, error_info):
         json_nack = {
             "command" : failed_command,
-            "reason" : error_info
+            "reason" : error_info,
+            "measurement_id" : self.last_measurement_id
             }
         self.mqtt_client.publish_command_NACK(handler='iperf', payload = json_nack) 
 
     def publish_last_output_iperf(self, repetition : int , last_result : bool):
         """ Publish the last measuremet's output summary loading it from flash """
         # base_path = Path(__file__).parent
-        # completePathIPerfJson = os.path.join(base_path, self.output_iperf_dir, self.output_json_filename + str(self.measurement_id) + ".json")
+        # completePathIPerfJson = os.path.join(base_path, self.output_iperf_dir, self.output_json_filename + str(self.last_measurement_id) + ".json")
         # if not os.path.exists(completePathIPerfJson):
         #    print("Last measurement not found!")
         #    return
@@ -282,7 +289,7 @@ class IperfController:
             "type": "result",
             "payload":
             {
-                "measure_reference": self.measurement_id,
+                "measure_reference": self.last_measurement_id,
                 "repetition_number": repetition,
                 "transport_protocol": self.transport_protocol,
                 "start_timestamp": start_timestamp,
@@ -301,6 +308,7 @@ class IperfController:
 
         self.mqtt_client.publish_on_result_topic(result=json.dumps(json_summary_data))
         self.last_json_result = None # reset the result
+        self.last_measurement_id = None
         print(f"iperfController: measurement [{self.measurement_id}] result published")
 
         """
@@ -317,6 +325,7 @@ class IperfController:
         self.last_role = None
         self.last_error = None
         self.iperf_thread = None
+        self.last_measurement_id = None
         
         # Iperf Client - Parameters
         self.destination_server_ip = ""
