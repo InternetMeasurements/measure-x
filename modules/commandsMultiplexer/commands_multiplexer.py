@@ -1,10 +1,12 @@
 import json
+from modules.mongoModule.models.measurement_model_mongo import MeasurementModelMongo
 
 class CommandsMultiplexer:
     def __init__(self):
         self.results_handler_list = {}
         self.status_handler_list = {}
         self.error_handeler_list = {}
+        self.probes_preparer_list = {}
     
     def add_result_handler(self, interested_result, handler):
         if interested_result not in self.results_handler_list:
@@ -26,8 +28,15 @@ class CommandsMultiplexer:
             return "OK" #print(f"CommandsMultiplexer: Registered status handler for [{interested_status}]")
         else:
             return "There is already a registered handler for " + interested_error
+        
+    def add_probes_preparer(self, interested_command, preparer):
+        if interested_command not in self.probes_preparer_list:
+            self.probes_preparer_list[interested_command] = preparer
+            return "OK" #print(f"CommandsMultiplexer: Registered probes preparer for [{interested_command}]")
+        else:
+            return "There is already a registered handler for " + interested_command
 
-    def result_multiplexer(self, probe_sender: str, nested_result):
+    def result_multiplexer(self, probe_sender: str, nested_result):  # invoked by mqtt module
         try:
             nested_json_result = json.loads(nested_result)
             handler = nested_json_result['handler']
@@ -39,8 +48,7 @@ class CommandsMultiplexer:
         except json.JSONDecodeError as e:
             print(f"CommandsMultiplexer: result_multiplexer: json exception -> {e}")
             
-
-    def status_multiplexer(self, probe_sender, nested_status):
+    def status_multiplexer(self, probe_sender, nested_status):  # invoked by mqtt module
         try:
             nested_json_status = json.loads(nested_status)
             handler = nested_json_status['handler']
@@ -53,7 +61,7 @@ class CommandsMultiplexer:
         except json.JSONDecodeError as e:
             print(f"CommandsMultiplexer: status_multiplexer: json exception -> {e}")
 
-    def errors_multiplexer(self, probe_sender, nested_error):
+    def errors_multiplexer(self, probe_sender, nested_error):  # invoked by mqtt module
         try:
             nested_error_json = json.loads(nested_error)
             error_handler = nested_error_json['handler']
@@ -64,4 +72,9 @@ class CommandsMultiplexer:
                 print(f"CommandsMultiplexer: default error hanlder -> msg from |{probe_sender}| --> {nested_error}")
         except json.JSONDecodeError as e:
             print(f"CommandsMultiplexer: error_multiplexer: json exception -> {e}")
+    
+    def prepare_probes_to_measure(self, new_measurement : MeasurementModelMongo ):  # invoked by REST module
+        measurement_type = new_measurement.type
+        if measurement_type in self.probes_preparer_list:
+            return self.probes_preparer_list[measurement_type](new_measurement)
         
