@@ -308,9 +308,8 @@ class IperfController:
 
         self.mqtt_client.publish_on_result_topic(result=json.dumps(json_summary_data))
         self.last_json_result = None # reset the result
+        print(f"iperfController: measurement [{self.last_measurement_id}] result published")
         self.last_measurement_id = None
-        print(f"iperfController: measurement [{self.measurement_id}] result published")
-
         """
         print("\n****************** SUMMARY ******************")
         print(f"Timestamp: {formatted_time}")
