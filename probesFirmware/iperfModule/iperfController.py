@@ -99,7 +99,7 @@ class IperfController:
                     if self.last_role == "Server":
                         self.start_iperf()
                 else:
-                    self.send_command_nack(failed_command=command, error_info=self.last_error)
+                    self.send_command_nack(failed_command=command, error_info=payload)
             case 'start':
                 if self.last_role == None:
                     self.send_command_nack(failed_command=command, error_info="No configuration")
