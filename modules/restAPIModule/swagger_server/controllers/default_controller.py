@@ -2,7 +2,9 @@ import connexion
 import six
 from flask import current_app, Flask, jsonify
 from modules.restAPIModule.swagger_server.rest_server import KEY_FOR_RETRIEVE_MONGO_INSTANCE
+from modules.restAPIModule.swagger_server.rest_server import KEY_FOR_RETIREVE_COMMANDS_MULTIPLEXER
 from modules.mongoModule.mongoDB import MongoDB
+from modules.commandsMultiplexer.commands_multiplexer import CommandsMultiplexer
 
 from modules.mongoModule.models.error_model import ErrorModel  # noqa: E501
 from modules.mongoModule.models.measurement_model_mongo import MeasurementModelMongo  # noqa: E501
@@ -33,15 +35,22 @@ def create_measurement(body):  # noqa: E501
     """
     if connexion.request.is_json:
         try:
-            body = MeasurementModelMongo.from_dict(connexion.request.get_json())  # noqa: E501
-            return "OK", 200
+            measurement = MeasurementModelMongo.cast_dict_in_MeasurementModelMongo(connexion.request.get_json())  # noqa: E501
+            commands_multiplexer : CommandsMultiplexer = current_app.config.get(KEY_FOR_RETIREVE_COMMANDS_MULTIPLEXER)
+            msg_to_return = commands_multiplexer.prepare_probes_to_measure(measurement)
+            if msg_to_return == "OK":
+                return "OK", 200
+            else:
+                error_msg_to_return = ErrorModel(object_ref_id='', object_ref_type="measurement", error_description=msg_to_return).to_dict()
+                return error_msg_to_return, 400
+            # Recupera le istanze del modulo che vuoi usare, e agisci di conseguenza
+            
         except Exception as e:
             json_msg = connexion.request.get_json()
             measurement_id = json_msg['measurement_id'] if 'measurement_id' in  json_msg else None
             if measurement_id is None:
                 error_msg_to_return = ErrorModel(object_ref_id='No id', object_ref_type="measurement", error_description="No ")
-
-    return 'do some magic!'
+                return error_msg_to_return, 400
 
 
 def get_measurement_by_id(measurement_id):  # noqa: E501
