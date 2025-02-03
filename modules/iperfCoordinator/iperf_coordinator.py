@@ -2,6 +2,7 @@ import os
 import json
 import yaml
 import time
+import threading
 from pathlib import Path
 from modules.mqttModule.mqtt_client import Mqtt_Client
 from bson import ObjectId
@@ -20,6 +21,8 @@ class Iperf_Coordinator:
         self.probes_server_port = {}
         self.mongo_db = mongo_db
         self.last_mongo_measurement = None # In this attribute, i save the measurement before store it in mongoDB
+        self.events_received_server_ack = {}
+        
 
         # Requests to commands_multiplexer
         registration_response = registration_handler_status(
@@ -57,8 +60,11 @@ class Iperf_Coordinator:
                     case "conf":
                         if "port" in payload: # if the 'port' key is in the payload, then it's the ACK comes from iperf-server
                             probe_port = payload["port"]
+                            measurment_id = payload["measurement_id"]
                             self.probes_server_port[probe_sender] = probe_port
                             print(f"Iperf_Coordinator: probe |{probe_sender}|->|Listening port: {probe_port}|->|ACK|")
+                            self.events_received_server_ack[measurment_id][1] = True
+                            self.events_received_server_ack[measurment_id][0].set() # Set the event ACK RECEIVER FROM SERVER
                         # the else statement, means that the ACK is sent from the client.
                         else:
                             print(f"Iperf_Coordinator: probe |{probe_sender}|->|conf|->|ACK|")
@@ -72,20 +78,27 @@ class Iperf_Coordinator:
             case "NACK":
                 command_failed_on_probe = payload["command"]
                 reason = payload['reason']
+                measurment_id = payload["measurement_id"]
                 print(f"Iperf_Coordinator: probe |{probe_sender}|->|{command_failed_on_probe}|->|NACK|, reason --> {reason}")
                 match command_failed_on_probe:
                     case "start":
                         print("comando fallito start")
                         if self.mongo_db.set_measurement_as_failed_by_id(measurement_id = self.last_mongo_measurement._id):
                             print(f"Iperf_Coordinator: measurement |{self.last_mongo_measurement._id}| setted as failed")
+                    case "conf":
+                        self.events_received_server_ack[measurment_id][1] = False
+                        self.events_received_server_ack[measurment_id][0].set()
+
 
             case _:
                 print(f"Iperf_Coordinator: received unkown type message -> |{type}|")
 
 
-    def send_probe_iperf_configuration(self, probe_id, role, source_probe_ip = None, dest_probe = None, dest_probe_ip = None): # Tramite il probe_id, devi caricare il file YAML per quella probes
+    def send_probe_iperf_configuration(self, probe_id, role, source_probe_ip = None, dest_probe = None, dest_probe_ip = None):
         json_config = {}
         if role == "Client": # Preparing the config for the iperf-client
+            with self.received_server_ack_condition:
+                self.received_server_ack_condition.wait()
             base_path = Path(__file__).parent
             probes_configurations_path = Path(os.path.join(base_path, self.probes_configurations_dir, "configToBeClient.yaml"))
             if probes_configurations_path.exists():
@@ -127,6 +140,8 @@ class Iperf_Coordinator:
 
         
     def send_probe_iperf_start(self):
+        # Dopo la modifica della gestione della sincronizzazione con la thread.Condition, verificare se ora va bene questa implementazione SOTTO.
+        # Invece di utilizzare la condition, utilizza event
         if self.expected_acks == set():
             print("iperf_coordinator: expected_acks empty")
             return
@@ -229,30 +244,46 @@ class Iperf_Coordinator:
             }
         return json_probe_config
 
-    """
-    def store_measurement_result(self, probe_sender, json_measurement: json):
-        base_path = Path(__file__).parent
-        probe_measurement_dir = Path(os.path.join(base_path, 'measurements', probe_sender))
-        complete_measurement_path = os.path.join(base_path, probe_measurement_dir, "measure_" + str(json_measurement['measurement_id']) + ".json")
-        if not probe_measurement_dir.exists():
-            os.makedirs(probe_measurement_dir, exist_ok=True)
-        with open(complete_measurement_path, "w") as file:
-            file.write(json.dumps(json_measurement, indent=4))
-        print(f"Iperf_Coordinator: stored result from {probe_sender} -> measure_{str(json_measurement['measurement_id'])}.json")
+    def prepare_probes_for_measurement(self, new_measurement : MeasurementModelMongo) -> str:
+        json_config = {}
+        new_measurement.assign_id()
+        measurement_id = str(new_measurement._id)
+        self.events_received_server_ack[measurement_id] = [threading.Event(), None]
 
-    def get_last_measurement_id(self, probe_id):
-        #It returns the id that can be used as Current-Measurement-ID
-        base_path = Path(__file__).parent
-        output_path = os.path.join(base_path, "measurements", probe_id)
+        json_config = {
+                "role": "Server",
+                "listen_port": 5201,
+                "verbose": True,
+                "measurement_id": measurement_id
+            }
+        json_command = {
+            "handler": 'iperf',
+            "command": "conf",
+            "payload": json_config
+        }
         
-        file_list = os.listdir(output_path)
-        file_list = [measurement_file for measurement_file in file_list if measurement_file.startswith("measure_")]
-
-        if not file_list:
-            return 0
-        
-        sorted_list = sorted(file_list, key=lambda x: int(x.split('_')[1].split('.')[0]))
-        last_element_ID = int(sorted_list[-1].split('_')[-1].split(".")[0])
-        return last_element_ID + 1
-    """
-        
+        self.mqtt.publish_on_command_topic(probe_id = new_measurement.dest_probe, complete_command=json.dumps(json_command))
+        self.events_received_server_ack[measurement_id][0].wait() # Wait for the ACK server
+        if self.events_received_server_ack[measurement_id][1] == True: # If the iperf-server configuration went good, then...
+            base_path = Path(__file__).parent
+            probes_configurations_path = Path(os.path.join(base_path, self.probes_configurations_dir, "configToBeClient.yaml"))
+            if probes_configurations_path.exists():                                
+                json_config = self.get_json_from_probe_yaml(probes_configurations_path)
+                json_config['role'] = "Client"
+                json_config['measurement_id'] = None # REMEMBER: --> Only at the start command, the measurment_id is sent to the probe!
+                json_config['destination_server_ip'] = new_measurement.dest_probe_ip
+                json_config['destination_server_port'] = self.probes_server_port[new_measurement.dest_probe]
+                json_command = {
+                    "handler": 'iperf',
+                    "command": "conf",
+                    "payload": json_config
+                }
+                self.last_client_probe = new_measurement.source_probe
+                self.mqtt.publish_on_command_topic(probe_id = new_measurement.source_probe, complete_command = json.dumps(json_command))
+                return "OK"
+        elif self.events_received_server_ack[measurement_id][1] == False:
+            print(f"Svegliato con NACK")
+            return "Server problem configuration"
+        else:
+            print("Svegliato con None")
+            return "Impossible"
