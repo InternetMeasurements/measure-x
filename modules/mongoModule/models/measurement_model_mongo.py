@@ -1,4 +1,6 @@
 from modules.mongoModule.models.coexisting_application_model_mongo import CoexistingApplicationModelMongo
+from bson.objectid import ObjectId
+
 
 class MeasurementModelMongo:
     def __init__(self, description, type, source_probe, dest_probe, source_probe_ip : str, dest_probe_ip : str, _id = None,
@@ -48,6 +50,9 @@ class MeasurementModelMongo:
                                                       state=state, start_time=start_time, gps_source_probe=gps_source_probe, gps_dest_probe=gps_dest_probe,
                                                       coexisting_application=coexisting_application, stop_time=stop_time, results=results)
         return measurement_to_return
+    
+    def assign_id(self):
+        self._id = ObjectId()
 
     def to_dict(self):
         return {
