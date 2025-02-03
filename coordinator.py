@@ -66,26 +66,27 @@ def main():
     
     iperf_coordinator = Iperf_Coordinator(
         mqtt = coordinator_mqtt,
-        registration_handler_result=commands_multiplexer.add_result_handler,
-        registration_handler_status=commands_multiplexer.add_status_handler,
+        registration_handler_result = commands_multiplexer.add_result_handler,
+        registration_handler_status = commands_multiplexer.add_status_handler,
         mongo_db=mongo_db)
     
     ping_coordinator = Ping_Coordinator(
         mqtt_client=coordinator_mqtt,
-        registration_handler_result=commands_multiplexer.add_result_handler, 
-        registration_handler_status=commands_multiplexer.add_status_handler,
+        registration_handler_result = commands_multiplexer.add_result_handler, 
+        registration_handler_status = commands_multiplexer.add_status_handler,
         mongo_db=mongo_db)
     
     energy_coordinator = EnergyCoordinator(
         mqtt_client=coordinator_mqtt,
-        registration_handler_error=commands_multiplexer.add_error_handler,
-        registration_handler_status=commands_multiplexer.add_status_handler,
-        registration_handler_result=commands_multiplexer.add_result_handler,
+        registration_handler_error = commands_multiplexer.add_error_handler,
+        registration_handler_status = commands_multiplexer.add_status_handler,
+        registration_handler_result = commands_multiplexer.add_result_handler,
         mongo_db=mongo_db)
 
     commands_multiplexer.add_status_handler('probe_state', online_status_handler)
 
-    rest_server = RestServer(mongo_instance = mongo_db)
+    rest_server = RestServer(mongo_instance = mongo_db,
+                             commands_multiplexer_instance = commands_multiplexer)
     rest_server.start_REST_API_server()
 
     while True:
