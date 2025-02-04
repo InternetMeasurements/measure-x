@@ -244,7 +244,8 @@ class Iperf_Coordinator:
             }
         return json_probe_config
 
-    def prepare_probes_for_measurement(self, new_measurement : MeasurementModelMongo) -> str:
+    def probes_preparer_to_measurements(self, new_measurement : MeasurementModelMongo) -> str:
+        print("preparer iperf: invoked")
         json_config = {}
         new_measurement.assign_id()
         measurement_id = str(new_measurement._id)
@@ -253,7 +254,7 @@ class Iperf_Coordinator:
         json_config = {
                 "role": "Server",
                 "listen_port": 5201,
-                "verbose": True,
+                "verbose": False,
                 "measurement_id": measurement_id
             }
         json_command = {
@@ -263,8 +264,10 @@ class Iperf_Coordinator:
         }
         
         self.mqtt.publish_on_command_topic(probe_id = new_measurement.dest_probe, complete_command=json.dumps(json_command))
-        self.events_received_server_ack[measurement_id][0].wait() # Wait for the ACK server
+        print("preparer iperf: sent conf server")
+        self.events_received_server_ack[measurement_id][0].wait(timeout = 5) # Wait for the ACK server
         if self.events_received_server_ack[measurement_id][1] == True: # If the iperf-server configuration went good, then...
+            print("preparer iperf: awake from server ACK ")
             base_path = Path(__file__).parent
             probes_configurations_path = Path(os.path.join(base_path, self.probes_configurations_dir, "configToBeClient.yaml"))
             if probes_configurations_path.exists():                                
@@ -280,10 +283,16 @@ class Iperf_Coordinator:
                 }
                 self.last_client_probe = new_measurement.source_probe
                 self.mqtt.publish_on_command_topic(probe_id = new_measurement.source_probe, complete_command = json.dumps(json_command))
-                return "OK"
+                self.events_received_client_ack[measurement_id] = [threading.Event(), None]
+
+                self.events_received_client_ack[measurement_id][0].wait()
+                if self.events_received_client_ack[measurement_id][1] == True:
+                    return self.send_probe_iperf_start(new_measurement)
+                else:
+                    return "Failed to configure the client"
         elif self.events_received_server_ack[measurement_id][1] == False:
-            print(f"Svegliato con NACK")
+            print(f"preparator iperf: awaked from server conf NACK")
             return "Server problem configuration"
         else:
-            print("Svegliato con None")
-            return "Impossible"
+            print(f"preparator ieprf: No response from source_probe -> |{new_measurement.source_probe}")
+            return f"No response from source_probe: {new_measurement.source_probe}"

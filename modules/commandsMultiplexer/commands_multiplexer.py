@@ -29,12 +29,13 @@ class CommandsMultiplexer:
         else:
             return "There is already a registered handler for " + interested_error
         
-    def add_probes_preparer(self, interested_command, preparer):
-        if interested_command not in self.probes_preparer_list:
-            self.probes_preparer_list[interested_command] = preparer
-            return "OK" #print(f"CommandsMultiplexer: Registered probes preparer for [{interested_command}]")
+    def add_probes_preparer(self, interested_measurement_type, preparer):
+        # Be sure that all the "preparer methods" returns a string!
+        if interested_measurement_type not in self.probes_preparer_list:
+            self.probes_preparer_list[interested_measurement_type] = preparer
+            return "OK" #print(f"CommandsMultiplexer: Registered probes preparer for [{interested_measurement_type}]")
         else:
-            return "There is already a registered handler for " + interested_command
+            return "There is already a probes-preparer for " + interested_measurement_type
 
     def result_multiplexer(self, probe_sender: str, nested_result):  # invoked by mqtt module
         try:
@@ -73,8 +74,11 @@ class CommandsMultiplexer:
         except json.JSONDecodeError as e:
             print(f"CommandsMultiplexer: error_multiplexer: json exception -> {e}")
     
-    def prepare_probes_to_measure(self, new_measurement : MeasurementModelMongo ):  # invoked by REST module
+    def prepare_probes_to_measure(self, new_measurement : MeasurementModelMongo) -> str:  # invoked by REST module
         measurement_type = new_measurement.type
         if measurement_type in self.probes_preparer_list:
+            # Be sure that all the "preparer methods" returns a string!
             return self.probes_preparer_list[measurement_type](new_measurement)
+        else:
+            return "Check the measurement type"
         
