@@ -63,17 +63,17 @@ class MongoDB:
         return (update_result.modified_count > 0)
     
     
-    def update_results_array_in_measurement(self, measure_reference):
+    def update_results_array_in_measurement(self, msm_id):
         try:
             update_result = self.measurements_collection.update_one(
-                {"_id": ObjectId(measure_reference)},
+                {"_id": ObjectId(msm_id)},
                 {"$set": {"results": list(
-                    self.results_collection.find({"measure_reference": ObjectId(measure_reference)}).distinct("_id"))}}
+                    self.results_collection.find({"msm_id": ObjectId(msm_id)}).distinct("_id"))}}
             )
             return update_result
         except Exception as e:
             print(f"Motivo -> {e}")
-            find_result = ErrorModel(object_ref_id = measure_reference, object_ref_type="list of results", 
+            find_result = ErrorModel(object_ref_id = msm_id, object_ref_type="list of results", 
                                      error_description="It must be a 12-byte input or a 24-character hex string",
                                      error_cause="measurement_id NOT VALID")
         return (find_result.to_dict())
@@ -164,9 +164,9 @@ class MongoDB:
             return None
 
 
-    def delete_results_by_measure_reference(self, measure_reference) -> bool:
+    def delete_results_by_msm_id(self, msm_id) -> bool:
         delete_result = self.results_collection.delete_many(
-                            {"measure_reference": ObjectId(measure_reference)})
+                            {"msm_id": ObjectId(msm_id)})
         return (delete_result.deleted_count > 0)
     
 
@@ -176,14 +176,14 @@ class MongoDB:
         return (delete_result.deleted_count > 0)
       
     
-    def find_all_results_by_measurement_id(self, measurement_id):
+    def find_all_results_by_measurement_id(self, msm_id):
         try:
-            cursor = self.results_collection.find({"measure_reference": ObjectId(measurement_id)})
+            cursor = self.results_collection.find({"msm_id": ObjectId(msm_id)})
             result_list = list() if (cursor is None) else list(cursor)
             return result_list
         except Exception as e:
             print(f"Motivo -> {e}")
-            find_result = ErrorModel(object_ref_id=measurement_id, object_ref_type="list of results", 
+            find_result = ErrorModel(object_ref_id=msm_id, object_ref_type="list of results", 
                                      error_description="It must be a 12-byte input or a 24-character hex string",
                                      error_cause="measurement_id NOT VALID")
         return (find_result.to_dict())
