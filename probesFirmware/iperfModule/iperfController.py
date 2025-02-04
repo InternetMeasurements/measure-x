@@ -94,8 +94,16 @@ class IperfController:
     def iperf_command_handler(self, command : str, payload: json):
         match command:
             case 'conf':
+                if not shared_state.probe_is_ready():
+                    self.send_command_nack(failed_command=command, error_info="PROBE BUSY")
+                    return
+                
                 if self.read_configuration(payload): # if the configuration goes good, then ACK, else NACK
                     self.send_command_ack(successed_command = command)
+                    if not shared_state.set_probe_as_busy():  # ---> if true => Stranger things happened
+                        self.send_command_nack(failed_command=command, error_info="PROBE BUSY")
+                        self.reset_conf() 
+                        return
                     if self.last_role == "Server":
                         self.start_iperf()
                 else:
@@ -119,6 +127,8 @@ class IperfController:
                 termination_message = self.stop_iperf_thread()
                 if termination_message == "OK":
                     self.send_command_ack(successed_command=command)
+                    shared_state.set_probe_as_ready()
+                    self.reset_conf()
                 else:
                     self.send_command_nack(failed_command=command, error_info=termination_message)
                 self.last_measurement_id = None
