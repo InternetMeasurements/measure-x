@@ -15,6 +15,7 @@ COMPLETED_STATE = "completed"
 
 
 class MongoDB:
+
     def __init__(self, mongo_config):
         self.server_ip = mongo_config.ip_server
         self.server_port = mongo_config.port_server
@@ -38,6 +39,7 @@ class MongoDB:
         self.measurements_collection = db[self.measurements_collection_name]
         self.results_collection = db[self.results_collection_name]
 
+    # ------------------------------------------------- MEASUREMENTS COLLECTION -------------------------------------------------
     
     def insert_measurement(self, measure : MeasurementModelMongo) -> str:
         try:
@@ -52,28 +54,6 @@ class MongoDB:
             return None
         
 
-    def insert_iperf_result(self, result : IperfResultModelMongo) -> str:
-        try:
-            insert_result = self.results_collection.insert_one(result.to_dict())
-            if insert_result.inserted_id:
-                print(f"MongoDB: iperf result stored in mongo. ID -> |{insert_result.inserted_id}|")
-                return insert_result.inserted_id
-        except Exception as e:
-            print(f"MongoDB: Error while storing the Iperf result on mongo -> {e}")
-            return None
-
-
-    def insert_ping_result(self, result : PingResultModelMongo) -> str:
-        try:
-            insert_result = self.results_collection.insert_one(result.to_dict())
-            if insert_result.inserted_id:
-                print(f"MongoDB: ping result stored in mongo. ID -> |{insert_result.inserted_id}|")
-                return insert_result.inserted_id
-        except Exception as e:
-            print(f"MongoDB: Error while storing the Ping result on mongo -> {e}")
-            return None
-
-
     def set_measurement_as_completed(self, measurement_id) -> bool:
         stop_time = time.time()
         update_result = self.measurements_collection.update_one(
@@ -82,35 +62,30 @@ class MongoDB:
                                       "state": COMPLETED_STATE} })
         return (update_result.modified_count > 0)
     
+    
+    def update_results_array_in_measurement(self, measure_reference):
+        try:
+            results_id_cursor = self.results_collection.find({"measure_reference": ObjectId(measure_reference)}, {"_id": 1})
+            results_id_list = list() if (results_id_cursor is None) else list(results_id_cursor)
+            update_result = self.measurements_collection.update_one(
+                {"_id": ObjectId(measure_reference)},
+                {"$set": {"results": results_id_list}}
+            )
+            return update_result
+        except Exception as e:
+            print(f"Motivo -> {e}")
+            find_result = ErrorModel(object_ref_id=measurement_id, object_ref_type="list of results", 
+                                     error_description="It must be a 12-byte input or a 24-character hex string",
+                                     error_cause="measurement_id NOT VALID")
+        return (find_result.to_dict())
+    
 
     def delete_measurements_by_id(self, measurement_id: str) -> bool:
+        # Da cancellare
         delete_result = self.measurements_collection.delete_one(
                             {"_id": ObjectId(measurement_id)})
         return (delete_result.deleted_count > 0)
-    
 
-    def delete_results_by_measure_reference(self, measure_reference) -> bool:
-        delete_result = self.results_collection.delete_many(
-                            {"measure_reference": ObjectId(measure_reference)})
-        return (delete_result.deleted_count > 0)
-    
-
-    def delete_result_by_id(self, result_id : str) -> bool:
-        delete_result = self.results_collection.delete_one(
-                            {"_id": ObjectId(result_id)})
-        return (delete_result.deleted_count > 0)
-    
-
-    def set_measurement_as_failed_by_id(self, measurement_id : str) -> bool:
-        replace_result = self.measurements_collection.update_one(
-                            {"_id": ObjectId(measurement_id)},
-                            {"$set":{
-                                "_id": ObjectId(measurement_id),
-                                "state": FAILED_STATE
-                                }
-                            })
-        return (replace_result.modified_count > 0)
-    
 
     def find_measurement_by_id(self, measurement_id):
         try:
@@ -155,16 +130,57 @@ class MongoDB:
                             })
         return replace_result.modified_count
     
+
+    def set_measurement_as_failed_by_id(self, measurement_id : str) -> bool:
+        replace_result = self.measurements_collection.update_one(
+                            {"_id": ObjectId(measurement_id)},
+                            {"$set":{
+                                "_id": ObjectId(measurement_id),
+                                "state": FAILED_STATE
+                                }
+                            })
+        return (replace_result.modified_count > 0)
+
+    # ------------------------------------------------- RESULTS COLLECTION -------------------------------------------------
+
+    def insert_iperf_result(self, result : IperfResultModelMongo) -> str:
+        try:
+            insert_result = self.results_collection.insert_one(result.to_dict())
+            if insert_result.inserted_id:
+                print(f"MongoDB: iperf result stored in mongo. ID -> |{insert_result.inserted_id}|")
+                return insert_result.inserted_id
+        except Exception as e:
+            print(f"MongoDB: Error while storing the Iperf result on mongo -> {e}")
+            return None
+
+
+    def insert_ping_result(self, result : PingResultModelMongo) -> str:
+        try:
+            insert_result = self.results_collection.insert_one(result.to_dict())
+            if insert_result.inserted_id:
+                print(f"MongoDB: ping result stored in mongo. ID -> |{insert_result.inserted_id}|")
+                return insert_result.inserted_id
+        except Exception as e:
+            print(f"MongoDB: Error while storing the Ping result on mongo -> {e}")
+            return None
+
+
+    def delete_results_by_measure_reference(self, measure_reference) -> bool:
+        delete_result = self.results_collection.delete_many(
+                            {"measure_reference": ObjectId(measure_reference)})
+        return (delete_result.deleted_count > 0)
+    
+
+    def delete_result_by_id(self, result_id : str) -> bool:
+        delete_result = self.results_collection.delete_one(
+                            {"_id": ObjectId(result_id)})
+        return (delete_result.deleted_count > 0)
+      
+    
     def find_all_results_by_measurement_id(self, measurement_id):
         try:
             cursor = self.results_collection.find({"measure_reference": ObjectId(measurement_id)})
-            documents = list(cursor)
-            result_list = []
-            for document in documents:
-                if 'measure_reference' in document:
-                    result_list.append(document)
-                    #if measurement_type == "iperf":
-            print(f"lista-> {result_list} ")
+            result_list = list() if (cursor is None) else list(cursor)
             return result_list
         except Exception as e:
             print(f"Motivo -> {e}")
