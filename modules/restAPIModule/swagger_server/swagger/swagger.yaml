@@ -229,14 +229,11 @@ components:
   schemas:
     MeasurementModelMongo:
       required:
-      - description
+      - type
       - dest_probe
       - dest_probe_ip
       - source_probe
       - source_probe_ip
-      - start_time
-      - state
-      - type
       type: object
       properties:
         _id:
