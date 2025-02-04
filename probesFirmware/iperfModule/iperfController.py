@@ -95,17 +95,18 @@ class IperfController:
     def iperf_command_handler(self, command : str, payload: json):
         match command:
             case 'conf':
+                measurement_related_conf = payload['measurement_id']
                 if not shared_state.probe_is_ready():
-                    self.send_command_nack(failed_command=command, error_info="PROBE BUSY")
+                    self.send_command_nack(failed_command=command, error_info="PROBE BUSY", measurement_related_conf = measurement_related_conf)
                     return
                 
                 configuration_message = self.read_configuration(payload)
                 if  configuration_message == "OK": # if the configuration goes good, then ACK, else NACK
-                    self.send_command_ack(successed_command = command)
+                    self.send_command_ack(successed_command = command, measurement_related_conf = measurement_related_conf)
                     if self.last_role == "Server":
                         self.start_iperf()
                 else:
-                    self.send_command_nack(failed_command=command, error_info = configuration_message)
+                    self.send_command_nack(failed_command=command, error_info = configuration_message, measurement_related_conf = measurement_related_conf)
             case 'start':
                 if self.last_role == None:
                     self.send_command_nack(failed_command=command, error_info="No configuration")
@@ -256,20 +257,20 @@ class IperfController:
             return "Process " + process_name + " not in execution"
 
 
-    def send_command_ack(self, successed_command): # Incapsulating of the iperf-server-ip
+    def send_command_ack(self, successed_command, measurement_related_conf = None): # Incapsulating of the iperf-server-ip
         json_ack = { "command": successed_command }
-        json_ack['measurement_id'] = self.last_measurement_id
+        json_ack['measurement_id'] = self.last_measurement_id if (measurement_related_conf is None) else measurement_related_conf
         if (successed_command == "conf") and (self.last_role == "Server"):
             json_ack['port'] = self.listening_port
         print(f"IperfController: ACK sending -> {json_ack}")
         self.mqtt_client.publish_command_ACK(handler='iperf', payload=json_ack) 
 
-    def send_command_nack(self, failed_command, error_info):
+    def send_command_nack(self, failed_command, error_info, measurement_related_conf = None):
         json_nack = {
             "command" : failed_command,
             "reason" : error_info,
             "role": self.last_role,
-            "measurement_id" : self.last_measurement_id
+            "measurement_id" : self.last_measurement_id if (measurement_related_conf is None) else measurement_related_conf
             }
         self.mqtt_client.publish_command_NACK(handler='iperf', payload = json_nack) 
 
