@@ -60,9 +60,9 @@ class MeasurementModelMongo:
     def assign_id(self):
         self._id = ObjectId()
 
-    def to_dict(self):
+    def to_dict(self, to_store = False):
         return {
-            '_id' : self._id,
+            '_id' : str(self._id) if not to_store else self._id,
             'description': self.description,
             'type': self.type,
             'state': self.state,
