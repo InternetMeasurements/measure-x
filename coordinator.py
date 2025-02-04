@@ -68,6 +68,7 @@ def main():
         mqtt = coordinator_mqtt,
         registration_handler_result = commands_multiplexer.add_result_handler,
         registration_handler_status = commands_multiplexer.add_status_handler,
+        registration_measure_preparer = commands_multiplexer.add_probes_preparer,
         mongo_db=mongo_db)
     
     ping_coordinator = Ping_Coordinator(
@@ -91,48 +92,21 @@ def main():
 
     while True:
         print("PRESS 0 -> exit")
+        command = input()
+        if command == "0":
+            break
+        """
         print("PRESS 1 -> start ping from probe2 to probe4")
         print("PRESS 2 -> start ping from probe4 to probe2")
         print("PRESS 3 -> stop ping on probe2")
         print("PRESS 4 -> stop ping on probe4")
         print("PRESS 9 to insert a measure ping")
-        command = input()
+        
         match command:
             case "1":
                 print("PRESS 1 -> send role SERVER to probe2")
                 iperf_coordinator.send_probe_iperf_configuration(probe_id = "probe2", role = "Server")
-                """
-                probe_ping_starter = "probe2"
-                probe_ping_destination = "probe4"
-                if probe_ping_starter not in probe_ip:
-                    print(f"The starter probe {probe_ping_starter} is OFFLINE")
-                    continue
-                if probe_ping_destination not in probe_ip:
-                    print(f"The destination probe {probe_ping_destination} is OFFLINE")
-                    continue
-                ping_coordinator.send_start_command(probe_sender = probe_ping_starter,
-                                                    probe_receiver = probe_ping_destination,
-                                                    destination_ip = probe_ip[probe_ping_destination],
-                                                    source_ip = probe_ip[probe_ping_starter],
-                                                    packets_number = 5,
-                                                    packets_size = 512)
-                """
             case "2":
-                """
-                probe_ping_starter = "probe4"
-                probe_ping_destinarion = "probe2"
-                if probe_ping_starter not in probe_ip:
-                    print(f"The starter probe {probe_ping_starter} is OFFLINE")
-                    continue
-                if probe_ping_destinarion not in probe_ip:
-                    print(f"The destination probe {probe_ping_destinarion} is OFFLINE")
-                    continue
-                ping_coordinator.send_start_command(probe_sender = probe_ping_starter,
-                                                     destination_ip = probe_ip[probe_ping_destinarion],
-                                                     packets_number=8,
-                                                     packets_size=1024
-                                                     )
-                """
                 print("PRESS 2 -> send role CLIENT to probe2")
                 destination_probe = "probe4"
                 iperf_coordinator.send_probe_iperf_configuration(probe_id = "probe2", role = "Client", source_probe_ip = probe_ip.get("probe2"), dest_probe=destination_probe, dest_probe_ip=probe_ip.get(destination_probe, None))
@@ -152,12 +126,6 @@ def main():
             case "7":
                 print("PRESS 7 -> stop iperf SERVER on probe4")
                 iperf_coordinator.send_probe_iperf_stop("probe4")
-                """
-                case "3":
-                    ping_coordinator.send_stop_command("probe2")
-                case "4":
-                    ping_coordinator.send_stop_command("probe4")
-                """
             case "9":
                 test_misura = MeasurementModelMongo(description="Misura ping test", type="Ping", source_probe="probe_test", dest_probe="probe_test",
                                                     source_probe_ip="192.168.1.8", dest_probe_ip="192.168.1.8")
@@ -184,6 +152,7 @@ def main():
                 energy_coordinator.send_stop_command(probe_id = "probe2")
             case _:
                 break
+    """
     coordinator_mqtt.disconnect()
 
 if __name__ == "__main__":
