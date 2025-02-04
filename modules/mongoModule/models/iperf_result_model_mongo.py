@@ -1,10 +1,10 @@
 class IperfResultModelMongo:
     def __init__(self, 
-                 measure_reference, repetition_number, start_timestamp,
+                 msm_id, repetition_number, start_timestamp,
                  transport_protocol, source_ip, source_port, destination_ip,
                  destination_port, bytes_received, duration, avg_speed):
         self._id = None
-        self.measure_reference = measure_reference
+        self.msm_id = msm_id
         self.repetition_number = repetition_number
         self.transport_protocol = transport_protocol
         self.start_timestamp = start_timestamp
@@ -18,7 +18,7 @@ class IperfResultModelMongo:
 
     def to_dict(self):
         return {
-            'measure_reference': self.measure_reference,
+            'msm_id': self.msm_id,
             'repetition_number': self.repetition_number,
             'transport_protocol': self.transport_protocol,
             'start_timestamp': self.start_timestamp,
