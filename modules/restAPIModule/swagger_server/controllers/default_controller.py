@@ -35,7 +35,12 @@ def create_measurement(body):  # noqa: E501
     """
     if connexion.request.is_json:
         try:
+            print(f"Riceuvot -> {connexion.request.get_json()}")
             measurement = MeasurementModelMongo.cast_dict_in_MeasurementModelMongo(connexion.request.get_json())  # noqa: E501
+            if measurement is None:
+                msg_to_return = "There is at least one missing measurement field"
+                error_msg_to_return = ErrorModel(object_ref_id='', object_ref_type="measurement", error_description=msg_to_return, error_cause="Missing field").to_dict()
+                return error_msg_to_return, 400
             commands_multiplexer : CommandsMultiplexer = current_app.config.get(KEY_FOR_RETIREVE_COMMANDS_MULTIPLEXER)
             msg_to_return = commands_multiplexer.prepare_probes_to_measure(measurement)
             if msg_to_return == "OK":
