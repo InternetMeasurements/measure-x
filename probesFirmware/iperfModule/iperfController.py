@@ -300,7 +300,7 @@ class IperfController:
             "type": "result",
             "payload":
             {
-                "measure_reference": self.last_measurement_id,
+                "msm_id": self.last_measurement_id,
                 "repetition_number": repetition,
                 "transport_protocol": self.transport_protocol,
                 "start_timestamp": start_timestamp,
