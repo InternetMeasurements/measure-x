@@ -40,21 +40,24 @@ class IperfController:
         if registration_response != "OK" :
             print(f"IperfController: registration handler failed. Reason -> {registration_response}")
 
-    
-    def read_configuration(self, payload : json) -> bool :
+
+    def read_configuration(self, payload : json) -> str :
         if 'role' not in payload:
-            self.last_error = "Missing Role!"
-            return False
+            return "Missing Role!"
+        
         my_role = payload['role']
-        if my_role == "Client":
+        if my_role == "Client": # If the role is client, then i ONLY check if the probe state is READY. This is beacuse, for the client, the Conf and Start are separated.
+            if not shared_state.probe_is_ready():
+                return "PROBE BUSY"
             return self.read_client_configuration(payload)
-        elif my_role == "Server":
+        elif my_role == "Server": # If the role is client, the i check if is possible to set its state ad BUSY. This is beacuse, for the server, the Conf and Start collide.
+            if not shared_state.set_probe_as_busy():
+                return "PROBE BUSY"
             return self.read_server_configuration(payload)
         else:
-            self.last_error = "Wrong Role!"
-            return False
+            return "Wrong Role!"
 
-    def read_server_configuration(self, payload_conf : json):
+    def read_server_configuration(self, payload_conf : json) -> str:
         print(f"IperfController: read_configuration_Server()")
         try:
             self.listening_port = payload_conf['listen_port']
@@ -62,13 +65,12 @@ class IperfController:
             self.last_measurement_id = payload_conf['measurement_id']
             self.last_role = "Server"
             self.last_error = None
-            return True
+            return "OK"
         except Exception as e:
             print(f"IperfController: Configuration failed. Reason -> {e}")
-            self.last_error = str(e)
-            return False
+            return str(e)
 
-    def read_client_configuration(self, payload_conf : json): # Reads the iperf yaml configuration file 
+    def read_client_configuration(self, payload_conf : json) -> str: # Reads the iperf yaml configuration file 
         print(f"IperfController: read_configuration_Client()")
         try:
             self.destination_server_ip = payload_conf['destination_server_ip']
@@ -84,11 +86,10 @@ class IperfController:
             self.last_measurement_id = payload_conf['measurement_id']
             self.last_role = "Client"
             self.last_error = None
-            return True
+            return "OK"
         except Exception as e:
             print(f"IperfController: Configuration failed. Reason -> {e}")
-            self.last_error = str(e)
-            return False
+            return str(e)
 
 
     def iperf_command_handler(self, command : str, payload: json):
@@ -98,16 +99,13 @@ class IperfController:
                     self.send_command_nack(failed_command=command, error_info="PROBE BUSY")
                     return
                 
-                if self.read_configuration(payload): # if the configuration goes good, then ACK, else NACK
+                configuration_message = self.read_configuration(payload)
+                if  configuration_message == "OK": # if the configuration goes good, then ACK, else NACK
                     self.send_command_ack(successed_command = command)
-                    if not shared_state.set_probe_as_busy():  # ---> if true => Stranger things happened
-                        self.send_command_nack(failed_command=command, error_info="PROBE BUSY")
-                        self.reset_conf() 
-                        return
                     if self.last_role == "Server":
                         self.start_iperf()
                 else:
-                    self.send_command_nack(failed_command=command, error_info=payload)
+                    self.send_command_nack(failed_command=command, error_info = configuration_message)
             case 'start':
                 if self.last_role == None:
                     self.send_command_nack(failed_command=command, error_info="No configuration")
