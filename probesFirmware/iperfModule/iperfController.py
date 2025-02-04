@@ -268,6 +268,7 @@ class IperfController:
         json_nack = {
             "command" : failed_command,
             "reason" : error_info,
+            "role": self.last_role,
             "measurement_id" : self.last_measurement_id
             }
         self.mqtt_client.publish_command_NACK(handler='iperf', payload = json_nack) 
