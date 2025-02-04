@@ -72,11 +72,11 @@ class Iperf_Coordinator:
                             probe_port = payload["port"]
                             self.probes_server_port[probe_sender] = probe_port
                             print(f"Iperf_Coordinator: probe |{probe_sender}|->|Listening port: {probe_port}|->|ACK|")
-                            self.events_received_server_ack[measurment_id][1] = True
+                            self.events_received_server_ack[measurment_id][1] = "OK"
                             self.events_received_server_ack[measurment_id][0].set() # Set the event ACK RECEIVER FROM SERVER
                         # the else statement, means that the ACK is sent from the client.
                         else:
-                            self.events_received_client_ack[measurment_id][1] = True
+                            self.events_received_client_ack[measurment_id][1] = "OK"
                             self.events_received_client_ack[measurment_id][0].set()
                             print(f"Iperf_Coordinator: probe |{probe_sender}|->|conf|-> client |ACK|")
                         # ↓ In any case, i add the probe_id to the probes from which i received its conf-ACK
@@ -88,24 +88,24 @@ class Iperf_Coordinator:
                         print(f"ACK received for unkonwn iperf command -> {command_executed_on_probe}")
             case "NACK":
                 command_failed_on_probe = payload["command"]
-                reason_payload = payload['reason']
-                measurment_id = payload["measurement_id"]
-                print(f"Iperf_Coordinator: probe |{probe_sender}|->|{command_failed_on_probe}|->|NACK|, reason_payload --> {reason_payload}")
+                reason = payload['reason']
+                measurment_id = payload["measurement_id"] if 'measurement_id' in payload else None
+                print(f"Iperf_Coordinator: probe |{probe_sender}|->|{command_failed_on_probe}|->|NACK|, reason_payload --> {reason}, measure --> {measurment_id}")
                 match command_failed_on_probe:
                     case "start":
                         print("comando fallito start")
-                        if self.mongo_db.set_measurement_as_failed_by_id(measurement_id = self.last_mongo_measurement):
-                            print(f"Iperf_Coordinator: measurement |{self.last_mongo_measurement}| setted as failed")
+                        if self.mongo_db.set_measurement_as_failed_by_id(measurement_id = measurment_id):
+                            print(f"Iperf_Coordinator: measurement |{measurment_id}| setted as failed")
                     case "conf":
-                        role_conf_failed = reason_payload['role']
+                        role_conf_failed = payload['role']
                         if role_conf_failed == "Server":
-                            self.events_received_server_ack[measurment_id][1] = False
+                            self.events_received_server_ack[measurment_id][1] = reason
                             self.events_received_server_ack[measurment_id][0].set()
                         elif role_conf_failed == "Client":
-                            self.events_received_client_ack[measurment_id][1] = False
+                            self.events_received_client_ack[measurment_id][1] = reason
                             self.events_received_client_ack[measurment_id][0].set()
                     case "stop":
-                         print(f"Iperf_Coordinator: probe |{probe_sender}|->|Iperf stopped|->|NACK| : reason_payload -> {reason_payload}")
+                         print(f"Iperf_Coordinator: probe |{probe_sender}|->|Iperf stopped|->|NACK| : reason_payload -> {reason}")
 
             case _:
                 print(f"Iperf_Coordinator: received unkown type message -> |{type}|")
@@ -157,10 +157,10 @@ class Iperf_Coordinator:
     def send_probe_iperf_start(self, new_measurement : MeasurementModelMongo) -> str:
         # Dopo la modifica della gestione della sincronizzazione con la thread.Condition, verificare se ora va bene questa implementazione SOTTO.
         # Invece di utilizzare la condition, utilizza event            
-        self.last_mongo_measurement = self.mongo_db.insert_measurement(new_measurement)
+        inserted_measurement_id = self.mongo_db.insert_measurement(new_measurement)
         #self.last_mongo_measurement._id = measurement_id
-        if self.last_mongo_measurement is None:
-            return("Can't send start! Error while inserting measurement iperf in mongo")
+        if (inserted_measurement_id is None):
+            return "Error", "Can't send start! Error while inserting measurement iperf in mongo"
 
         json_iperf_start = {
             "handler": "iperf",
@@ -170,7 +170,7 @@ class Iperf_Coordinator:
             }
         }
         self.mqtt.publish_on_command_topic(probe_id = self.last_client_probe, complete_command = json.dumps(json_iperf_start))
-        return "OK"
+        return "OK", new_measurement.to_dict() # By returning this new_measurement, it's possible to see it in the HTTP response
 
     
     def send_probe_iperf_stop(self, probe_id):
@@ -273,7 +273,11 @@ class Iperf_Coordinator:
         self.mqtt.publish_on_command_topic(probe_id = new_measurement.dest_probe, complete_command=json.dumps(json_command))
         print("preparer iperf: sent conf server")
         self.events_received_server_ack[measurement_id][0].wait(timeout = 5) # Wait for the ACK server
-        if self.events_received_server_ack[measurement_id][1] == True: # If the iperf-server configuration went good, then...
+        
+        # ------------------------------- YOU MUST WAIT (AT LEAST 5s) FOR A MESSAGE FROM DEST_PROBE (IPERF-SERVER)
+
+        server_event_message = self.events_received_server_ack[measurement_id][1]
+        if server_event_message == "OK": # If the iperf-server configuration went good, then...
             print("preparer iperf: awake from server ACK ")
             base_path = Path(__file__).parent
             probes_configurations_path = Path(os.path.join(base_path, self.probes_configurations_dir, "configToBeClient.yaml"))
@@ -291,15 +295,23 @@ class Iperf_Coordinator:
                 self.last_client_probe = new_measurement.source_probe
                 self.mqtt.publish_on_command_topic(probe_id = new_measurement.source_probe, complete_command = json.dumps(json_command))
                 self.events_received_client_ack[measurement_id] = [threading.Event(), None]
+                self.events_received_client_ack[measurement_id][0].wait(timeout = 5)
+                
+                # ------------------------------- YOU MUST WAIT (AT LEAST 5s) FOR A MESSAGE FROM SOURCE_PROBE (IPERF-CLIENT)
 
-                self.events_received_client_ack[measurement_id][0].wait()
-                if self.events_received_client_ack[measurement_id][1] == True:
+                client_event_message = self.events_received_client_ack[measurement_id][1]
+                if  client_event_message == "OK":
+                    self.last_mongo_measurement = new_measurement
                     return self.send_probe_iperf_start(new_measurement)
+                
+                self.send_probe_iperf_stop(new_measurement.dest_probe)
+                if client_event_message is not None:
+                    return "Error", f"Client probe |{new_measurement.source_probe}| says: {client_event_message}"
                 else:
-                    return "Failed to configure the client"
-        elif self.events_received_server_ack[measurement_id][1] == False:
-            print(f"preparator iperf: awaked from server conf NACK")
-            return "Server problem configuration"
+                    return "Error", f"No response from client probe: {new_measurement.source_probe}"
+        elif server_event_message is not None:
+            print(f"preparator iperf: awaked from server conf NACK -> {server_event_message}")
+            return "Error", f"Server probe |{new_measurement.dest_probe}| says: {server_event_message}"
         else:
-            print(f"preparator ieprf: No response from source_probe -> |{new_measurement.source_probe}")
-            return f"No response from source_probe: {new_measurement.source_probe}"
+            print(f"preparator ieprf: No response from server probe -> |{new_measurement.dest_probe}")
+            return "Error", f"No response from server probe: {new_measurement.dest_probe}"

@@ -74,11 +74,11 @@ class CommandsMultiplexer:
         except json.JSONDecodeError as e:
             print(f"CommandsMultiplexer: error_multiplexer: json exception -> {e}")
     
-    def prepare_probes_to_measure(self, new_measurement : MeasurementModelMongo) -> str:  # invoked by REST module
+    def prepare_probes_to_measure(self, new_measurement : MeasurementModelMongo):  # invoked by REST module
         measurement_type = new_measurement.type
         if measurement_type in self.probes_preparer_list:
             # Be sure that all the "preparer methods" returns a string!
             return self.probes_preparer_list[measurement_type](new_measurement)
         else:
-            return "Check the measurement type"
+            return "Error", "Check the measurement type"
         
