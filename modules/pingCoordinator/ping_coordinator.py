@@ -49,8 +49,8 @@ class Ping_Coordinator:
             self.mongo_db.set_measurement_as_completed(self.last_mongo_measurement._id)
             self.print_summary_result(measurement_result = result)
         else: #Volendo posso anche evitare questo settaggio, perchè ci penserà il thread periodico
-            #if self.mongo_db.set_measurement_as_failed_by_id(result['measure_reference']):
-            print(f"Ping_Coordinator: ignored result. Reason: expired measurement -> {result['measure_reference']}")
+            #if self.mongo_db.set_measurement_as_failed_by_id(result['msm_id']):
+            print(f"Ping_Coordinator: ignored result. Reason: expired measurement -> {result['msm_id']}")
     
 
     def send_start_command(self, probe_sender, probe_receiver, destination_ip, source_ip, packets_number = 4, packets_size = 32):
@@ -72,7 +72,7 @@ class Ping_Coordinator:
             "command": "start",
             "payload": {
                 "destination_ip": destination_ip,
-                "measure_reference": str(self.last_mongo_measurement._id),
+                "msm_id": str(self.last_mongo_measurement._id),
                 "packets_number": packets_number,
                 "packets_size": packets_size
             }
@@ -91,7 +91,7 @@ class Ping_Coordinator:
 
     def store_measurement_result(self, result : json):
         mongo_result = PingResultModelMongo(
-            measure_reference = ObjectId(result["measure_reference"]),
+            msm_id = ObjectId(result["msm_id"]),
             start_timestamp = result["start_timestamp"],
             rtt_avg = result["rtt_avg"],
             rtt_max = result["rtt_max"],
@@ -112,7 +112,7 @@ class Ping_Coordinator:
 
     def print_summary_result(self, measurement_result):
         start_timestamp = measurement_result["start_timestamp"]
-        measure_reference = measurement_result["measure_reference"]
+        msm_id = measurement_result["msm_id"]
         source_ip = measurement_result["source"]
         destination_ip = measurement_result["destination"]
         packets_transmitted = measurement_result["packet_transmit"]
@@ -126,7 +126,7 @@ class Ping_Coordinator:
 
         print("\n****************** PING SUMMARY ******************")
         print(f"Timestamp: {start_timestamp}")
-        print(f"Measurement ID: {measure_reference}")
+        print(f"Measurement ID: {msm_id}")
         print(f"IP sorgente: {source_ip}")
         print(f"IP destinatario: {destination_ip}")
         print(f"Packets trasmitted: {packets_transmitted}")
