@@ -45,7 +45,7 @@ class MongoDB:
         try:
             measure.start_time = time.time()
             measure.state = STARTED_STATE
-            insert_result = self.measurements_collection.insert_one(measure.to_dict())
+            insert_result = self.measurements_collection.insert_one(measure.to_dict(True))
             if insert_result.inserted_id:
                 print(f"MongoDB: measurement stored in mongo. ID -> |{insert_result.inserted_id}|")
                 return insert_result.inserted_id
@@ -65,16 +65,15 @@ class MongoDB:
     
     def update_results_array_in_measurement(self, measure_reference):
         try:
-            results_id_cursor = self.results_collection.find({"measure_reference": ObjectId(measure_reference)}, {"_id": 1})
-            results_id_list = list() if (results_id_cursor is None) else list(results_id_cursor)
             update_result = self.measurements_collection.update_one(
                 {"_id": ObjectId(measure_reference)},
-                {"$set": {"results": results_id_list}}
+                {"$set": {"results": list(
+                    self.results_collection.find({"measure_reference": ObjectId(measure_reference)}).distinct("_id"))}}
             )
             return update_result
         except Exception as e:
             print(f"Motivo -> {e}")
-            find_result = ErrorModel(object_ref_id=measurement_id, object_ref_type="list of results", 
+            find_result = ErrorModel(object_ref_id = measure_reference, object_ref_type="list of results", 
                                      error_description="It must be a 12-byte input or a 24-character hex string",
                                      error_cause="measurement_id NOT VALID")
         return (find_result.to_dict())
