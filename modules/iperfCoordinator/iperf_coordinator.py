@@ -94,8 +94,8 @@ class Iperf_Coordinator:
                 match command_failed_on_probe:
                     case "start":
                         print("comando fallito start")
-                        if self.mongo_db.set_measurement_as_failed_by_id(measurement_id = self.last_mongo_measurement._id):
-                            print(f"Iperf_Coordinator: measurement |{self.last_mongo_measurement._id}| setted as failed")
+                        if self.mongo_db.set_measurement_as_failed_by_id(measurement_id = self.last_mongo_measurement):
+                            print(f"Iperf_Coordinator: measurement |{self.last_mongo_measurement}| setted as failed")
                     case "conf":
                         role_conf_failed = reason_payload['role']
                         if role_conf_failed == "Server":
