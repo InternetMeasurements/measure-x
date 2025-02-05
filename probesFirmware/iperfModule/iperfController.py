@@ -323,6 +323,7 @@ class IperfController:
             print(f"iperfController: measurement [{self.last_measurement_id}] result published")
         except Exception as e:
             print(f"Exception in publish_last_output_iperf -> {e} ")
+            print(f"last_json_result --> {self.last_json_result}")
             nack_message = "Check the probes IP"
             self.send_iperf_NACK(failed_command = "start", error_info = nack_message,
                                    role_related_conf = "Client", measurement_related_conf = self.last_measurement_id)
