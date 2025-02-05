@@ -223,7 +223,7 @@ class IperfController:
         else:
             #command += "-s -p " + str(self.listening_port) # server mode and listening port
             print("IperfController: iperf3 server, listening...")
-            command += ["-s", "-p", str(self.listening_port)]
+            command += ["-s", "-p", str(self.listening_port), "-i", 0]
             if self.verbose_function:
                 command.append("-V")
             result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
