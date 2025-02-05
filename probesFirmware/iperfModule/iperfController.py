@@ -113,7 +113,7 @@ class IperfController:
                     self.send_iperf_NACK(failed_command=command, error_info="No configuration")
                     return
                 if not shared_state.probe_is_ready():
-                    self.send_iperf_NACK(failed_command=command, error_info="Probe busy")
+                    self.send_iperf_NACK(failed_command = command, error_info = "Probe busy", role_related_conf = self.last_role)
                     return
                 shared_state.set_probe_as_busy()
                 if self.last_role == "Client":
@@ -166,10 +166,7 @@ class IperfController:
             #self.iperf_thread.join()
 
 
-    def iperf_client_body(self):
-        global probe_state
-        global READY
-
+    def iperf_client_body(self): # BODY CLIENT THREAD 
         repetition_count = 0
         execution_return_code = -2
         while repetition_count < self.total_repetition:
@@ -188,7 +185,7 @@ class IperfController:
         
 
     
-    def run_iperf_execution(self) -> int :
+    def run_iperf_execution(self) -> int :  # BODY SERVER THREAD 
         """This method execute the iperf3 program with the pre-loaded config. THIS METHOD IS EXECUTED BY A NEW THREAD, IF THE ROLE IS SERVER"""
         command = ["iperf3"]
 
@@ -222,7 +219,7 @@ class IperfController:
                         print(f"IperfController: results saved in: {complete_output_json_dir}")
                 except json.JSONDecodeError:
                     print("IperfController: decode result json failed")
-                    self.send_iperf_NACK(failed_command="start", error_info="Decode result json failed")
+                    self.send_iperf_NACK(failed_command="start", error_info="Decode result json failed", role_related_conf="Client", measurement_related_conf = self.last_measurement_id)
         else:
             #command += "-s -p " + str(self.listening_port) # server mode and listening port
             print("IperfController: iperf3 server, listening...")
@@ -234,7 +231,8 @@ class IperfController:
                 print(result.stdout)
             # elif result.returncode == 15: # This returncode 15, means that the subprocess has received a SIG.TERM signal, and then the process has been gently terminated
             elif result.returncode != signal.SIGTERM:
-                print(f"Errore nell'esecuzione di iperf: {result.stderr} {result.stderr} | return_code: {result.returncode }")
+                print(f"Errore nell'esecuzione di iperf: {result.stderr}  | return_code: {result.returncode }")
+                self.send_iperf_NACK(failed_command="conf", error_info=result.stderr, role_related_conf="Server", measurement_related_conf=self.last_measurement_id)
             shared_state.set_probe_as_ready()
         return result.returncode
     
