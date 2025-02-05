@@ -90,15 +90,18 @@ class Iperf_Coordinator:
             case "NACK":
                 command_failed_on_probe = payload["command"]
                 reason = payload['reason']
-                measurment_id = payload["measurement_id"] if 'measurement_id' in payload else None
+                measurment_id = payload["measurement_id"] if ('measurement_id' in payload) else None
+                role_conf_failed = payload["role"] if ('role' in payload) else None
                 print(f"Iperf_Coordinator: probe |{probe_sender}|->|{command_failed_on_probe}|->|NACK|, reason_payload --> {reason}, measure --> {measurment_id}")
                 match command_failed_on_probe:
                     case "start":
                         print("comando fallito start")
                         if self.mongo_db.set_measurement_as_failed_by_id(measurement_id = measurment_id):
                             print(f"Iperf_Coordinator: measurement |{measurment_id}| setted as failed")
+                        if role_conf_failed == "Client":
+                            if measurment_id is not None: # I must stop the iperf server on the probe
+                                self.send_probe_iperf_stop(self.events_received_server_ack[measurment_id].dest_probe)
                     case "conf":
-                        role_conf_failed = payload['role']
                         if role_conf_failed == "Server":
                             self.events_received_server_ack[measurment_id][1] = reason
                             self.events_received_server_ack[measurment_id][0].set()
