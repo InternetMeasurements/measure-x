@@ -113,7 +113,7 @@ class IperfController:
                     self.send_iperf_NACK(failed_command=command, error_info="No configuration")
                     return
                 if not shared_state.probe_is_ready():
-                    self.send_iperf_NACK(failed_command = command, error_info = "Probe busy", role_related_conf = self.last_role)
+                    self.send_iperf_NACK(failed_command = command, error_info = "PROBE BUSY", role_related_conf = self.last_role)
                     return
                 shared_state.set_probe_as_busy()
                 if self.last_role == "Client":
