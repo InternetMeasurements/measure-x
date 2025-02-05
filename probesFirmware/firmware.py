@@ -13,10 +13,13 @@ class Probe:
         self.commands_demultiplexer = CommandsDemultiplexer()
         self.mqtt_client = ProbeMqttClient(probe_id,
                                            self.commands_demultiplexer.decode_command) # The Decode Handler is triggered internally
+        
         self.iperf_controller = IperfController(self.mqtt_client,
                                                 self.commands_demultiplexer.registration_handler_request) # ENABLE THROUGHPUT FUNCTIONALITY
+        
         self.ping_controller = PingController(self.mqtt_client,
                                               self.commands_demultiplexer.registration_handler_request)   # ENABLE LATENCY FUNCTIONALITY
+        
         self.energy_controller = EnergyController(self.mqtt_client,
                                                   self.commands_demultiplexer.registration_handler_request) # ENABLE POWER CONSUMPTION FUNCTIONALITY
         
