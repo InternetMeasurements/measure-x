@@ -26,7 +26,7 @@ class CommandsDemultiplexer():
         except Exception as e:
             print(f"CommandsDemultiplexer: Json Command format Wrong! -> {complete_command}")
             return
-        # Il Decode command deve interpretare il JSON
+
         print(f"CommandsDemultiplexer: complete_command -> {nested_command} ")
         handler = nested_command["handler"]
         command = nested_command["command"]
