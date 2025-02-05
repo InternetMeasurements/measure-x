@@ -1,3 +1,4 @@
+import time
 import os
 import json
 import subprocess
@@ -170,12 +171,14 @@ class IperfController:
         repetition_count = 0
         execution_return_code = -2
         while repetition_count < self.total_repetition:
+            time.sleep(0.5)
             print(f"\n*************** Repetition: {repetition_count + 1} ***************")
             execution_return_code = self.run_iperf_execution()
             if execution_return_code != 0: # 0 is the correct execution code
                 break
             self.publish_last_output_iperf(repetition = repetition_count, last_result=((repetition_count + 1) == self.total_repetition))
             repetition_count += 1
+            time.sleep(0.5)
 
         if (execution_return_code != 0) and (execution_return_code != signal.SIGTERM):
             self.send_iperf_NACK(failed_command="start", error_info=self.last_error)
