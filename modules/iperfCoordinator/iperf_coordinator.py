@@ -21,7 +21,7 @@ class Iperf_Coordinator:
         self.probes_server_port = {}
         self.mongo_db = mongo_db
         #self.last_mongo_measurement = None # In this attribute, i save the measurement before store it in mongoDB
-        self.started_measurements = {}
+        self.queued_measurements = {}
         self.events_received_server_ack = {}
         self.events_received_client_ack = {}
 
@@ -90,73 +90,30 @@ class Iperf_Coordinator:
             case "NACK":
                 command_failed_on_probe = payload["command"]
                 reason = payload['reason']
-                measurment_id = payload["measurement_id"] if ('measurement_id' in payload) else None
+                measurement_id = payload["measurement_id"] if ('measurement_id' in payload) else None
                 role_conf_failed = payload["role"] if ('role' in payload) else None
-                print(f"Iperf_Coordinator: probe |{probe_sender}|->|{command_failed_on_probe}|->|NACK|, reason_payload --> {reason}, measure --> {measurment_id}")
+                print(f"Iperf_Coordinator: probe |{probe_sender}|->|{command_failed_on_probe}|->|NACK|, reason_payload --> {reason}, measure --> {measurement_id}")
                 match command_failed_on_probe:
                     case "start":
                         print("comando fallito start")
-                        if self.mongo_db.set_measurement_as_failed_by_id(measurement_id = measurment_id):
-                            print(f"Iperf_Coordinator: measurement |{measurment_id}| setted as failed")
+                        if self.mongo_db.set_measurement_as_failed_by_id(measurement_id = measurement_id):
+                            print(f"Iperf_Coordinator: measurement |{measurement_id}| setted as failed")
                         if role_conf_failed == "Client":
-                            if measurment_id is not None: # I must stop the iperf server on the probe
-                                self.send_probe_iperf_stop(self.events_received_server_ack[measurment_id].dest_probe)
+                            if measurement_id is not None: # I must stop the iperf server on the probe
+                                self.send_probe_iperf_stop(self.queued_measurements[measurement_id].dest_probe, measurement_id)
                     case "conf":
                         if role_conf_failed == "Server":
-                            self.events_received_server_ack[measurment_id][1] = reason
-                            self.events_received_server_ack[measurment_id][0].set()
+                            self.events_received_server_ack[measurement_id][1] = reason
+                            self.events_received_server_ack[measurement_id][0].set()
                         elif role_conf_failed == "Client":
-                            self.events_received_client_ack[measurment_id][1] = reason
-                            self.events_received_client_ack[measurment_id][0].set()
+                            self.events_received_client_ack[measurement_id][1] = reason
+                            self.events_received_client_ack[measurement_id][0].set()
                     case "stop":
-                         print(f"Iperf_Coordinator: probe |{probe_sender}|->|Iperf stopped|->|NACK| : reason_payload -> {reason}")
+                        print(f"Iperf_Coordinator: probe |{probe_sender}|->|Iperf stopped|->|NACK| : reason_payload -> {reason}")
 
             case _:
                 print(f"Iperf_Coordinator: received unkown type message -> |{type}|")
 
-    """
-        def send_probe_iperf_configuration(self, probe_id, role, source_probe_ip = None, dest_probe = None, dest_probe_ip = None):
-            json_config = {}
-            if role == "Client": # Preparing the config for the iperf-client
-                base_path = Path(__file__).parent
-                probes_configurations_path = Path(os.path.join(base_path, self.probes_configurations_dir, "configToBeClient.yaml"))
-                if probes_configurations_path.exists():
-                    if (dest_probe_ip is None) or (dest_probe not in self.probes_server_port):
-                        print(f"Iperf_Coordinator: configure the Probe Server first")
-                        return
-                    
-                    # ↓ I'm JUST getting ready to store it in Mongo.
-                    self.last_mongo_measurement = MeasurementModelMongo(
-                        description = "Throughupt measure with iperf tool",
-                        type = "Throughput",
-                        source_probe = probe_id,
-                        dest_probe = dest_probe,
-                        source_probe_ip = source_probe_ip,
-                        dest_probe_ip = dest_probe_ip)
-                    
-                    json_config = self.get_json_from_probe_yaml(probes_configurations_path)
-                    json_config['role'] = "Client"
-                    json_config['measurement_id'] = None # REMEMBER: --> Only at the start command, the measurment_id is sent to the probe!
-                    json_config['destination_server_ip'] = dest_probe_ip
-                    json_config['destination_server_port'] = self.probes_server_port[dest_probe]
-                    self.last_client_probe = probe_id
-                else:
-                    print(f"Iperf_Coordinator: File not found->|{probes_configurations_path}|")
-            else: # Preparing the config for the iperf-server
-                json_config = {
-                    "role": "Server",
-                    "listen_port": 5201,
-                    "verbose": True
-                }
-
-            json_command = {
-                "handler": 'iperf',
-                "command": "conf",
-                "payload": json_config
-            }
-            #self.expected_acks.add(probe_id) # Add this probe in the list from which i'm expecting to receive an ACK
-            self.mqtt.publish_on_command_topic(probe_id=probe_id, complete_command=json.dumps(json_command))
-    """
         
     def send_probe_iperf_start(self, new_measurement : MeasurementModelMongo) -> str:
         # Dopo la modifica della gestione della sincronizzazione con la thread.Condition, verificare se ora va bene questa implementazione SOTTO.
@@ -174,11 +131,17 @@ class Iperf_Coordinator:
             }
         }
         self.mqtt.publish_on_command_topic(probe_id = new_measurement.source_probe, complete_command = json.dumps(json_iperf_start))
-        self.started_measurements[str(new_measurement._id)] = new_measurement
         return "OK", new_measurement.to_dict() # By returning this new_measurement, it's possible to see it in the HTTP response
 
+    def send_probe_iperf_conf(self, probe_id, json_config):
+        json_command = {
+            "handler": 'iperf',
+            "command": "conf",
+            "payload": json_config
+        }        
+        self.mqtt.publish_on_command_topic(probe_id = probe_id, complete_command=json.dumps(json_command))
     
-    def send_probe_iperf_stop(self, probe_id):
+    def send_probe_iperf_stop(self, probe_id, msm_id):
         json_iperf_stop = {
             "handler": "iperf",
             "command": "stop",
@@ -214,7 +177,7 @@ class Iperf_Coordinator:
                 print(f"Iperf_Coordinator: updated document linking in measure: |{measurement_id}|")
             if self.mongo_db.set_measurement_as_completed(measurement_id):
                 print(f"Iperf_Coordinator: measurement |{measurement_id}| completed ")
-            self.send_probe_iperf_stop(self.started_measurements[measurement_id].dest_probe)
+            self.send_probe_iperf_stop(self.queued_measurements[measurement_id].dest_probe, measurement_id)
         else:
             print("Iperf_Coordinator: result not last")
 
@@ -258,11 +221,10 @@ class Iperf_Coordinator:
 
 
     def probes_preparer_to_measurements(self, new_measurement : MeasurementModelMongo):
-        print("preparer iperf: invoked")
-        json_config = {}
         new_measurement.assign_id()
         measurement_id = str(new_measurement._id)
         self.events_received_server_ack[measurement_id] = [threading.Event(), None]
+        self.queued_measurements[str(new_measurement._id)] = new_measurement
 
         json_config = {
                 "role": "Server",
@@ -270,13 +232,8 @@ class Iperf_Coordinator:
                 "verbose": False,
                 "measurement_id": measurement_id
             }
-        json_command = {
-            "handler": 'iperf',
-            "command": "conf",
-            "payload": json_config
-        }
         
-        self.mqtt.publish_on_command_topic(probe_id = new_measurement.dest_probe, complete_command=json.dumps(json_command))
+        self.send_probe_iperf_conf(probe_id = new_measurement.dest_probe, json_config = json_config) # Sending server configuration
         print("preparer iperf: sent conf server")
         self.events_received_server_ack[measurement_id][0].wait(timeout = 5) # Wait for the ACK server
         
@@ -293,13 +250,9 @@ class Iperf_Coordinator:
                 json_config['measurement_id'] = measurement_id
                 json_config['destination_server_ip'] = new_measurement.dest_probe_ip
                 json_config['destination_server_port'] = self.probes_server_port[new_measurement.dest_probe]
-                json_command = {
-                    "handler": "iperf",
-                    "command": "conf",
-                    "payload": json_config
-                }
-                #self.last_client_probe = new_measurement.source_probe§
-                self.mqtt.publish_on_command_topic(probe_id = new_measurement.source_probe, complete_command = json.dumps(json_command))
+
+                #self.last_client_probe = new_measurement.source_probe
+                self.send_probe_iperf_conf(probe_id = new_measurement.source_probe, json_config = json_config) # Sending client configuration
                 self.events_received_client_ack[measurement_id] = [threading.Event(), None]
                 self.events_received_client_ack[measurement_id][0].wait(timeout = 5)
                 
@@ -309,7 +262,7 @@ class Iperf_Coordinator:
                 if client_event_message == "OK":
                     return self.send_probe_iperf_start(new_measurement)
                 
-                self.send_probe_iperf_stop(new_measurement.dest_probe)
+                self.send_probe_iperf_stop(new_measurement.dest_probe, measurement_id)
                 if client_event_message is not None:
                     return "Error", f"Client probe |{new_measurement.source_probe}| says: {client_event_message}"
                 else:
