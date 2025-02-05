@@ -98,63 +98,63 @@ class IperfController:
                 measurement_related_conf = payload['measurement_id']
                 role_related_conf = payload['role']
                 if not shared_state.probe_is_ready():
-                    self.send_command_nack(failed_command=command, error_info="PROBE BUSY", role_related_conf = role_related_conf, measurement_related_conf = measurement_related_conf)
+                    self.send_iperf_NACK(failed_command=command, error_info="PROBE BUSY", role_related_conf = role_related_conf, measurement_related_conf = measurement_related_conf)
                     return
                 
                 configuration_message = self.read_configuration(payload)
                 if configuration_message == "OK": # if the configuration goes good, then ACK, else NACK
-                    self.send_command_ack(successed_command = command, measurement_related_conf = measurement_related_conf)
+                    self.send_iperf_ACK(successed_command = command, measurement_related_conf = measurement_related_conf)
                     if self.last_role == "Server":
                         self.start_iperf()
                 else:
-                    self.send_command_nack(failed_command=command, error_info = configuration_message, role_related_conf = role_related_conf, measurement_related_conf = measurement_related_conf)
+                    self.send_iperf_NACK(failed_command=command, error_info = configuration_message, role_related_conf = role_related_conf, measurement_related_conf = measurement_related_conf)
             case 'start':
                 if self.last_role == None:
-                    self.send_command_nack(failed_command=command, error_info="No configuration")
+                    self.send_iperf_NACK(failed_command=command, error_info="No configuration")
                     return
                 if not shared_state.probe_is_ready():
-                    self.send_command_nack(failed_command=command, error_info="Probe busy")
+                    self.send_iperf_NACK(failed_command=command, error_info="Probe busy")
                     return
                 shared_state.set_probe_as_busy()
                 if self.last_role == "Client":
                     #self.measurement_id = payload['measurement_id'] # Only in this moment the probe knows the measurment_id coming from Mongo
                     if self.last_measurement_id is None:
-                        self.send_command_nack(failed_command="start", error_info="measure_id is None")
+                        self.send_iperf_NACK(failed_command="start", error_info="measure_id is None")
                         return
                     self.start_iperf()
                     self.last_execution_code = None
             case 'stop':
                 termination_message = self.stop_iperf_thread()
                 if termination_message == "OK":
-                    self.send_command_ack(successed_command=command)
+                    self.send_iperf_ACK(successed_command=command)
                     shared_state.set_probe_as_ready()
                     self.reset_conf()
                 else:
-                    self.send_command_nack(failed_command=command, error_info=termination_message)
+                    self.send_iperf_NACK(failed_command=command, error_info=termination_message)
                 self.last_measurement_id = None
                 """
                 if self.last_role == "Server" or self.last_role:
                     termination_message = self.stop_iperf_server_thread()
                     if termination_message == "OK":
-                        self.send_command_ack(successed_command=command)
+                        self.send_iperf_ACK(successed_command=command)
                     else:
-                        self.send_command_nack(failed_command=command, error_info=termination_message)
+                        self.send_iperf_NACK(failed_command=command, error_info=termination_message)
                 elif self.last_role == "Client":
                     termination_message = self.stop_iperf_server_thread()
                     if termination_message == "OK":
-                        self.send_command_ack(successed_command=command)
+                        self.send_iperf_ACK(successed_command=command)
                     else:
-                        self.send_command_nack(failed_command=command, error_info=termination_message)
+                        self.send_iperf_NACK(failed_command=command, error_info=termination_message)
                 """
             case _:
                 print(f"IperfController: command not handled -> {command}")
-                self.send_command_nack(failed_command=command, error_info="Command not handled")
+                self.send_iperf_NACK(failed_command=command, error_info="Command not handled")
     
         
     def start_iperf(self):
         if self.last_role is None:
             shared_state.set_probe_as_ready()
-            self.send_command_nack(failed_command="start", error_info="No configuration")
+            self.send_iperf_NACK(failed_command="start", error_info="No configuration")
             return
         
         if self.last_role == "Server":
@@ -179,8 +179,9 @@ class IperfController:
                 break
             self.publish_last_output_iperf(repetition = repetition_count, last_result=((repetition_count + 1) == self.total_repetition))
             repetition_count += 1
-        if execution_return_code != 0 and execution_return_code != signal.SIGTERM:
-            self.send_command_nack(failed_command="start", error_info=self.last_error)
+
+        if (execution_return_code != 0) and (execution_return_code != signal.SIGTERM):
+            self.send_iperf_NACK(failed_command="start", error_info=self.last_error)
         else:
             self.reset_conf()
         shared_state.set_probe_as_ready()
@@ -221,7 +222,7 @@ class IperfController:
                         print(f"IperfController: results saved in: {complete_output_json_dir}")
                 except json.JSONDecodeError:
                     print("IperfController: decode result json failed")
-                    self.send_command_nack(failed_command="start", error_info="Decode result json failed")
+                    self.send_iperf_NACK(failed_command="start", error_info="Decode result json failed")
         else:
             #command += "-s -p " + str(self.listening_port) # server mode and listening port
             print("IperfController: iperf3 server, listening...")
@@ -258,7 +259,7 @@ class IperfController:
             return "Process " + process_name + " not in execution"
 
 
-    def send_command_ack(self, successed_command, measurement_related_conf = None): # Incapsulating of the iperf-server-ip
+    def send_iperf_ACK(self, successed_command, measurement_related_conf = None): # Incapsulating of the iperf-server-ip
         json_ack = { "command": successed_command }
         json_ack['measurement_id'] = self.last_measurement_id if (measurement_related_conf is None) else measurement_related_conf
         if (successed_command == "conf") and (self.last_role == "Server"):
@@ -266,7 +267,7 @@ class IperfController:
         print(f"IperfController: ACK sending -> {json_ack}")
         self.mqtt_client.publish_command_ACK(handler='iperf', payload=json_ack) 
 
-    def send_command_nack(self, failed_command, error_info, role_related_conf = None, measurement_related_conf = None):
+    def send_iperf_NACK(self, failed_command, error_info, role_related_conf = None, measurement_related_conf = None):
         json_nack = {
             "command" : failed_command,
             "reason" : error_info,
@@ -274,6 +275,7 @@ class IperfController:
             "measurement_id" : self.last_measurement_id if (measurement_related_conf is None) else measurement_related_conf
             }
         self.mqtt_client.publish_command_NACK(handler='iperf', payload = json_nack) 
+
 
     def publish_last_output_iperf(self, repetition : int , last_result : bool):
         """ Publish the last measuremet's output summary loading it from flash """
@@ -286,40 +288,47 @@ class IperfController:
         #with open(completePathIPerfJson, 'r') as file:
         #    data = json.load(file) # 'data' è diventato self.last_json_result
 
-        start_timestamp = self.last_json_result["start"]["timestamp"]["timesecs"]
-        source_ip = self.last_json_result["start"]["connected"][0]["local_host"]
-        source_port = self.last_json_result["start"]["connected"][0]["local_port"]
-        destination_ip = self.last_json_result["start"]["connected"][0]["remote_host"]
-        destination_port = self.last_json_result["start"]["connected"][0]["remote_port"]
-        bytes_received = self.last_json_result["end"]["sum_received"]["bytes"]
-        duration = self.last_json_result["end"]["sum_received"]["seconds"]
-        avg_speed = self.last_json_result["end"]["sum_received"]["bits_per_second"]
+        try:
+            start_timestamp = self.last_json_result["start"]["timestamp"]["timesecs"]
+            source_ip = self.last_json_result["start"]["connected"][0]["local_host"]
+            source_port = self.last_json_result["start"]["connected"][0]["local_port"]
+            destination_ip = self.last_json_result["start"]["connected"][0]["remote_host"]
+            destination_port = self.last_json_result["start"]["connected"][0]["remote_port"]
+            bytes_received = self.last_json_result["end"]["sum_received"]["bytes"]
+            duration = self.last_json_result["end"]["sum_received"]["seconds"]
+            avg_speed = self.last_json_result["end"]["sum_received"]["bits_per_second"]
 
-        json_summary_data = {
-            "handler": "iperf",
-            "type": "result",
-            "payload":
-            {
-                "msm_id": self.last_measurement_id,
-                "repetition_number": repetition,
-                "transport_protocol": self.transport_protocol,
-                "start_timestamp": start_timestamp,
-                "source_ip": source_ip,
-                "source_port": source_port,
-                "destination_ip": destination_ip,
-                "destination_port": destination_port,
-                "bytes_received": bytes_received,
-                "duration": duration,
-                "avg_speed": avg_speed,
-                "last_result": last_result
+            json_summary_data = {
+                "handler": "iperf",
+                "type": "result",
+                "payload":
+                {
+                    "msm_id": self.last_measurement_id,
+                    "repetition_number": repetition,
+                    "transport_protocol": self.transport_protocol,
+                    "start_timestamp": start_timestamp,
+                    "source_ip": source_ip,
+                    "source_port": source_port,
+                    "destination_ip": destination_ip,
+                    "destination_port": destination_port,
+                    "bytes_received": bytes_received,
+                    "duration": duration,
+                    "avg_speed": avg_speed,
+                    "last_result": last_result
+                }
             }
-        }
 
-        # json_byte_result = json.dumps(json_copmpressed_data).encode('utf-8') Valutare se conviene binarizzarla
+            # json_byte_result = json.dumps(json_copmpressed_data).encode('utf-8') Valutare se conviene binarizzarla
 
-        self.mqtt_client.publish_on_result_topic(result=json.dumps(json_summary_data))
-        self.last_json_result = None # reset the result
-        print(f"iperfController: measurement [{self.last_measurement_id}] result published")
+            self.mqtt_client.publish_on_result_topic(result=json.dumps(json_summary_data))
+            self.last_json_result = None # reset the result about last iperf measurement
+            print(f"iperfController: measurement [{self.last_measurement_id}] result published")
+        except Exception as e:
+            nack_message = "Check the probes IP"
+            self.send_iperf_NACK(failed_command = "start", error_info = nack_message,
+                                   role_related_conf = "Client", measurement_related_conf = self.last_measurement_id)
+            self.reset_conf()
+
         """
         print("\n****************** SUMMARY ******************")
         print(f"Timestamp: {formatted_time}")
