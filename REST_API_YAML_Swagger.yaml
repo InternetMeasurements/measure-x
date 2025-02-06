@@ -1,10 +1,4 @@
 openapi: 3.0.0
-servers:
-  # Added by API Auto Mocking Plugin
-  - description: SwaggerHub API Auto Mocking
-    url: https://virtserver.swaggerhub.com/FRANCESCO0297/measureXAPI/1.0.0
-  - description: SwaggerHub API Auto Mocking
-    url: 'https://virtserver.swaggerhub.com/FRANCESCO0297/measureX_API/1.0.0'
 info:
   description: This API represents the MeasureX interface to compute performance 5G measurements.
   version: 1.0.0
@@ -14,11 +8,6 @@ info:
   license:
     name: Apache 2.0
     url: 'http://www.apache.org/licenses/LICENSE-2.0.html'
-tags:
-  - name: measurements
-    description: Operations related to measurements.
-  - name: results
-    description: Operations related to measurement results.
 paths:
   /measureX:
     get:
