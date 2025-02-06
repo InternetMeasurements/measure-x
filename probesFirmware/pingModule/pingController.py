@@ -29,11 +29,11 @@ class PingController:
     def ping_command_handler(self, command : str, payload: json):
         match command:
             case 'start':
+                measurement_id = payload['measurement_id'] if ('measurement_id' in payload) else None
                 if not shared_state.set_probe_as_busy():
-                    measurement_id = payload['measurement_id'] if ('measurement_id' in payload) else None
                     self.send_ping_NACK(failed_command = command, error_info = "PROBE BUSY", measurement_related_conf = measurement_id)
                     return
-                
+                self.send_ping_ACK(successed_command = "start", measurement_related_conf = measurement_id)
                 self.ping_thread = threading.Thread(target=self.start_ping, args=(payload,))
                 self.ping_thread.start()
             case 'stop':
