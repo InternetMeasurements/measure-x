@@ -29,11 +29,11 @@ class PingController:
     def ping_command_handler(self, command : str, payload: json):
         match command:
             case 'start':
-                measurement_id = payload['measurement_id'] if ('measurement_id' in payload) else None
+                msm_id = payload['msm_id'] if ('msm_id' in payload) else None
                 if not shared_state.set_probe_as_busy():
-                    self.send_ping_NACK(failed_command = command, error_info = "PROBE BUSY", measurement_related_conf = measurement_id)
+                    self.send_ping_NACK(failed_command = command, error_info = "PROBE BUSY", measurement_related_conf = msm_id)
                     return
-                self.send_ping_ACK(successed_command = "start", measurement_related_conf = measurement_id)
+                self.send_ping_ACK(successed_command = "start", measurement_related_conf = msm_id)
                 self.ping_thread = threading.Thread(target=self.start_ping, args=(payload,))
                 self.ping_thread.start()
             case 'stop':
@@ -65,6 +65,7 @@ class PingController:
                                     icmp_replies = dict_result.icmp_replies,
                                     start_timestamp=start_timestamp,
                                     msm_id=msm_id)
+            shared_state.set_probe_as_ready()
         except subprocess.CalledProcessError as e: 
             if e.returncode == -signal.SIGTERM: # if the returncode of the ping process is SIG_TERM, then the process has been stopped from the coordinator. So, it's better to "ACK it"
                 self.send_ping_ACK(successed_command="stop")
@@ -91,14 +92,17 @@ class PingController:
             self.ping_thread.join()
             self.ping_thread = None
             print(f"PingController: ping command stopped.")
+            shared_state.set_probe_as_ready()
             return "OK"
         except OSError as e:
+            shared_state.set_probe_as_ready()
             return str(e)
+        
 
     def send_ping_ACK(self, successed_command, measurement_related_conf = None): # Incapsulating from the ping client
         json_ack = {
             "command": successed_command,
-            "measurement_id" : measurement_related_conf
+            "msm_id" : measurement_related_conf
             }
         self.mqtt_client.publish_command_ACK(handler='ping', payload = json_ack)
         print(f"PingController: sent ACK -> {successed_command}")
@@ -107,7 +111,7 @@ class PingController:
         json_nack = {
             "command" : failed_command,
             "reason" : error_info,
-            "measurement_id" : measurement_related_conf
+            "msm_id" : measurement_related_conf
             }
         self.mqtt_client.publish_command_NACK(handler='ping', payload = json_nack)
         print(f"PingController: sent NACK, reason-> {error_info}")
