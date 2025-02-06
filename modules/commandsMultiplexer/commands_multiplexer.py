@@ -77,8 +77,8 @@ class CommandsMultiplexer:
     def prepare_probes_to_measure(self, new_measurement : MeasurementModelMongo):  # invoked by REST module
         measurement_type = new_measurement.type
         if measurement_type in self.probes_preparer_list:
-            # Be sure that all the "preparer methods" returns a string!
+            # *** Ensure that all "preparer" methods return exactly three values (triad). ***
             return self.probes_preparer_list[measurement_type](new_measurement)
         else:
-            return "Error", "Check the measurement type"
+            return "Error", "Check the measurement type", f"Unkown measure type: {measurement_type}"
         
