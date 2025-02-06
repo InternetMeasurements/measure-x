@@ -15,7 +15,6 @@ class Ping_Coordinator:
         self.mqtt_client = mqtt_client
         self.mongo_db = mongo_db
         self.events_received_ack_from_probe_sender = {}
-        self.last_mongo_measurement = None
 
         # Requests to commands_multiplexer: handler STATUS registration
         registration_response = registration_handler_status( interested_status = "ping",
@@ -44,17 +43,17 @@ class Ping_Coordinator:
 
 
     def handler_received_status(self, probe_sender, type, payload : json):
-        measure_id = payload["measurement_id"] if ("measurement_id" in payload) else None
+        msm_id = payload["msm_id"] if ("msm_id" in payload) else None
         command = payload["command"] if ("command" in payload) else None
         match type:
             case "ACK":
                 if command == "start":
-                    self.events_received_ack_from_probe_sender[measure_id][1] = "OK"
-                    self.events_received_ack_from_probe_sender[measure_id][0].set()
+                    self.events_received_ack_from_probe_sender[msm_id][1] = "OK"
+                    self.events_received_ack_from_probe_sender[msm_id][0].set()
             case "NACK":
                 reason = payload['reason']
-                self.events_received_ack_from_probe_sender[measure_id][1] = reason
-                self.events_received_ack_from_probe_sender[measure_id][0].set()
+                self.events_received_ack_from_probe_sender[msm_id][1] = reason
+                self.events_received_ack_from_probe_sender[msm_id][0].set()
                 print(f"Ping_Coordinator: probe |{probe_sender}| -> |{command}| -> NACK, reason -> {reason}")
             case _:
                 print(f"Ping_Coordinator: received unkown type message -> |{type}|")
@@ -108,11 +107,11 @@ class Ping_Coordinator:
         )
         result_id = str(self.mongo_db.insert_ping_result(result = ping_result))
         if result_id is not None:
-            measure_id = result["msm_id"]
+            msm_id = result["msm_id"]
             print(f"Ping_Coordinator: result |{result_id}| stored in db")
-            if self.mongo_db.update_results_array_in_measurement(measure_id):
-                print(f"Ping_Coordinator: updated document linking in measure: |{measure_id}|")
-                if self.mongo_db.set_measurement_as_completed(measure_id):
+            if self.mongo_db.update_results_array_in_measurement(msm_id):
+                print(f"Ping_Coordinator: updated document linking in measure: |{msm_id}|")
+                if self.mongo_db.set_measurement_as_completed(msm_id):
                     self.print_summary_result(measurement_result = result)
                     return True
         print(f"Ping_Coordinator: error while storing result |{result_id}|")
@@ -200,7 +199,7 @@ class Ping_Coordinator:
 
         probe_sender_event_message = self.events_received_ack_from_probe_sender[measurement_id][1]
         if probe_sender_event_message == "OK": # If the iperf-server configuration went good, then...
-            inserted_measurement_id = self.mongo_db.insert_measurement(self.last_mongo_measurement)
+            inserted_measurement_id = self.mongo_db.insert_measurement(measurement_id)
             if inserted_measurement_id is None:
                 print(f"Ping_Coordinator: can't start ping. Error while storing ping measurement on Mongo")
                 return "Error", "Can't send start! Error while inserting measurement ping in mongo", "MongoDB Down?"
