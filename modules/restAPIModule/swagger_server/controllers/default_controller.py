@@ -42,11 +42,11 @@ def create_measurement(body):  # noqa: E501
                 error_msg_to_return = ErrorModel(object_ref_id='', object_ref_type="measurement", error_description=msg_to_return, error_cause="Missing field").to_dict()
                 return error_msg_to_return, 400
             commands_multiplexer : CommandsMultiplexer = current_app.config.get(KEY_FOR_RETIREVE_COMMANDS_MULTIPLEXER)
-            successs_message, info = commands_multiplexer.prepare_probes_to_measure(measurement)
+            successs_message, info, error_cause = commands_multiplexer.prepare_probes_to_measure(measurement)
             if successs_message == "OK":
                 return info, 200
             else:
-                error_msg_to_return = ErrorModel(object_ref_id='', object_ref_type="measurement", error_description=info).to_dict()
+                error_msg_to_return = ErrorModel(object_ref_id='', object_ref_type="measurement", error_description=info, error_cause=error_cause).to_dict()
                 return error_msg_to_return, 400
             # Recupera le istanze del modulo che vuoi usare, e agisci di conseguenza
             
@@ -54,7 +54,7 @@ def create_measurement(body):  # noqa: E501
             json_msg = connexion.request.get_json()
             measurement_id = json_msg['measurement_id'] if 'measurement_id' in  json_msg else None
             if measurement_id is None:
-                error_msg_to_return = ErrorModel(object_ref_id='No id', object_ref_type="measurement", error_description="No ")
+                error_msg_to_return = ErrorModel(object_ref_id='No id', object_ref_type="measurement", error_description="No measurement id provided", error_cause="Missing id")
                 return error_msg_to_return, 400
 
 
