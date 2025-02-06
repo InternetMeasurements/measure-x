@@ -230,7 +230,6 @@ components:
     MeasurementModelMongo:
       required:
       - type
-      - dest_probe
       - dest_probe_ip
       - source_probe
       - source_probe_ip

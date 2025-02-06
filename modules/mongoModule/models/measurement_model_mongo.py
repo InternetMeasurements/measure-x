@@ -3,7 +3,9 @@ from bson.objectid import ObjectId
 
 
 class MeasurementModelMongo:
-    def __init__(self, description, type, source_probe, dest_probe, source_probe_ip : str, dest_probe_ip : str, _id = None,
+    
+    def __init__(self, description, type, source_probe, source_probe_ip : str, dest_probe_ip : str,
+                 dest_probe = None, _id = None,
                  state = None, start_time = None, gps_source_probe = None, gps_dest_probe = None,
                  coexisting_application = None, stop_time = None, results = None):
         self._id = _id
@@ -57,10 +59,13 @@ class MeasurementModelMongo:
                                                       coexisting_application=coexisting_application, stop_time=stop_time, results=results)
         return measurement_to_return
     
+
     def assign_id(self):
         self._id = ObjectId()
 
+    
     def to_dict(self, to_store = False):
+        # If this method is invoked for PRINTING, then @to_store is False and then you will see the string cast fo the _is, else in mongo is store the ObjectId type
         return {
             '_id' : str(self._id) if not to_store else self._id,
             'description': self.description,
