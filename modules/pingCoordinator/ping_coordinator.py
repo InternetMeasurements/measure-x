@@ -199,7 +199,7 @@ class Ping_Coordinator:
 
         probe_sender_event_message = self.events_received_ack_from_probe_sender[measurement_id][1]
         if probe_sender_event_message == "OK": # If the iperf-server configuration went good, then...
-            inserted_measurement_id = self.mongo_db.insert_measurement(measurement_id)
+            inserted_measurement_id = self.mongo_db.insert_measurement(measure = new_measurement)
             if inserted_measurement_id is None:
                 print(f"Ping_Coordinator: can't start ping. Error while storing ping measurement on Mongo")
                 return "Error", "Can't send start! Error while inserting measurement ping in mongo", "MongoDB Down?"
