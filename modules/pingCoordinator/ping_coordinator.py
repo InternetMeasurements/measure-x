@@ -109,13 +109,13 @@ class Ping_Coordinator:
         result_id = str(self.mongo_db.insert_ping_result(result = ping_result))
         if result_id is not None:
             measure_id = result["msm_id"]
-            print(f"Iperf_Coordinator: result |{result_id}| stored in db")
+            print(f"Ping_Coordinator: result |{result_id}| stored in db")
             if self.mongo_db.update_results_array_in_measurement(measure_id):
                 print(f"Ping_Coordinator: updated document linking in measure: |{measure_id}|")
                 if self.mongo_db.set_measurement_as_completed(measure_id):
                     self.print_summary_result(measurement_result = result)
                     return True
-        print(f"Iperf_Coordinator: error while storing result |{result_id}|")
+        print(f"Ping_Coordinator: error while storing result |{result_id}|")
         return False
 
 
@@ -163,7 +163,7 @@ class Ping_Coordinator:
             dest_probe_ip = destination_ip)
         self.last_mongo_measurement._id = self.mongo_db.insert_measurement(self.last_mongo_measurement)
         if self.last_mongo_measurement._id is None:
-            print(f"Iperf_Coordinator: can't start ping. Error while storing ping measurement on Mongo")
+            print(f"Ping_Coordinator: can't start ping. Error while storing ping measurement on Mongo")
             return
         
         json_ping_start = {
@@ -202,7 +202,7 @@ class Ping_Coordinator:
         if probe_sender_event_message == "OK": # If the iperf-server configuration went good, then...
             inserted_measurement_id = self.mongo_db.insert_measurement(self.last_mongo_measurement)
             if inserted_measurement_id is None:
-                print(f"Iperf_Coordinator: can't start ping. Error while storing ping measurement on Mongo")
+                print(f"Ping_Coordinator: can't start ping. Error while storing ping measurement on Mongo")
                 return "Error", "Can't send start! Error while inserting measurement ping in mongo", "MongoDB Down?"
             return "OK", new_measurement.to_dict(), None
         elif probe_sender_event_message is not None:
