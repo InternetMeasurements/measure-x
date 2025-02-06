@@ -75,6 +75,7 @@ def main():
         mqtt_client=coordinator_mqtt,
         registration_handler_result = commands_multiplexer.add_result_handler, 
         registration_handler_status = commands_multiplexer.add_status_handler,
+        registration_measure_preparer = commands_multiplexer.add_probes_preparer,
         mongo_db=mongo_db)
     
     energy_coordinator = EnergyCoordinator(
