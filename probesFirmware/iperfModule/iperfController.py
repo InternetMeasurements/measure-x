@@ -118,7 +118,6 @@ class IperfController:
                     return
                 shared_state.set_probe_as_busy()
                 if self.last_role == "Client":
-                    #self.measurement_id = payload['measurement_id'] # Only in this moment the probe knows the measurment_id coming from Mongo
                     if self.last_measurement_id is None:
                         self.send_iperf_NACK(failed_command="start", error_info="measure_id is None")
                         return
@@ -133,6 +132,9 @@ class IperfController:
                 else:
                     self.send_iperf_NACK(failed_command=command, error_info=termination_message)
                 self.last_measurement_id = None
+                #
+                # IL RESET CONF VA FATTO A PRESCINDERE DAL RISULTATO DELLO STOP?     
+                #
                 """
                 if self.last_role == "Server" or self.last_role:
                     termination_message = self.stop_iperf_server_thread()
@@ -261,8 +263,10 @@ class IperfController:
 
 
     def send_iperf_ACK(self, successed_command, measurement_related_conf = None): # Incapsulating of the iperf-server-ip
-        json_ack = { "command": successed_command }
-        json_ack['measurement_id'] = self.last_measurement_id if (measurement_related_conf is None) else measurement_related_conf
+        json_ack = { 
+            "command" : successed_command,
+            "measurement_id" : self.last_measurement_id if (measurement_related_conf is None) else measurement_related_conf
+            }
         if (successed_command == "conf") and (self.last_role == "Server"):
             json_ack['port'] = self.listening_port
         print(f"IperfController: ACK sending -> {json_ack}")
