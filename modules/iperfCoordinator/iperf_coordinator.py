@@ -14,13 +14,9 @@ class Iperf_Coordinator:
 
     def __init__(self, mqtt : Mqtt_Client, registration_handler_status, registration_handler_result, registration_measure_preparer, mongo_db : MongoDB):
         self.mqtt = mqtt 
-        #self.received_acks = set()
-        #self.expected_acks = set()
         self.probes_configurations_dir = 'probes_configurations'
-        #self.last_client_probe = None
         self.probes_server_port = {}
         self.mongo_db = mongo_db
-        #self.last_mongo_measurement = None # In this attribute, i save the measurement before store it in mongoDB
         self.queued_measurements = {}
         self.events_received_server_ack = {}
         self.events_received_client_ack = {}
@@ -80,8 +76,6 @@ class Iperf_Coordinator:
                             self.events_received_client_ack[measurment_id][1] = "OK"
                             self.events_received_client_ack[measurment_id][0].set()
                             print(f"Iperf_Coordinator: probe |{probe_sender}|->|conf|-> client |ACK|")
-                        # ↓ In any case, i add the probe_id to the probes from which i received its conf-ACK
-                        #self.received_acks.add(probe_sender)
                     case "stop":
                          print(f"Iperf_Coordinator: probe |{probe_sender}|->|Iperf stopped|->|ACK|")
                          self.probes_server_port.pop(probe_sender, None)
@@ -115,13 +109,10 @@ class Iperf_Coordinator:
                 print(f"Iperf_Coordinator: received unkown type message -> |{type}|")
 
         
-    def send_probe_iperf_start(self, new_measurement : MeasurementModelMongo) -> str:
-        # Dopo la modifica della gestione della sincronizzazione con la thread.Condition, verificare se ora va bene questa implementazione SOTTO.
-        # Invece di utilizzare la condition, utilizza event            
+    def send_probe_iperf_start(self, new_measurement : MeasurementModelMongo):        
         inserted_measurement_id = self.mongo_db.insert_measurement(new_measurement)
-        #self.last_mongo_measurement._id = measurement_id
         if (inserted_measurement_id is None):
-            return "Error", "Can't send start! Error while inserting measurement iperf in mongo"
+            return "Error", "Can't send start! Error while inserting measurement iperf in mongo", "MongoDB Down?"
 
         json_iperf_start = {
             "handler": "iperf",
@@ -131,7 +122,7 @@ class Iperf_Coordinator:
             }
         }
         self.mqtt.publish_on_command_topic(probe_id = new_measurement.source_probe, complete_command = json.dumps(json_iperf_start))
-        return "OK", new_measurement.to_dict() # By returning this new_measurement, it's possible to see it in the HTTP response
+        return "OK", new_measurement.to_dict(), None # By returning these arguments, it's possible to see them in the HTTP response
 
     def send_probe_iperf_conf(self, probe_id, json_config):
         json_command = {
@@ -182,28 +173,6 @@ class Iperf_Coordinator:
             print("Iperf_Coordinator: result not last")
 
 
-    def print_summary_result(self, measurement_result : json):
-        start_timestamp = measurement_result["start_timestamp"]
-        repetition_number = measurement_result["repetition_number"]
-        msm_id = measurement_result["msm_id"]
-        source_ip = measurement_result["source_ip"]
-        transport_protocol = measurement_result["transport_protocol"]
-        destination_ip = measurement_result["destination_ip"]
-        bytes_received = measurement_result["bytes_received"]
-        duration = measurement_result["duration"]
-        avg_speed = measurement_result["avg_speed"]
-
-        print("\n****************** SUMMARY ******************")
-        print(f"Timestamp: {start_timestamp}")
-        print(f"Repetition number: {repetition_number}")
-        print(f"Measurement reference: {msm_id}")
-        print(f"Transport protocol: {transport_protocol}")
-        print(f"IP sorgente: {source_ip}")
-        print(f"IP destinatario: {destination_ip}")
-        print(f"Velocità trasferimento {avg_speed} bits/s")
-        print(f"Quantità di byte ricevuti: {bytes_received}")
-        print(f"Durata risultato: {duration} secondi\n")
-
     def get_json_from_probe_yaml(self, probes_configurations_path) -> json:
         json_probe_config = {}
         with open(probes_configurations_path, "r") as file:
@@ -213,7 +182,7 @@ class Iperf_Coordinator:
                 "parallel_connections": int(iperf_client_config['parallel_connections']),
                 "result_measurement_filename": iperf_client_config['result_measurement_filename'],
                 "reverse": iperf_client_config['reverse'],
-                "verbose": False,
+                "verbose": False, # YOU CANNOT SET VERBOSE WHEN USE JSON AS "STD-OUT"
                 "total_repetition": int(iperf_client_config['total_repetition']),
                 "save_result_on_flash": iperf_client_config['save_result_on_flash']
             }
@@ -251,7 +220,6 @@ class Iperf_Coordinator:
                 json_config['destination_server_ip'] = new_measurement.dest_probe_ip
                 json_config['destination_server_port'] = self.probes_server_port[new_measurement.dest_probe]
 
-                #self.last_client_probe = new_measurement.source_probe
                 self.send_probe_iperf_conf(probe_id = new_measurement.source_probe, json_config = json_config) # Sending client configuration
                 self.events_received_client_ack[measurement_id] = [threading.Event(), None]
                 self.events_received_client_ack[measurement_id][0].wait(timeout = 5)
@@ -264,12 +232,35 @@ class Iperf_Coordinator:
                 
                 self.send_probe_iperf_stop(new_measurement.dest_probe, measurement_id)
                 if client_event_message is not None:
-                    return "Error", f"Client probe |{new_measurement.source_probe}| says: {client_event_message}"
+                    return "Error", f"Probe |{new_measurement.source_probe}| says: {client_event_message}", "State BUSY"
                 else:
-                    return "Error", f"No response from client probe: {new_measurement.source_probe}"
+                    return "Error", f"No response from client probe: {new_measurement.source_probe}", "Reponse Timeout"
         elif server_event_message is not None:
-            print(f"preparator iperf: awaked from server conf NACK -> {server_event_message}")
-            return "Error", f"Server probe |{new_measurement.dest_probe}| says: {server_event_message}"
+            print(f"Preparer iperf: awaked from server conf NACK -> {server_event_message}")
+            return "Error", f"Probe |{new_measurement.dest_probe}| says: {server_event_message}", "State BUSY"
         else:
-            print(f"preparator ieprf: No response from server probe -> |{new_measurement.dest_probe}")
-            return "Error", f"No response from server probe: {new_measurement.dest_probe}"
+            print(f"Preparer iperf: No response from server probe -> |{new_measurement.dest_probe}")
+            return "Error", f"No response from Probe: {new_measurement.dest_probe}" , "Reponse Timeout"
+        
+    # NOT USED BUT USEFULL FOR TESTING
+    def print_summary_result(self, measurement_result : json):
+        start_timestamp = measurement_result["start_timestamp"]
+        repetition_number = measurement_result["repetition_number"]
+        msm_id = measurement_result["msm_id"]
+        source_ip = measurement_result["source_ip"]
+        transport_protocol = measurement_result["transport_protocol"]
+        destination_ip = measurement_result["destination_ip"]
+        bytes_received = measurement_result["bytes_received"]
+        duration = measurement_result["duration"]
+        avg_speed = measurement_result["avg_speed"]
+
+        print("\n****************** SUMMARY ******************")
+        print(f"Timestamp: {start_timestamp}")
+        print(f"Repetition number: {repetition_number}")
+        print(f"Measurement reference: {msm_id}")
+        print(f"Transport protocol: {transport_protocol}")
+        print(f"IP sorgente: {source_ip}")
+        print(f"IP destinatario: {destination_ip}")
+        print(f"Velocità trasferimento {avg_speed} bits/s")
+        print(f"Quantità di byte ricevuti: {bytes_received}")
+        print(f"Durata risultato: {duration} secondi\n")
