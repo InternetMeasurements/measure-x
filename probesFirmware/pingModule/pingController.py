@@ -9,6 +9,7 @@ import socket
 import time
 from pingparsing import PingParsing
 from mqttModule.mqttClient import ProbeMqttClient
+from shared_resources import shared_state
 
 """ Class that implements the latency, packets loss... funcionalities """
 class PingController:
@@ -28,14 +29,19 @@ class PingController:
     def ping_command_handler(self, command : str, payload: json):
         match command:
             case 'start':
+                if not shared_state.set_probe_as_busy():
+                    measurement_id = payload['measurement_id'] if ('measurement_id' in payload) else None
+                    self.send_ping_NACK(failed_command = command, error_info = "PROBE BUSY", measurement_related_conf = measurement_id)
+                    return
+                
                 self.ping_thread = threading.Thread(target=self.start_ping, args=(payload,))
                 self.ping_thread.start()
             case 'stop':
                 termination_message = self.stop_ping_thread()
                 if termination_message != "OK":
-                    self.send_command_nack(failed_command=command, error_info=termination_message)
+                    self.send_ping_NACK(failed_command=command, error_info=termination_message)
             case _:
-                self.send_command_nack(failed_command = command, error_info = "Command not handled")
+                self.send_ping_NACK(failed_command = command, error_info = "Command not handled")
             
 
     def start_ping(self, payload : json):
@@ -61,11 +67,11 @@ class PingController:
                                     msm_id=msm_id)
         except subprocess.CalledProcessError as e: 
             if e.returncode == -signal.SIGTERM: # if the returncode of the ping process is SIG_TERM, then the process has been stopped from the coordinator. So, it's better to "ACK it"
-                self.send_command_ack(successed_command="stop")
+                self.send_ping_ACK(successed_command="stop")
             else: # if the return code is different from (SIG.TERM and CorrectTermination), then something strange happened, so the probe sends NACK to the coordinator
-                self.send_command_nack(failed_command="ping", error_info=str(e))
+                self.send_ping_NACK(failed_command="ping", error_info=str(e))
         except Exception as e: #In case of abnormal exception, send the nack to the coordinator
-            self.send_command_nack(failed_command="ping", error_info=str(e))
+            self.send_ping_NACK(failed_command="ping", error_info=str(e))
 
     
         
@@ -89,15 +95,19 @@ class PingController:
         except OSError as e:
             return str(e)
 
-    def send_command_ack(self, successed_command): # Incapsulating of the ping client
-        json_ack = { "command": successed_command }
+    def send_ping_ACK(self, successed_command, measurement_related_conf = None): # Incapsulating from the ping client
+        json_ack = {
+            "command": successed_command,
+            "measurement_id" : measurement_related_conf
+            }
         self.mqtt_client.publish_command_ACK(handler='ping', payload = json_ack)
         print(f"PingController: sent ACK -> {successed_command}")
 
-    def send_command_nack(self, failed_command, error_info):
+    def send_ping_NACK(self, failed_command, error_info, measurement_related_conf = None):
         json_nack = {
             "command" : failed_command,
-            "reason" : error_info
+            "reason" : error_info,
+            "measurement_id" : measurement_related_conf
             }
         self.mqtt_client.publish_command_NACK(handler='ping', payload = json_nack)
         print(f"PingController: sent NACK, reason-> {error_info}")
