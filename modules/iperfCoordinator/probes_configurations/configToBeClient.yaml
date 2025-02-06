@@ -1,10 +1,10 @@
 #Configuration file for the IPERF module
 iperf_client:
-  total_repetition: 10
+  total_repetition: 5
   output_iperf_dir: iPerfMeasurements
   result_measurement_filename: measurement_
-  parallel_connections: 2
+  parallel_connections: 1
   transport_protocol: TCP
   reverse: False
-  verbose: False
+  verbose: False # -> REMEMBER, WHEN YOU WANT THE OUTPUT AS JSON, YOU CANNOT USE THE VERBOSE IPERF MODE
   save_result_on_flash: False
