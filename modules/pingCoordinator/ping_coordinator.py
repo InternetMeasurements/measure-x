@@ -65,7 +65,7 @@ class Ping_Coordinator:
             print("Ping_Coordinator: received result wihout measure_id -> IGNORED")
             return
         
-        if ((time.time() - result["start_timestamp"]) < SECONDS_OLD_MEASUREMENT):
+        if ((time.time() - result["timestamp"]) < SECONDS_OLD_MEASUREMENT):
             if self.store_measurement_result(result = result):
                 print(f"Ping_Coordinator: complete the measurement store and update -> {measure_id}")
         else: #Volendo posso anche evitare questo settaggio, perchè ci penserà il thread periodico
@@ -94,7 +94,7 @@ class Ping_Coordinator:
     def store_measurement_result(self, result : json) -> bool:
         ping_result = PingResultModelMongo(
             msm_id = ObjectId(result["msm_id"]),
-            start_timestamp = result["start_timestamp"],
+            start_timestamp = result["timestamp"],
             rtt_avg = result["rtt_avg"],
             rtt_max = result["rtt_max"],
             rtt_min = result["rtt_min"],
@@ -119,7 +119,7 @@ class Ping_Coordinator:
 
 
     def print_summary_result(self, measurement_result):
-        start_timestamp = measurement_result["start_timestamp"]
+        timestamp = measurement_result["timestamp"]
         msm_id = measurement_result["msm_id"]
         source_ip = measurement_result["source"]
         destination_ip = measurement_result["destination"]
@@ -133,7 +133,7 @@ class Ping_Coordinator:
         rtt_mdev = measurement_result["rtt_mdev"]
 
         print("\n****************** PING SUMMARY ******************")
-        print(f"Timestamp: {start_timestamp}")
+        print(f"Timestamp: {timestamp}")
         print(f"Measurement ID: {msm_id}")
         print(f"IP sorgente: {source_ip}")
         print(f"IP destinatario: {destination_ip}")
