@@ -55,7 +55,7 @@ class PingController:
         else:
             command = ["ping"]
         command += [destination_ip, "-c", str(packets_number), "-s", str(packets_size)]
-        start_timestamp = time.time()
+        timestamp = time.time() # start_timestamp
         try:
             ping_result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
             if ping_result.returncode == 0:
@@ -63,7 +63,7 @@ class PingController:
                 dict_result = parser.parse(ping_result.stdout)
                 self.send_ping_result( json_ping_result=dict_result.as_dict(), 
                                     icmp_replies = dict_result.icmp_replies,
-                                    start_timestamp=start_timestamp,
+                                    timestamp = timestamp,
                                     msm_id=msm_id)
             shared_state.set_probe_as_ready()
         except subprocess.CalledProcessError as e: 
@@ -116,12 +116,12 @@ class PingController:
         self.mqtt_client.publish_command_NACK(handler='ping', payload = json_nack)
         print(f"PingController: sent NACK, reason-> {error_info}")
 
-    def send_ping_result(self, json_ping_result : json, icmp_replies, start_timestamp, msm_id):
+    def send_ping_result(self, json_ping_result : json, icmp_replies, timestamp, msm_id):
         hostname = socket.gethostname()
         my_ip = socket.gethostbyname(hostname)
 
         json_ping_result["source"] = my_ip
-        json_ping_result["start_timestamp"] = start_timestamp
+        json_ping_result["timestamp"] = timestamp
         json_ping_result["msm_id"] = msm_id
 
         essential_icmp_replies = []
