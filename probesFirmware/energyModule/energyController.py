@@ -17,7 +17,7 @@ class EnergyController:
             interested_command = "energy",
             handler = self.energy_command_handler)
         if registration_response != "OK" :
-            self.mqtt_client.publish_error(handler="energy", payload=registration_response)
+            self.mqtt_client.publish_error(handler = "energy", payload = registration_response)
             print(f"EnergyController: registration handler failed. Reason -> {registration_response}")
         #self.mqtt_client.publish_command_ACK(handler="energy", payload="OK")
 
@@ -29,17 +29,18 @@ class EnergyController:
                 if self.driverINA.i2C_INA_check():
                     check_msg = "i2C INA219 Found"
                     SYNC_OTII_PIN.on()
-                    self.mqtt_client.publish_command_ACK(handler="energy", payload=check_msg)
+                    self.mqtt_client.publish_command_ACK(handler = "energy", payload = check_msg)
                     SYNC_OTII_PIN.off()
                 else:
                     check_msg = "i2C INA219 NOT Found"
-                    self.mqtt_client.publish_command_NACK(handler="energy", payload=check_msg)
+                    self.mqtt_client.publish_command_NACK(handler = "energy", payload = check_msg)
             case "start":
-                    start_msg = self.driverINA.start_current_measurement()
+                    msm_id = payload['msm_id']
+                    start_msg = self.driverINA.start_current_measurement(filename = msm_id)
                     if start_msg != "OK":
-                         self.mqtt_client.publish_command_NACK(handler="energy", payload=start_msg)
+                         self.mqtt_client.publish_command_NACK(handler = "energy", payload = start_msg)
                     else:
-                         self.mqtt_client.publish_command_ACK(handler="energy", payload=command)
+                         self.mqtt_client.publish_command_ACK(handler = "energy", payload = command)
             case "stop":
                     stop_msg = self.driverINA.stop_current_measurement()
                     if stop_msg != "OK":
@@ -47,5 +48,5 @@ class EnergyController:
                     else:
                          self.mqtt_client.publish_command_ACK(handler="energy", payload=command)
             case _:
-                print(f"EnergyController: commant not known -> {command}")
+                print(f"EnergyController: unkown command -> {command}")
         
