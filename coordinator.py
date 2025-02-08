@@ -8,7 +8,7 @@ from modules.commandsMultiplexer.commands_multiplexer import CommandsMultiplexer
 from modules.iperfCoordinator.iperf_coordinator import Iperf_Coordinator
 from modules.pingCoordinator.ping_coordinator import Ping_Coordinator 
 from modules.mongoModule.mongoDB import MongoDB, SECONDS_OLD_MEASUREMENT, MeasurementModelMongo
-from modules.energyModule.energy_coordinator import EnergyCoordinator
+from modules.energyCoordinator.energy_coordinator import EnergyCoordinator
 
 from modules.restAPIModule.swagger_server.rest_server import RestServer
 
