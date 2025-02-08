@@ -94,7 +94,7 @@ class Ping_Coordinator:
     def store_measurement_result(self, result : json) -> bool:
         ping_result = PingResultModelMongo(
             msm_id = ObjectId(result["msm_id"]),
-            start_timestamp = result["timestamp"],
+            timestamp = result["timestamp"],
             rtt_avg = result["rtt_avg"],
             rtt_max = result["rtt_max"],
             rtt_min = result["rtt_min"],
