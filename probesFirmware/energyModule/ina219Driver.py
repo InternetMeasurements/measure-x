@@ -26,7 +26,7 @@ class Ina219Driver:
         if self.measurement_thread is not None:
             return "There is already a measurement thread in execution"
         try:
-            self.last_filename = DEFAULT_CURRENT_MEASUREMENT_FILE if filename is None else filename
+            self.last_filename = DEFAULT_CURRENT_MEASUREMENT_FILE if filename is None else (filename + ".csv")
             self.measurement_thread = threading.Thread(target=self.body_measurement_thread, args=())
             self.measurement_thread.start()
             return "OK"
@@ -75,13 +75,6 @@ class Ina219Driver:
 
 # Config Register (R/W)
 _REG_CONFIG = 0x00
-# SHUNT VOLTAGE REGISTER (R)
-# _REG_SHUNTVOLTAGE = 0x01 -- NOT USED
-# BUS VOLTAGE REGISTER (R)
-# _REG_BUSVOLTAGE = 0x02 -- NOT USED
-# POWER REGISTER (R)
-# _REG_POWER = 0x03 -- NOT USED
-# CURRENT REGISTER (R)
 _REG_CURRENT = 0x04
 # CALIBRATION REGISTER (R/W)
 _REG_CALIBRATION = 0x05
@@ -89,7 +82,7 @@ _REG_CALIBRATION = 0x05
 class BusVoltageRange:
     """Constants for ``bus_voltage_range``"""
     RANGE_16V = 0x00  # set bus voltage range to 16V
-    RANGE_32V = 0x01  # set bus voltage range to 32V (default)
+    #RANGE_32V = 0x01  # set bus voltage range to 32V (default)
 
 class Gain:
     """Constants for ``gain``"""
@@ -125,12 +118,27 @@ class Mode:
 
 class INA219:
     def __init__(self, i2c_bus=1, addr=0x40):
+        # I've defined for each resolution, its period
+        self.sleep_map = {
+            ADCResolution.ADCRES_9BIT_1S :     84 / 1000000, # 84uS
+            ADCResolution.ADCRES_10BIT_1S :   148 / 1000000, #148uS
+            ADCResolution.ADCRES_11BIT_1S :   276 / 1000000, #276uS
+            ADCResolution.ADCRES_12BIT_1S :   532 / 1000000, #532uS
+            ADCResolution.ADCRES_12BIT_2S :   1.06 / 1000, #1.06mS 
+            ADCResolution.ADCRES_12BIT_4S :   2.13 / 1000, #2.13mS
+            ADCResolution.ADCRES_12BIT_8S :   4.26 / 1000, #4.26mS
+            ADCResolution.ADCRES_12BIT_16S :  8.51 / 1000, #8.51mS
+            ADCResolution.ADCRES_12BIT_32S :  17.02 / 1000, #17.02mS
+            ADCResolution.ADCRES_12BIT_64S :  34.05 / 1000, #34.05mS
+            ADCResolution.ADCRES_12BIT_128S : 68.10 / 1000 # 168.10mS
+        }
         self.bus = smbus.SMBus(i2c_bus)
         self.addr = addr
         self._current_lsb = 0
         self._power_lsb = 0
         self._cal_value = 0
-        self.set_calibration_16V_8A()
+        self.sleep_time = None
+        self.set_calibration_16V_4A()
 
     def is_device_present(self):
         try:
@@ -146,6 +154,35 @@ class INA219:
     def write(self, address, data):
         self.bus.write_i2c_block_data(self.addr, address, [(data >> 8) & 0xFF, data & 0xFF])
 
+    def set_calibration_16V_4A(self):
+        # Those values are the result after reading the INA datasheet
+        """Configure INA219 to measure up to 16V and 4A with 8Sample."""
+        self._current_lsb = 0.000125  # 125 μA per bit
+        self._power_lsb = self._current_lsb * 20  # 0.0025 W per bit
+        self._cal_value = 32768  # Calibration value
+
+        # Write calibration register
+        self.write(_REG_CALIBRATION, self._cal_value)
+
+        # Set Config register
+        self.bus_voltage_range = BusVoltageRange.RANGE_16V
+        self.gain = Gain.DIV_1_40MV
+        self.bus_adc_resolution = ADCResolution.ADCRES_12BIT_8S
+        self.shunt_adc_resolution = ADCResolution.ADCRES_12BIT_8S
+        self.mode = Mode.SANDBVOLT_CONTINUOUS
+        self.config = (
+            self.bus_voltage_range << 13
+            | self.gain << 11
+            | self.bus_adc_resolution << 7
+            | self.shunt_adc_resolution << 3
+            | self.mode
+        )
+        self.sleep_time = self.sleep_map[self.bus_adc_resolution]
+        #print(f"************* -> {self.sleep_time}")
+        #time.sleep(400)
+        self.write(_REG_CONFIG, self.config)
+
+    # NOT USED
     def set_calibration_16V_8A(self):
         """Configure INA219 to measure up to 16V and 8A.
         WARNING --> Does not change the values:
@@ -196,6 +233,7 @@ class INA219:
 """
 
 """
+    *** WARNING: ***
     Using the ADCRES_12BIT_32S setting means that the INA takes 32 samples and returns the average. 
     To perform this calculation, the maximum reading frequency is just over 50Hz, which is a bit 
     low when compared to the power monitor.
@@ -203,6 +241,4 @@ class INA219:
     instead of 32, only 4 values are sampled, their average is calculated, and returned. 
     This way, since it’s 8 times fewer samples, it allows a reading frequency 8 times higher 
     than the previous setting, i.e., 460Hz.
-    *** WARNING: ***
-    Remember to change both the ADCRES_12BIT_4S and the sleep period to about (0.00217), considering a frequency of 460Hz.
 """
