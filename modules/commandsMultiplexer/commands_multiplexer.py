@@ -1,5 +1,7 @@
 import json
+import time
 from modules.mongoModule.models.measurement_model_mongo import MeasurementModelMongo
+from modules.mqttModule.mqtt_client import Mqtt_Client
 
 class CommandsMultiplexer:
     def __init__(self):
@@ -7,6 +9,12 @@ class CommandsMultiplexer:
         self.status_handler_list = {}
         self.error_handeler_list = {}
         self.probes_preparer_list = {}
+        self.mqtt_client = None
+        self.probe_ip = {}
+        self.coordinator_ip = "192.168.1.123" # Da settare leggendo il proprio IP
+
+    def set_mqtt_client(self, mqtt_client : Mqtt_Client):
+        self.mqtt_client = mqtt_client
     
     def add_result_handler(self, interested_result, handler):
         if interested_result not in self.results_handler_list:
@@ -81,4 +89,27 @@ class CommandsMultiplexer:
             return self.probes_preparer_list[measurement_type](new_measurement)
         else:
             return "Error", "Check the measurement type", f"Unkown measure type: {measurement_type}"
+        
+    
+    # Default handler for the root_service probe message reception
+    def root_service_default_handler(self, probe_sender, type, payload):
+        if type == "state":
+            if payload["state"] == "ONLINE" or payload["state"] == "UPDATE":
+                self.probe_ip[probe_sender] = payload["ip"]
+                json_set_coordinator_ip = {"coordinator_ip": self.coordinator_ip}
+                self.root_service_send_command(probe_sender, "set_coordinator_ip", json_set_coordinator_ip)
+            elif payload["state"] == "OFFLINE":
+                self.probe_ip.pop(probe_sender, None)
+                print(f"probe_sender [{probe_sender}] -> state [{payload['state']}]")
+
+
+    def root_service_send_command(self, probe_id, command, root_service_payload):
+        json_command = {
+            "handler": 'root_service',
+            "command": command,
+            "payload": root_service_payload
+        }
+        time.sleep(0.5)
+        print(f"COMMANDS_MULTIPLEXER: root_service sending to |{probe_id}| , coordinator ip -> |{self.coordinator_ip}|")
+        self.mqtt_client.publish_on_command_topic(probe_id = probe_id, complete_command=json.dumps(json_command))
         
