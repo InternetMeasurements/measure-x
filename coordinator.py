@@ -8,7 +8,8 @@ from modules.commandsMultiplexer.commands_multiplexer import CommandsMultiplexer
 from modules.iperfCoordinator.iperf_coordinator import Iperf_Coordinator
 from modules.pingCoordinator.ping_coordinator import Ping_Coordinator 
 from modules.mongoModule.mongoDB import MongoDB, SECONDS_OLD_MEASUREMENT, MeasurementModelMongo
-from modules.energyCoordinator.energy_coordinator import EnergyCoordinator
+from modules.energyCoordinator.energy_coordinator import Energy_Coordinator
+from modules.aoiCoordinator.aoi_coordinator import Age_of_Information_Coordinator
 
 from modules.restAPIModule.swagger_server.rest_server import RestServer
 
@@ -63,14 +64,23 @@ def main():
         registration_measure_preparer = commands_multiplexer.add_probes_preparer,
         mongo_db=mongo_db)
     
-    energy_coordinator = EnergyCoordinator(
+    energy_coordinator = Energy_Coordinator(
         mqtt_client=coordinator_mqtt,
         registration_handler_error = commands_multiplexer.add_error_handler,
         registration_handler_status = commands_multiplexer.add_status_handler,
         registration_handler_result = commands_multiplexer.add_result_handler,
         mongo_db=mongo_db)
+    
+    aoi_coordinator = Age_of_Information_Coordinator(
+        mqtt_client=coordinator_mqtt,
+        registration_handler_error = commands_multiplexer.add_error_handler,
+        registration_handler_status = commands_multiplexer.add_status_handler,
+        registration_handler_result = commands_multiplexer.add_result_handler,
+        registration_measure_preparer = commands_multiplexer.add_probes_preparer,
+        mongo_db=mongo_db
+    )
 
-    commands_multiplexer.add_status_handler('probe_state', online_status_handler)
+    #commands_multiplexer.add_status_handler('probe_state', online_status_handler)
 
     rest_server = RestServer(mongo_instance = mongo_db,
                              commands_multiplexer_instance = commands_multiplexer)
