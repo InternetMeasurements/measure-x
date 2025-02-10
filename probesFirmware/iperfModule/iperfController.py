@@ -9,6 +9,7 @@ import psutil
 from shared_resources import shared_state
 from mqttModule.mqttClient import ProbeMqttClient
 
+""" Class that implements the THROUGHPUT measurement funcionality """
 class IperfController:
     def __init__(self, mqtt_client : ProbeMqttClient, registration_handler_request_function):
 
@@ -99,22 +100,22 @@ class IperfController:
                 measurement_related_conf = payload['measurement_id']
                 role_related_conf = payload['role']
                 if not shared_state.probe_is_ready():
-                    self.send_iperf_NACK(failed_command=command, error_info="PROBE BUSY", role_related_conf = role_related_conf, measurement_related_conf = measurement_related_conf)
+                    self.send_iperf_NACK(failed_command=command, error_info="PROBE BUSY", role = role_related_conf, msm_id = measurement_related_conf)
                     return
                 
                 configuration_message = self.read_configuration(payload)
                 if configuration_message == "OK": # if the configuration goes good, then ACK, else NACK
-                    self.send_iperf_ACK(successed_command = command, measurement_related_conf = measurement_related_conf)
+                    self.send_iperf_ACK(successed_command = command, msm_id = measurement_related_conf)
                     if self.last_role == "Server":
                         self.start_iperf()
                 else:
-                    self.send_iperf_NACK(failed_command=command, error_info = configuration_message, role_related_conf = role_related_conf, measurement_related_conf = measurement_related_conf)
+                    self.send_iperf_NACK(failed_command=command, error_info = configuration_message, role = role_related_conf, msm_id = measurement_related_conf)
             case 'start':
                 if self.last_role == None:
                     self.send_iperf_NACK(failed_command=command, error_info="No configuration")
                     return
                 if not shared_state.probe_is_ready():
-                    self.send_iperf_NACK(failed_command = command, error_info = "PROBE BUSY", role_related_conf = self.last_role)
+                    self.send_iperf_NACK(failed_command = command, error_info = "PROBE BUSY", role = self.last_role)
                     return
                 shared_state.set_probe_as_busy()
                 if self.last_role == "Client":
@@ -224,7 +225,7 @@ class IperfController:
                         print(f"IperfController: results saved in: {complete_output_json_dir}")
                 except json.JSONDecodeError:
                     print("IperfController: decode result json failed")
-                    self.send_iperf_NACK(failed_command="start", error_info="Decode result json failed", role_related_conf="Client", measurement_related_conf = self.last_measurement_id)
+                    self.send_iperf_NACK(failed_command="start", error_info="Decode result json failed", role="Client", msm_id = self.last_measurement_id)
         else:
             #command += "-s -p " + str(self.listening_port) # server mode and listening port
             print("IperfController: iperf3 server, listening...")
@@ -237,7 +238,7 @@ class IperfController:
             # elif result.returncode == 15: # This returncode 15, means that the subprocess has received a SIG.TERM signal, and then the process has been gently terminated
             elif result.returncode != signal.SIGTERM:
                 print(f"Errore nell'esecuzione di iperf: {result.stderr}  | return_code: {result.returncode }")
-                self.send_iperf_NACK(failed_command="conf", error_info=result.stderr, role_related_conf="Server", measurement_related_conf=self.last_measurement_id)
+                self.send_iperf_NACK(failed_command="conf", error_info=result.stderr, role="Server", msm_id=self.last_measurement_id)
             shared_state.set_probe_as_ready()
         return result.returncode
     
@@ -245,7 +246,7 @@ class IperfController:
     def stop_iperf_thread(self):
         iperf_process_pid = None
         process_name = "iperf3"
-        if self.iperf_thread != None and self.last_role != None:
+        if (self.iperf_thread is not None) and (self.last_role is not None):
             for process in psutil.process_iter(['pid', 'name']):
                 if process_name in process.info['name']:  # Finding the iperf3 process
                     iperf_process_pid = process.info['pid']
@@ -262,22 +263,22 @@ class IperfController:
             return "Process " + process_name + " not in execution"
 
 
-    def send_iperf_ACK(self, successed_command, measurement_related_conf = None): # Incapsulating of the iperf-server-ip
+    def send_iperf_ACK(self, successed_command, msm_id = None): # Incapsulating of the iperf-server-ip
         json_ack = { 
             "command" : successed_command,
-            "measurement_id" : self.last_measurement_id if (measurement_related_conf is None) else measurement_related_conf
+            "measurement_id" : self.last_measurement_id if (msm_id is None) else msm_id
             }
         if (successed_command == "conf") and (self.last_role == "Server"):
             json_ack['port'] = self.listening_port
         print(f"IperfController: ACK sending -> {json_ack}")
         self.mqtt_client.publish_command_ACK(handler='iperf', payload=json_ack) 
 
-    def send_iperf_NACK(self, failed_command, error_info, role_related_conf = None, measurement_related_conf = None):
+    def send_iperf_NACK(self, failed_command, error_info, role = None, msm_id = None):
         json_nack = {
             "command" : failed_command,
             "reason" : error_info,
-            "role": self.last_role if (role_related_conf is None) else role_related_conf,
-            "measurement_id" : self.last_measurement_id if (measurement_related_conf is None) else measurement_related_conf
+            "role": self.last_role if (role is None) else role,
+            "measurement_id" : self.last_measurement_id if (msm_id is None) else msm_id
             }
         self.mqtt_client.publish_command_NACK(handler='iperf', payload = json_nack) 
 
@@ -333,7 +334,7 @@ class IperfController:
             print(f"last_json_result --> {self.last_json_result}")
             nack_message = "Check the probes IP"
             self.send_iperf_NACK(failed_command = "start", error_info = nack_message,
-                                   role_related_conf = "Client", measurement_related_conf = self.last_measurement_id)
+                                   role = "Client", msm_id = self.last_measurement_id)
             self.reset_conf()
 
         """

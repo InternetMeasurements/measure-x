@@ -11,7 +11,7 @@ from pingparsing import PingParsing
 from mqttModule.mqttClient import ProbeMqttClient
 from shared_resources import shared_state
 
-""" Class that implements the latency, packets loss... funcionalities """
+""" Class that implements the LATENCY measurement funcionality """
 class PingController:
     def __init__(self, mqtt_client : ProbeMqttClient, registration_handler_request_function):
         self.mqtt_client = mqtt_client        

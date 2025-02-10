@@ -8,6 +8,7 @@ SYNC_OTII_PIN_NUMBER = 4
 DEFAULT_CURRENT_MEASUREMENT_FILE = "ina219_measurements.csv"
 SYNC_OTII_PIN = LED(SYNC_OTII_PIN_NUMBER)
 
+""" Class that implements the LOW LEVEL DRIVER FOR CURRENT CONSUMPTION funcionality """
 class Ina219Driver:
     def __init__(self, current_compare : bool = False):
         self.ina219 = INA219(addr=0x40)

@@ -2,6 +2,7 @@ import json
 from energyModule.ina219Driver import Ina219Driver, SYNC_OTII_PIN
 from mqttModule.mqttClient import ProbeMqttClient
 
+""" Class that implements the POWER CONSUMPTION measurement funcionality """
 class EnergyController:
     def __init__(self, mqtt_client : ProbeMqttClient, registration_handler_request_function):
         self.mqtt_client = mqtt_client

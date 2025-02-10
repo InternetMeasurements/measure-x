@@ -64,17 +64,17 @@ class Iperf_Coordinator:
                 command_executed_on_probe = payload["command"]
                 match command_executed_on_probe:
                     case "conf":
-                        measurment_id = payload["measurement_id"]
+                        measurement_id = payload["measurement_id"]
                         if "port" in payload: # if the 'port' key is in the payload, then it's the ACK comes from iperf-server
                             probe_port = payload["port"]
                             self.probes_server_port[probe_sender] = probe_port
                             print(f"Iperf_Coordinator: probe |{probe_sender}|->|Listening port: {probe_port}|->|ACK|")
-                            self.events_received_server_ack[measurment_id][1] = "OK"
-                            self.events_received_server_ack[measurment_id][0].set() # Set the event ACK RECEIVER FROM SERVER
+                            self.events_received_server_ack[measurement_id][1] = "OK"
+                            self.events_received_server_ack[measurement_id][0].set() # Set the event ACK RECEIVER FROM SERVER
                         # the else statement, means that the ACK is sent from the client.
                         else:
-                            self.events_received_client_ack[measurment_id][1] = "OK"
-                            self.events_received_client_ack[measurment_id][0].set()
+                            self.events_received_client_ack[measurement_id][1] = "OK"
+                            self.events_received_client_ack[measurement_id][0].set()
                             print(f"Iperf_Coordinator: probe |{probe_sender}|->|conf|-> client |ACK|")
                     case "stop":
                          print(f"Iperf_Coordinator: probe |{probe_sender}|->|Iperf stopped|->|ACK|")
