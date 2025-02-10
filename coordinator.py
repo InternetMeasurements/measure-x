@@ -14,19 +14,6 @@ from modules.restAPIModule.swagger_server.rest_server import RestServer
 
 from scapy.all import rdpcap, sendp, IP
 
-probe_ip = {} # Here, i will save the couples {"probe_id": "probe_ip"}
-
-# Default handler for the status probe message reception
-def online_status_handler(probe_sender, type, payload):
-    global probe_ip
-    if type == "state":
-        if payload["state"] == "ONLINE" or payload["state"] == "UPDATE":
-            probe_ip[probe_sender] = payload["ip"]
-            print(f"probe_sender [{probe_sender}] -> state [{payload['state']}] -> ip [{probe_ip[probe_sender]}]")
-        elif payload["state"] == "OFFLINE":
-            probe_ip.pop(probe_sender, None)
-            print(f"probe_sender [{probe_sender}] -> state [{payload['state']}]")
-
 # Thread body for the check failed measurements
 def update_measurements_collection_thread_body(mongo_db : MongoDB):
     while(True):
@@ -34,10 +21,8 @@ def update_measurements_collection_thread_body(mongo_db : MongoDB):
         print(f"Periodic Thread: Setted {updated_as_failed_measurements} measurements as failed. Next check --> {datetime.fromtimestamp(time.time() + SECONDS_OLD_MEASUREMENT/2)}")
         time.sleep(SECONDS_OLD_MEASUREMENT / 2)
 
-    
 
 def main():
-    global probe_ip
     try:
         cl = ConfigLoader(base_path = Path(__file__).parent, file_name="coordinatorConfig.yaml")
         mongo_db = MongoDB(mongo_config = cl.mongo_config)
@@ -53,7 +38,7 @@ def main():
     measurement_test_id = mongo_db.insert_measurement(measure=measure_test)
     print(f"Stored test measurement: {measurement_test_id}")
     """
-    
+
     measurement_collection_update_thread = threading.Thread(target=update_measurements_collection_thread_body, args=(mongo_db,))
     measurement_collection_update_thread.daemon = True
     measurement_collection_update_thread.start()
