@@ -49,6 +49,9 @@ def main():
         external_status_handler = commands_multiplexer.status_multiplexer, 
         external_results_handler = commands_multiplexer.result_multiplexer,
         external_errors_handler = commands_multiplexer.errors_multiplexer)
+    commands_multiplexer.set_mqtt_client(coordinator_mqtt)
+
+    commands_multiplexer.add_status_handler(interested_status="root_service", handler=commands_multiplexer.root_service_default_handler)
     
     iperf_coordinator = Iperf_Coordinator(
         mqtt = coordinator_mqtt,
