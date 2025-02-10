@@ -29,15 +29,6 @@ class Probe:
         self.aoi_controller = AgeOfInformationController(self.mqtt_client, 
                                                          self.commands_demultiplexer.registration_handler_request,
                                                          self.commands_demultiplexer.wait_for_set_coordinator_ip)
-        
-    def invoke_test(self):
-        global shared_state
-        if shared_state.coordinator_ip is None:
-            self.commands_demultiplexer.wait_for_set_coordinator_ip()
-            if shared_state.get_coordinator_ip() is None: # Necessary check for confirm the coordinator response of coordinator_ip
-                print("No response from coordinator. Missing coordinator ip for root service")
-        else:
-            print(f"Already known the coordinator ip -> {shared_state.get_coordinator_ip()}")
 
     def check_for_ready(self):
         return self.state
@@ -58,8 +49,6 @@ def main():
             case "0":
                 probe1.disconnect()
                 break
-            case "1":
-                probe1.invoke_test()
             case _:
                 continue  
     return
