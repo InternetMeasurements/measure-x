@@ -146,7 +146,7 @@ class ProbeMqttClient(mqtt.Client):
     
     def publish_probe_state(self, state):        
         json_status = {
-            "handler": "probe_state",
+            "handler": "root_service",
             "type": "state",
             "payload": {
                 "state" : state
