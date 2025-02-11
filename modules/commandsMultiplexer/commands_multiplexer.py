@@ -1,5 +1,6 @@
 import json
 import time
+import netifaces
 from modules.mongoModule.models.measurement_model_mongo import MeasurementModelMongo
 from modules.mqttModule.mqtt_client import Mqtt_Client
 
@@ -11,10 +12,21 @@ class CommandsMultiplexer:
         self.probes_preparer_list = {}
         self.mqtt_client = None
         self.probe_ip = {}
-        self.coordinator_ip = "192.168.1.123" # Da settare leggendo il proprio IP
+        self.coordinator_ip = self.get_coordinator_ip() # Da settare leggendo il proprio IP
 
     def set_mqtt_client(self, mqtt_client : Mqtt_Client):
         self.mqtt_client = mqtt_client
+
+    def get_coordinator_ip(self):
+        try:
+            gateways = netifaces.gateways()
+            default_iface = gateways['default'][netifaces.AF_INET][1]
+            my_ip = netifaces.ifaddresses(default_iface)[netifaces.AF_INET][0]['addr']
+            print(f"CommandsMultiplexer: default nic -> |{default_iface}| , my_ip -> |{my_ip}| ")
+        except KeyError as k:
+            print(f"CommandsMultiplexer: exception in retrieve my ip -> {k} ")
+            my_ip = "0.0.0.0"
+        return my_ip
     
     def add_result_handler(self, interested_result, handler):
         if interested_result not in self.results_handler_list:
