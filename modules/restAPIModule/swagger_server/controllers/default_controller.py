@@ -151,4 +151,10 @@ def stop_measurement_by_id(measurement_id):  # noqa: E501
 
     :rtype: None
     """
-    return 'do some magic!'
+    commands_multiplexer : CommandsMultiplexer = current_app.config.get(KEY_FOR_RETIREVE_COMMANDS_MULTIPLEXER)
+    successs_message, info, error_cause = commands_multiplexer.measurement_stop_by_msm_id(measurement_id)
+    if successs_message == "OK":
+        return info, 200
+    
+    error_msg_to_return = ErrorModel(object_ref_id='', object_ref_type="measurement", error_description=info, error_cause=error_cause).to_dict()
+    return error_msg_to_return, 400
