@@ -8,7 +8,7 @@ from modules.commandsMultiplexer.commands_multiplexer import CommandsMultiplexer
 from modules.iperfCoordinator.iperf_coordinator import Iperf_Coordinator
 from modules.pingCoordinator.ping_coordinator import Ping_Coordinator 
 from modules.mongoModule.mongoDB import MongoDB, SECONDS_OLD_MEASUREMENT, MeasurementModelMongo
-from modules.energyCoordinator.energy_coordinator import Energy_Coordinator
+from modules.energyCoordinator.energy_coordinator import EnergyCoordinator
 from modules.aoiCoordinator.aoi_coordinator import Age_of_Information_Coordinator
 
 from modules.restAPIModule.swagger_server.rest_server import RestServer
@@ -67,11 +67,11 @@ def main():
         registration_measure_preparer = commands_multiplexer.add_probes_preparer,
         mongo_db=mongo_db)
     
-    energy_coordinator = Energy_Coordinator(
+    energy_coordinator = EnergyCoordinator(
         mqtt_client=coordinator_mqtt,
-        registration_handler_error = commands_multiplexer.add_error_handler,
         registration_handler_status = commands_multiplexer.add_status_handler,
         registration_handler_result = commands_multiplexer.add_result_handler,
+        registration_measure_preparer = commands_multiplexer.add_probes_preparer,
         mongo_db=mongo_db)
     
     aoi_coordinator = Age_of_Information_Coordinator(
