@@ -10,9 +10,11 @@ class CommandsMultiplexer:
         self.status_handler_list = {}
         self.error_handeler_list = {}
         self.probes_preparer_list = {}
+        self.measurement_stopper_list = {}
         self.mqtt_client = None
         self.probe_ip = {}
-        self.coordinator_ip = self.get_coordinator_ip() # Da settare leggendo il proprio IP
+        self.coordinator_ip = self.get_coordinator_ip()
+        self.started_measurement = {}
 
     def set_mqtt_client(self, mqtt_client : Mqtt_Client):
         self.mqtt_client = mqtt_client
@@ -49,6 +51,7 @@ class CommandsMultiplexer:
         else:
             return "There is already a registered handler for " + interested_error
         
+
     def add_probes_preparer(self, interested_measurement_type, preparer):
         # Be sure that all the "preparer methods" returns a string!
         if interested_measurement_type not in self.probes_preparer_list:
@@ -56,6 +59,15 @@ class CommandsMultiplexer:
             return "OK" #print(f"CommandsMultiplexer: Registered probes preparer for [{interested_measurement_type}]")
         else:
             return "There is already a probes-preparer for " + interested_measurement_type
+    
+
+    def add_measurement_stopper(self, interested_measurement_type, stopper_method):
+        if interested_measurement_type not in self.measurement_stopper_list:
+            self.measurement_stopper_list[interested_measurement_type] = stopper_method
+            return "OK" #print(f"CommandsMultiplexer: Registered measurement-stopper for [{interested_measurement_type}]")
+        else:
+            return "There is already a measurement-stopper for " + interested_measurement_type
+        
 
     def result_multiplexer(self, probe_sender: str, nested_result):  # invoked by mqtt module
         try:
@@ -94,15 +106,33 @@ class CommandsMultiplexer:
         except json.JSONDecodeError as e:
             print(f"CommandsMultiplexer: error_multiplexer: json exception -> {e}")
     
+
     def prepare_probes_to_measure(self, new_measurement : MeasurementModelMongo):  # invoked by REST module
         measurement_type = new_measurement.type
         if measurement_type in self.probes_preparer_list:
             # *** Ensure that all "preparer" methods return exactly three values (triad). ***
-            return self.probes_preparer_list[measurement_type](new_measurement)
+            successs_message, measurement_as_dict, error_cause = self.probes_preparer_list[measurement_type](new_measurement)
+            if successs_message == "OK":
+                msm_id = measurement_as_dict["_id"]
+                msm_type = measurement_as_dict["type"]
+                self.started_measurement[msm_id] = msm_type
+                print(f"CommandsMultiplexer: stored msm_id |{msm_id}| , type: |{msm_type}|")
+            return successs_message, measurement_as_dict, error_cause
         else:
             return "Error", "Check the measurement type", f"Unkown measure type: {measurement_type}"
+
+
+    def measurement_stop_by_msm_id(self, msm_id_to_stop : str):  # invoked by REST module
+        if msm_id_to_stop not in self.started_measurement:
+            return "Error", "Unknown measurement", f"Measurement id: |{msm_id_to_stop}| not in memory"    
         
-    
+        measurement_type = self.started_measurement[msm_id_to_stop]
+        if measurement_type in self.measurement_stopper_list:
+            return self.measurement_stopper_list[measurement_type](msm_id_to_stop)
+        else:
+            return "Error", "Check the measurement type", f"Unkown measure type: {measurement_type}"    
+
+
     # Default handler for the root_service probe message reception
     def root_service_default_handler(self, probe_sender, type, payload):
         if type == "state":
