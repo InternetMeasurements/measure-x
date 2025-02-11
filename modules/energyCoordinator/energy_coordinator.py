@@ -10,11 +10,13 @@ class EnergyCoordinator:
                  registration_handler_status,
                  registration_handler_result,
                  registration_measure_preparer,
+                 registration_measurement_stopper,
                  mongo_db : MongoDB):
         self.mqtt_client = mqtt_client
         self.mongo_db = mongo_db
         self.queued_measurements = {}
         self.events_received_start_ack = {}
+        self.events_received_stop_ack = {}
 
          # Requests to CommandsDemultiplexer
         registration_response = registration_handler_status(
@@ -42,33 +44,59 @@ class EnergyCoordinator:
             print(f"EnergyCoordinator: registered prepaper for measurements type -> energy")
         else:
             print(f"EnergyCoordinator: registration preparer failed. Reason -> {registration_response}")
+
+        # Requests to commands_multiplexer: Measurement-Stopper registration
+        registration_response = registration_measurement_stopper(
+            interested_measurement_type = "energy",
+            stopper_method = self.energy_measurement_stopper)
+        if registration_response == "OK" :
+            print(f"EnergyCoordinator: registered measurement stopper for measurements type -> energy")
+        else:
+            print(f"EnergyCoordinator: registration measurement stopper failed. Reason -> {registration_response}")
         
     def handler_error_messages(self, probe_sender, payload : json):
         print(f"EnergyCoordinator: received error msg from |{probe_sender}| --> |{payload}|")
     
     def handler_received_status(self, probe_sender, type, payload):
+        msm_id = payload["msm_id"] if ("msm_id" in payload) else None
         match type:
             case "ACK":
                 command_executed_on_probe = payload["command"]
-                measurement_id = payload["msm_id"] if ("msm_id" in payload) else None
                 match command_executed_on_probe:
                     case "check":
                         print(f"EnergyCoordinator: received ACK related to |check| from |{probe_sender}|")
                     case "start":
-                        if measurement_id is None:
-                            print(f"EnergyCoordinator: received ACK related to |start| from {probe_sender} WITHOUT msm_id")
+                        if msm_id is None:
+                            print(f"EnergyCoordinator: received ACK related to |start| from |{probe_sender}| WITHOUT msm_id")
                             return
-                        print(f"EnergyCoordinator:")
+                        print(f"EnergyCoordinator: received ACK related to |start| from |{probe_sender}| , msm_id -> |{msm_id}|")
+                        self.events_received_start_ack[msm_id][1] = "OK"
+                        self.events_received_start_ack[msm_id][0].set()
+                    case "stop":
+                        if msm_id is None:
+                            print(f"EnergyCoordinator: received ACK related to |stop| from |{probe_sender}| WITHOUT msm_id")
+                            return
+                        self.events_received_stop_ack[msm_id][1] = "OK"
+                        self.events_received_stop_ack[msm_id][0].set()
+                        print(f"EnergyCoordinator: received ACK related to |stop| from |{probe_sender}| , msm_id -> |{msm_id}|\nDA memorizzare nel db la timeseries")
             case "NACK":
                 failed_command = payload["command"]
                 reason = payload["reason"]
-                measurement_id = payload["msm_id"] if ("msm_id" in payload) else None
-                print(f"EnergyCoordinator: NACK from probe ->|{probe_sender}| reason ->|{reason}| msm_id ->|{measurement_id}|")
-                if measurement_id is not None:
-                    self.events_received_start_ack[measurement_id][1] = reason
-                    self.events_received_start_ack[measurement_id][0].set()
+                print(f"EnergyCoordinator: NACK from probe -> |{probe_sender}| , command -> |{failed_command}| , reason -> |{reason}| , msm_id -> |{msm_id}|")
+                match failed_command:
+                    case "start":
+                        if msm_id is not None:
+                            self.events_received_start_ack[msm_id][1] = reason
+                            self.events_received_start_ack[msm_id][0].set()
+                    case "stop":
+                        if msm_id is not None:
+                            self.events_received_stop_ack[msm_id][1] = reason
+                            self.events_received_stop_ack[msm_id][0].set()
 
     def handler_received_result(self, probe_sender, result: json):
+        # ALTERNATIVA
+        # Invece di inviare il risultato del campionamento con l'ACK di stop, posso anche decidere di non inviare l'ACK di stop, e di inviare
+        # direttamente il risultato così da gestirlo qui dentro
         print(f"EnergyCoordinator: result received from {probe_sender}")
 
     
@@ -98,7 +126,7 @@ class EnergyCoordinator:
         self.events_received_start_ack[measurement_id] = [threading.Event(), None]
         self.mqtt_client.publish_on_command_topic(probe_id = new_measurement.source_probe, complete_command = json.dumps(json_iperf_start))
         self.events_received_start_ack[measurement_id][0].wait(timeout = 5)
-        # ------------------------------- YOU MUST WAIT (AT MOST 5s) FOR AN ACK/NACK FROM DEST_PROBE
+        # ------------------------------- YOU MUST WAIT (AT MOST 5s) FOR AN ACK/NACK FROM SOURCE_PROBE
         probe_event_message = self.events_received_start_ack[measurement_id][1]
         if probe_event_message == "OK":
             measurement_id = self.mongo_db.insert_measurement(new_measurement)
@@ -112,14 +140,31 @@ class EnergyCoordinator:
             print(f"Preparer energy: No response from probe -> |{new_measurement.source_probe}")
             return "Error", f"No response from Probe: {new_measurement.source_probe}" , "Response Timeout"
 
-    def send_stop_command(self, probe_id, msm_id):
+
+    def energy_measurement_stopper(self, msm_id_to_stop : str):
+        if msm_id_to_stop not in self.queued_measurements:
+            return "Error", "Unknown measurement in Energy Coordinator", "May be wrong type?"
+        queued_measurement : MeasurementModelMongo = self.queued_measurements[msm_id_to_stop]
+        print(f"energy_measurement_stopper()")
+
         json_energy_stop = {
             "handler": "energy",
             "command": "stop",
             "payload": {
-                "msm_id": msm_id
+                "msm_id": msm_id_to_stop
             }
         }
-        self.mqtt_client.publish_on_command_topic(probe_id = probe_id,
+        self.events_received_stop_ack[msm_id_to_stop] = [threading.Event(), None]
+        self.mqtt_client.publish_on_command_topic(probe_id = queued_measurement.source_probe,
                                                   complete_command=json.dumps(json_energy_stop))
-    
+        self.events_received_stop_ack[msm_id_to_stop][0].wait(timeout = 5)
+        # ------------------------------- YOU MUST WAIT (AT MOST 5s) FOR AN ACK/NACK FROM SOURCE_PROBE
+        stop_event_message = self.events_received_stop_ack[msm_id_to_stop][1]
+        if stop_event_message == "OK":
+            return "OK", f"Measurement {msm_id_to_stop} STOPPED", None
+        elif stop_event_message is not None:
+            print(f"Measurement stoppper: awaked from probe energy NACK -> {stop_event_message}")
+            return "Error", f"Probe |{queued_measurement.source_probe}| says: {stop_event_message}", ""
+        else:
+            print(f"Measurement stoppper: No response from probe -> |{queued_measurement.source_probe}")
+            return "Error", f"No response from Probe: {queued_measurement.source_probe}" , "Response Timeout"
