@@ -4,7 +4,8 @@ from mqttModule.mqttClient import ProbeMqttClient
 
 """ Class that implements the POWER CONSUMPTION measurement funcionality """
 class EnergyController:
-    def __init__(self, mqtt_client : ProbeMqttClient, registration_handler_request_function):
+    def __init__(self, mqtt_client : ProbeMqttClient, 
+                 registration_handler_request_function):
         self.mqtt_client = mqtt_client
         try:
             self.driverINA = Ina219Driver()
