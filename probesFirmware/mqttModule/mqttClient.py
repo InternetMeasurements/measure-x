@@ -1,18 +1,15 @@
 import yaml
 import json
-import socket
-import netifaces
 from pathlib import Path
 import os
 import psutil
 import paho.mqtt.client as mqtt
+from shared_resources import shared_state
 
 """
     ******************************************************* Classe MQTT FOR THE PROBES *******************************************************
 """
-WLAN_IFACE = 'wlan0'
-ETHERNET_IFACE = 'eth0'
-HAT_IFACE = 'rmnet_mhi0.1'
+
 VERBOSE = False
 
 class ProbeMqttClient(mqtt.Client):
@@ -160,8 +157,7 @@ class ProbeMqttClient(mqtt.Client):
             #my_ip = netifaces.ifaddresses(netifaces.interfaces()[0])[netifaces.AF_INET][0]['addr']
             
             #raise Exception(f"No network interfaces found! List -> {available_interfaces}")
-            my_ip = self.get_ip()
-            json_status["payload"]["ip"] = my_ip
+            json_status["payload"]["ip"] = shared_state.get_probe_ip()
         self.publish_on_status_topic(json.dumps(json_status))
 
     def publish_error(self, handler, payload):
@@ -178,27 +174,3 @@ class ProbeMqttClient(mqtt.Client):
         super().disconnect()
         self.connected_to_broker = False
         print(f"{self.probe_id}: Disconnected")
-
-    def get_ip(self):
-
-        gateways = netifaces.gateways()
-        default_iface = gateways['default'][netifaces.AF_INET][1]  # Nome interfaccia predefinita
-        print(f"Interfaccia di rete predefinita: {default_iface}")
-        my_ip = netifaces.ifaddresses(default_iface)[netifaces.AF_INET][0]['addr']
-        print(f"MY IP-> {my_ip}")
-        """
-        available_interfaces = psutil.net_if_addrs().keys()
-        print(f"Netcards: {available_interfaces}")
-        if HAT_IFACE in available_interfaces:
-            my_ip = netifaces.ifaddresses(HAT_IFACE)[netifaces.AF_INET][0]['addr']
-        elif WLAN_IFACE in available_interfaces:
-            my_ip = netifaces.ifaddresses(WLAN_IFACE)[netifaces.AF_INET][0]['addr']
-        elif ETHERNET_IFACE in available_interfaces:
-            my_ip = netifaces.ifaddresses(ETHERNET_IFACE)[netifaces.AF_INET][0]['addr']
-        elif MY_PC_IFACE in available_interfaces:
-            my_ip = netifaces.ifaddresses(MY_PC_IFACE)[netifaces.AF_INET][0]['addr']
-        else:
-            my_ip = "DA CORREGGERE"
-            raise Exception(f"No network interfaces found! List -> {available_interfaces}")
-        """
-        return my_ip
