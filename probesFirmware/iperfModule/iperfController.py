@@ -136,20 +136,6 @@ class IperfController:
                 #
                 # IL RESET CONF VA FATTO A PRESCINDERE DAL RISULTATO DELLO STOP?     
                 #
-                """
-                if self.last_role == "Server" or self.last_role:
-                    termination_message = self.stop_iperf_server_thread()
-                    if termination_message == "OK":
-                        self.send_iperf_ACK(successed_command=command)
-                    else:
-                        self.send_iperf_NACK(failed_command=command, error_info=termination_message)
-                elif self.last_role == "Client":
-                    termination_message = self.stop_iperf_server_thread()
-                    if termination_message == "OK":
-                        self.send_iperf_ACK(successed_command=command)
-                    else:
-                        self.send_iperf_NACK(failed_command=command, error_info=termination_message)
-                """
             case _:
                 print(f"IperfController: command not handled -> {command}")
                 self.send_iperf_NACK(failed_command=command, error_info="Command not handled")
