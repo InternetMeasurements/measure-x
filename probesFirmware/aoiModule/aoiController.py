@@ -76,7 +76,7 @@ class AgeOfInformationController:
             "measurement_id" : self.last_measurement_id if (measurement_id is None) else measurement_id
             }
         print(f"AoIController: ACK sending -> {json_ack}")
-        self.mqtt_client.publish_command_ACK(handler='iperf', payload=json_ack) 
+        self.mqtt_client.publish_command_ACK(handler='aoi', payload=json_ack) 
     
     def send_aoi_NACK(self, failed_command, error_info, measurement_id = None):
         json_nack = {

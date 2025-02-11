@@ -209,4 +209,4 @@ class Ping_Coordinator:
             return "Error", f"Probe |{new_measurement.source_probe}| says: {probe_sender_event_message}", "State BUSY"            
         else:
             print(f"Preparer ping: No response from probe -> |{new_measurement.source_probe}")
-            return "Error", f"No response from Probe: {new_measurement.source_probe}" , "Reponse Timeout"
+            return "Error", f"No response from Probe: {new_measurement.source_probe}" , "Response Timeout"

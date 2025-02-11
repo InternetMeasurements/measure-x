@@ -64,7 +64,7 @@ class IperfController:
         try:
             self.listening_port = payload_conf['listen_port']
             self.verbose_function = payload_conf['verbose']
-            self.last_measurement_id = payload_conf['measurement_id']
+            self.last_measurement_id = payload_conf['msm_id']
             self.last_role = "Server"
             self.last_error = None
             return "OK"
@@ -85,7 +85,7 @@ class IperfController:
             self.verbose_function = payload_conf['verbose']
             self.total_repetition = int(payload_conf['total_repetition'])
             self.save_result_on_flash = payload_conf["save_result_on_flash"]
-            self.last_measurement_id = payload_conf['measurement_id']
+            self.last_measurement_id = payload_conf['msm_id']
             self.last_role = "Client"
             self.last_error = None
             return "OK"
@@ -97,7 +97,7 @@ class IperfController:
     def iperf_command_handler(self, command : str, payload: json):
         match command:
             case 'conf':
-                measurement_related_conf = payload['measurement_id']
+                measurement_related_conf = payload['msm_id']
                 role_related_conf = payload['role']
                 if not shared_state.probe_is_ready():
                     self.send_iperf_NACK(failed_command=command, error_info="PROBE BUSY", role = role_related_conf, msm_id = measurement_related_conf)
@@ -266,7 +266,7 @@ class IperfController:
     def send_iperf_ACK(self, successed_command, msm_id = None): # Incapsulating of the iperf-server-ip
         json_ack = { 
             "command" : successed_command,
-            "measurement_id" : self.last_measurement_id if (msm_id is None) else msm_id
+            "msm_id" : self.last_measurement_id if (msm_id is None) else msm_id
             }
         if (successed_command == "conf") and (self.last_role == "Server"):
             json_ack['port'] = self.listening_port
@@ -278,7 +278,7 @@ class IperfController:
             "command" : failed_command,
             "reason" : error_info,
             "role": self.last_role if (role is None) else role,
-            "measurement_id" : self.last_measurement_id if (msm_id is None) else msm_id
+            "msm_id" : self.last_measurement_id if (msm_id is None) else msm_id
             }
         self.mqtt_client.publish_command_NACK(handler='iperf', payload = json_nack) 
 

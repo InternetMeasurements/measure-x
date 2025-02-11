@@ -111,6 +111,5 @@ class CommandsMultiplexer:
             "payload": root_service_payload
         }
         time.sleep(0.5)
-        print(f"COMMANDS_MULTIPLEXER: root_service sending to |{probe_id}| , coordinator ip -> |{self.coordinator_ip}|")
+        print(f"CommandsMultiplexer: root_service sending to |{probe_id}| , coordinator ip -> |{self.coordinator_ip}|")
         self.mqtt_client.publish_on_command_topic(probe_id = probe_id, complete_command=json.dumps(json_command))
-        

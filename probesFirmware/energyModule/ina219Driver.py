@@ -7,11 +7,12 @@ import threading
 SYNC_OTII_PIN_NUMBER = 4
 DEFAULT_CURRENT_MEASUREMENT_FILE = "ina219_measurements.csv"
 SYNC_OTII_PIN = LED(SYNC_OTII_PIN_NUMBER)
+DEFAULT_I2C_INA219_ADDRESS = 0x40
 
 """ Class that implements the LOW LEVEL DRIVER FOR CURRENT CONSUMPTION funcionality """
 class Ina219Driver:
     def __init__(self, current_compare : bool = False):
-        self.ina219 = INA219(addr=0x40)
+        self.ina219 = INA219(addr = DEFAULT_I2C_INA219_ADDRESS)
         self.stop_thread_event = threading.Event()
         self.measurement_thread = None
         self.last_filename = None
@@ -60,7 +61,7 @@ class Ina219Driver:
                     timestamp = time.time()
                     writer.writerow({"Timestamp": timestamp, "Current": current})
 
-                    print(f"Timestamp: {timestamp}, Current: {current} A")
+                    #print(f"Timestamp: {timestamp}, Current: {current} A")
 
                     time.sleep(0.034)  # tempo di sleep per 32 campioni a 12 bit
 

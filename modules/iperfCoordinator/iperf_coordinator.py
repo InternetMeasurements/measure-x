@@ -12,7 +12,11 @@ from modules.mongoModule.models.iperf_result_model_mongo import IperfResultModel
 
 class Iperf_Coordinator:
 
-    def __init__(self, mqtt : Mqtt_Client, registration_handler_status, registration_handler_result, registration_measure_preparer, mongo_db : MongoDB):
+    def __init__(self, mqtt : Mqtt_Client, 
+                 registration_handler_status,
+                 registration_handler_result,
+                 registration_measure_preparer,
+                 mongo_db : MongoDB):
         self.mqtt = mqtt 
         self.probes_configurations_dir = 'probes_configurations'
         self.probes_server_port = {}
@@ -64,7 +68,7 @@ class Iperf_Coordinator:
                 command_executed_on_probe = payload["command"]
                 match command_executed_on_probe:
                     case "conf":
-                        measurement_id = payload["measurement_id"]
+                        measurement_id = payload["msm_id"]
                         if "port" in payload: # if the 'port' key is in the payload, then it's the ACK comes from iperf-server
                             probe_port = payload["port"]
                             self.probes_server_port[probe_sender] = probe_port
@@ -84,7 +88,7 @@ class Iperf_Coordinator:
             case "NACK":
                 command_failed_on_probe = payload["command"]
                 reason = payload['reason']
-                measurement_id = payload["measurement_id"] if ('measurement_id' in payload) else None
+                measurement_id = payload["msm_id"] if ('msm_id' in payload) else None
                 role_conf_failed = payload["role"] if ('role' in payload) else None
                 print(f"Iperf_Coordinator: probe |{probe_sender}|->|{command_failed_on_probe}|->|NACK|, reason_payload --> {reason}, measure --> {measurement_id}")
                 match command_failed_on_probe:
@@ -118,7 +122,7 @@ class Iperf_Coordinator:
             "handler": "iperf",
             "command": "start",
             "payload": {
-                "measurement_id": str(new_measurement._id)
+                "msm_id": str(new_measurement._id)
             }
         }
         self.mqtt.publish_on_command_topic(probe_id = new_measurement.source_probe, complete_command = json.dumps(json_iperf_start))
@@ -199,7 +203,7 @@ class Iperf_Coordinator:
                 "role": "Server",
                 "listen_port": 5201,
                 "verbose": False,
-                "measurement_id": measurement_id
+                "msm_id": measurement_id
             }
         
         self.send_probe_iperf_conf(probe_id = new_measurement.dest_probe, json_config = json_config) # Sending server configuration
@@ -216,7 +220,7 @@ class Iperf_Coordinator:
             if probes_configurations_path.exists():                                
                 json_config = self.get_json_from_probe_yaml(probes_configurations_path)
                 json_config['role'] = "Client"
-                json_config['measurement_id'] = measurement_id
+                json_config['msm_id'] = measurement_id
                 json_config['destination_server_ip'] = new_measurement.dest_probe_ip
                 json_config['destination_server_port'] = self.probes_server_port[new_measurement.dest_probe]
 
@@ -240,7 +244,7 @@ class Iperf_Coordinator:
             return "Error", f"Probe |{new_measurement.dest_probe}| says: {server_event_message}", "State BUSY"
         else:
             print(f"Preparer iperf: No response from server probe -> |{new_measurement.dest_probe}")
-            return "Error", f"No response from Probe: {new_measurement.dest_probe}" , "Reponse Timeout"
+            return "Error", f"No response from Probe: {new_measurement.dest_probe}" , "Response Timeout"
         
     # NOT USED BUT USEFULL FOR TESTING
     def print_summary_result(self, measurement_result : json):
