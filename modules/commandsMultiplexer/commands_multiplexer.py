@@ -98,9 +98,10 @@ class CommandsMultiplexer:
                 self.probe_ip[probe_sender] = payload["ip"]
                 json_set_coordinator_ip = {"coordinator_ip": self.coordinator_ip}
                 self.root_service_send_command(probe_sender, "set_coordinator_ip", json_set_coordinator_ip)
+                print(f"CommandsMultiplexer: root_service -> [{probe_sender}] -> state [{payload['state']}] -> IP |{self.probe_ip[probe_sender]}|")
             elif payload["state"] == "OFFLINE":
                 self.probe_ip.pop(probe_sender, None)
-                print(f"probe_sender [{probe_sender}] -> state [{payload['state']}]")
+                print(f"CommandsMultiplexer: root_service -> [{probe_sender}] -> state [{payload['state']}]")
 
 
     def root_service_send_command(self, probe_id, command, root_service_payload):
