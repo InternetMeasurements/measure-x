@@ -45,6 +45,13 @@ class CommandsDemultiplexer():
         if handler in self.commands_handler_list:
             self.commands_handler_list[handler](command, payload)
         else:
+            msm_id = payload["msm_id"] if ("msm_id" in payload) else None
+            nack_no_handler = {
+                "command" : command,
+                "reason" : f"No registered handler for {handler} command",
+                "msm_id" : msm_id
+            }
+            self.mqtt_client.publish_command_NACK(handler=handler, payload=nack_no_handler)
             print(f"CommandsDemultiplexer: no registered handler for |{handler}|")
 
     def root_service_command_handler(self, command, payload):
