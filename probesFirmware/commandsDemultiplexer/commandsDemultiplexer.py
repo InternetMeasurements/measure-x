@@ -1,6 +1,6 @@
 import json
 import threading
-from probesFirmware.mqttModule.mqttClient import ProbeMqttClient
+from mqttModule.mqttClient import ProbeMqttClient
 from shared_resources import shared_state
 
 class CommandsDemultiplexer():
