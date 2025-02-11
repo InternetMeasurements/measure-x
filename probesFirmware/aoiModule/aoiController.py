@@ -1,7 +1,7 @@
 import json
 import subprocess, threading, signal
 from datetime import datetime, timezone
-from probesFirmware.mqttModule.mqttClient import ProbeMqttClient
+from mqttModule.mqttClient import ProbeMqttClient
 from shared_resources import shared_state
 
 """ Class that implements the AGE OF INFORMATION measurement funcionality """
