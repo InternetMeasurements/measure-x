@@ -63,6 +63,8 @@ class CommandsDemultiplexer():
                 print(f"CommandsDemultiplexer: coordinator_ip received -> {shared_state.get_coordinator_ip()}")
                 if self.event_to_set_in_case_of_root_service_command_reception is not None:
                     self.event_to_set_in_case_of_root_service_command_reception.set()
+            case "get_probe_ip":
+                self.mqtt_client.publish_probe_state("UPDATE")
             case _:
                 print(f"CommandsDemultiplexer: root_service handler -> Unkown command -> {command}")
     
