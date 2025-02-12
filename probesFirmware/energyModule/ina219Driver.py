@@ -62,8 +62,8 @@ class Ina219Driver:
                     writer.writerow({"Timestamp": timestamp, "Current": current})
 
                     #print(f"Timestamp: {timestamp}, Current: {current} A")
-
-                    time.sleep(0.034)  # tempo di sleep per 32 campioni a 12 bit
+                    time.sleep(self.ina219.sleep_time)
+                    #time.sleep(0.034)  # tempo di sleep per 32 campioni a 12 bit
 
             except KeyboardInterrupt:
                 print("Measurement stopped from keyboard")
