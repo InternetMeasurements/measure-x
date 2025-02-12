@@ -5,7 +5,9 @@ from modules.mongoModule.models.error_model import ErrorModel
 from modules.mongoModule.models.measurement_model_mongo import MeasurementModelMongo
 from modules.mongoModule.models.ping_result_model_mongo import PingResultModelMongo
 from modules.mongoModule.models.iperf_result_model_mongo import IperfResultModelMongo
+from modules.mongoModule.models.energy_result_model_mongo import EnergyResultModelMongo
 from modules.mongoModule.models.coexisting_application_model_mongo import CoexistingApplicationModelMongo
+
 
 HOURS_OLD_MEASUREMENT = 24
 SECONDS_OLD_MEASUREMENT = HOURS_OLD_MEASUREMENT * 3600
@@ -64,6 +66,8 @@ class MongoDB:
     
     
     def update_results_array_in_measurement(self, msm_id):
+    # This method is an automatic setting of the results doc-linking in measurements collection. 
+    # It finds all the results with that msm_id, and store them _ids in the doc-link
         try:
             update_result = self.measurements_collection.update_one(
                 {"_id": ObjectId(msm_id)},
@@ -146,7 +150,7 @@ class MongoDB:
         try:
             insert_result = self.results_collection.insert_one(result.to_dict())
             if insert_result.inserted_id:
-                print(f"MongoDB: iperf result stored in mongo. ID -> |{insert_result.inserted_id}|")
+                print(f"MongoDB: iperf result stored in mongo. Result ID -> |{insert_result.inserted_id}|")
                 return insert_result.inserted_id
         except Exception as e:
             print(f"MongoDB: Error while storing the Iperf result on mongo -> {e}")
@@ -157,10 +161,21 @@ class MongoDB:
         try:
             insert_result = self.results_collection.insert_one(result.to_dict())
             if insert_result.inserted_id:
-                print(f"MongoDB: ping result stored in mongo. ID -> |{insert_result.inserted_id}|")
+                print(f"MongoDB: ping result stored in mongo. Result ID -> |{insert_result.inserted_id}|")
                 return insert_result.inserted_id
         except Exception as e:
             print(f"MongoDB: Error while storing the Ping result on mongo -> {e}")
+            return None
+
+    
+    def insert_energy_result(self, result : EnergyResultModelMongo):
+        try:
+            insert_result = self.results_collection.insert_one(result.to_dict())
+            if insert_result.inserted_id:
+                print(f"MongoDB: energy result stored in mongo. Result ID -> |{insert_result.inserted_id}|")
+                return insert_result.inserted_id
+        except Exception as e:
+            print(f"MongoDB: Error while storing the Energy result on mongo -> {e}")
             return None
 
 
