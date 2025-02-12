@@ -11,8 +11,10 @@ from modules.mongoModule.models.ping_result_model_mongo import PingResultModelMo
 class Ping_Coordinator:
 
     def __init__(self, mqtt_client : Mqtt_Client, registration_handler_status, 
-                 registration_handler_result, registration_measure_preparer, mongo_db : MongoDB):
+                 registration_handler_result, registration_measure_preparer, 
+                 ask_probe_ip, mongo_db : MongoDB):
         self.mqtt_client = mqtt_client
+        self.ask_probe_ip = ask_probe_ip
         self.mongo_db = mongo_db
         self.events_received_ack_from_probe_sender = {}
 
@@ -135,8 +137,8 @@ class Ping_Coordinator:
         print("\n****************** PING SUMMARY ******************")
         print(f"Timestamp: {timestamp}")
         print(f"Measurement ID: {msm_id}")
-        print(f"IP sorgente: {source_ip}")
-        print(f"IP destinatario: {destination_ip}")
+        print(f"Source IP: {source_ip}")
+        print(f"Destination IP: {destination_ip}")
         print(f"Packets trasmitted: {packets_transmitted}")
         print(f"Packets received: {packets_received}")
         print(f"Packets loss: {packet_loss}")
@@ -150,43 +152,22 @@ class Ping_Coordinator:
                 print(f"\t-------------------------\n{icmp_reply}\n")
 
 
-    """    # Questo metodo è quello che diventerà il PREPARER
-    def send_start_command(self, probe_sender, probe_receiver, destination_ip, source_ip, packets_number = 4, packets_size = 32):
-        self.last_mongo_measurement = MeasurementModelMongo(
-            description = "Latency measure with ping tool",
-            type = "ping",
-            start_time = dt.now(),
-            source_probe = probe_sender,
-            dest_probe = probe_receiver,
-            source_probe_ip = source_ip,
-            dest_probe_ip = destination_ip)
-        self.last_mongo_measurement._id = self.mongo_db.insert_measurement(self.last_mongo_measurement)
-        if self.last_mongo_measurement._id is None:
-            print(f"Ping_Coordinator: can't start ping. Error while storing ping measurement on Mongo")
-            return
-        
-        json_ping_start = {
-            "handler": "ping",
-            "command": "start",
-            "payload": {
-                "destination_ip": destination_ip,
-                "msm_id": str(self.last_mongo_measurement._id),
-                "packets_number": packets_number,
-                "packets_size": packets_size
-            }
-        }
-        self.mqtt_client.publish_on_command_topic(probe_id = probe_sender, complete_command=json.dumps(json_ping_start))
-    """
-
-
     def probes_preparer_to_measurements(self, new_measurement : MeasurementModelMongo):
         DEFAULT_PACKET_NUMBER = 4
         DEFAULT_PACKET_SIZE = 32
         new_measurement.assign_id()
         measurement_id = str(new_measurement._id)
 
+        dest_probe_ip = None # This IP is that of the "machine" that receive the ping message, not the ping initiator!
+        if (new_measurement.dest_probe != None) and (new_measurement.dest_probe != ""): # If those are both false, then the ping dest is another probe
+            dest_probe_ip = self.ask_probe_ip(new_measurement.dest_probe)
+        else:
+            dest_probe_ip = new_measurement.dest_probe_ip
+        if dest_probe_ip is None:
+            return "Error", f"No response from probe: {new_measurement.dest_probe}", "Reponse Timeout"
+        
         json_start_payload = {
-                "destination_ip": new_measurement.dest_probe_ip,
+                "destination_ip": dest_probe_ip,
                 "msm_id": measurement_id,
                 "packets_number": DEFAULT_PACKET_NUMBER,
                 "packets_size": DEFAULT_PACKET_SIZE }
