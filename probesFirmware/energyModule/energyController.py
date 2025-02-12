@@ -1,4 +1,5 @@
 import json
+import base64
 import cbor2, pandas as pd
 from energyModule.ina219Driver import Ina219Driver, SYNC_OTII_PIN
 from mqttModule.mqttClient import ProbeMqttClient
@@ -69,12 +70,13 @@ class EnergyController:
         df = pd.read_csv(msm_id + ".csv")
         data = df.to_dict(orient='records')
         compressed_data = cbor2.dumps(data)
+        compressed_data_b64 = base64.b64encode(compressed_data).decode("utf-8")
         json_energy_result = {
             "handler": "energy",
             "type": "result",
             "payload": {
                 "msm_id": msm_id,
-                "data": compressed_data
+                "c_data_b64": compressed_data_b64
              }
         }
         self.mqtt_client.publish_on_result_topic(result=json.dumps(json_energy_result))
