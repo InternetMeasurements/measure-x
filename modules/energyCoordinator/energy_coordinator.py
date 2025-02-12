@@ -1,8 +1,10 @@
 import json
+import cbor2, base64
 import threading
 from modules.mongoModule.mongoDB import MongoDB
 from modules.mqttModule.mqtt_client import Mqtt_Client
 from modules.mongoModule.models.measurement_model_mongo import MeasurementModelMongo
+from modules.mongoModule.models.energy_result_model_mongo import EnergyResultModelMongo
 
 class EnergyCoordinator:
     def __init__(self, 
@@ -94,11 +96,25 @@ class EnergyCoordinator:
                             self.events_received_stop_ack[msm_id][0].set()
 
     def handler_received_result(self, probe_sender, result: json):
-        # ALTERNATIVA
-        # Invece di inviare il risultato del campionamento con l'ACK di stop, posso anche decidere di non inviare l'ACK di stop, e di inviare
-        # direttamente il risultato così da gestirlo qui dentro
-        print(f"EnergyCoordinator: result received from {probe_sender}")
-
+        msm_id = result["msm_id"] if ("msm_id" in result) else None
+        if msm_id is None:
+            print(f"EnergyCoordinator: received result from |{probe_sender}| without measure id. -> IGNORE")
+            return
+        c_data_b64 = result["c_data_b64"] if ("c_data_b64" in result) else None
+        if c_data_b64 is None:
+            print(f"EnergyCoordinator: received result from |{probe_sender}| without data , measure_id -> {msm_id} -> IGNORE")
+            return
+        c_data = base64.b64decode(c_data_b64)
+        timeseries = cbor2.loads(c_data)
+        energy_result = EnergyResultModelMongo(msm_id = msm_id, timeseries = timeseries)
+        energy_result_id = self.mongo_db.insert_energy_result(result = energy_result)
+        if energy_result_id is not None:
+            if self.mongo_db.update_results_array_in_measurement(msm_id = msm_id):
+                print(f"EnergyCoordinator: updated document linking in measure: |{msm_id}|")
+            if self.mongo_db.set_measurement_as_completed(msm_id):
+                print(f"EnergyCoordinator: measurement |{msm_id}| completed ")
+        else:
+            print(f"EnergyCoordinator: error while storing result |{energy_result_id}|")
     
     
     def send_check_i2C_command(self, probe_id):
