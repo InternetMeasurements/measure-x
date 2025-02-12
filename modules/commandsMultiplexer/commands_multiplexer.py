@@ -1,6 +1,7 @@
 import json
 import time
 import netifaces
+import threading
 from modules.mongoModule.models.measurement_model_mongo import MeasurementModelMongo
 from modules.mqttModule.mqtt_client import Mqtt_Client
 
@@ -12,7 +13,9 @@ class CommandsMultiplexer:
         self.probes_preparer_list = {}
         self.measurement_stopper_list = {}
         self.mqtt_client = None
+        self.probe_ip_lock = threading.Lock()
         self.probe_ip = {}
+        self.event_ask_probe_ip = {}
         self.coordinator_ip = self.get_coordinator_ip()
         self.started_measurement = {}
 
@@ -29,6 +32,28 @@ class CommandsMultiplexer:
             print(f"CommandsMultiplexer: exception in retrieve my ip -> {k} ")
             my_ip = "0.0.0.0"
         return my_ip
+
+    def get_probe_ip_if_present(self, probe_id):
+        with self.probe_ip_lock:
+            return self.probe_ip[probe_id] if (probe_id in self.probe_ip) else None
+    
+    def set_probe_ip(self, probe_id, probe_ip):
+        with self.probe_ip_lock:
+            self.probe_ip[probe_id] = probe_ip
+
+    def ask_probe_ip(self, probe_id):
+        probe_ip = self.get_probe_ip_if_present(probe_id = probe_id)
+        if probe_ip is not None:
+            return probe_ip
+        self.event_ask_probe_ip[probe_id] = threading.Event()
+        print(f"Non conosco l'ip della probe {probe_id}, lo chiedo...")
+        self.root_service_send_command(probe_id, "get_probe_ip", {} )
+        self.event_ask_probe_ip[probe_id].wait(timeout = 5)
+        # ------------------------------- WAITING FOR PROBE IP RESPONSE -------------------------------
+        self.event_ask_probe_ip.pop(probe_id, None)
+        print(f"Svegliato, probe_ip -> {self.get_probe_ip_if_present(probe_id = probe_id)}")
+        return self.get_probe_ip_if_present(probe_id = probe_id)
+        
     
     def add_result_handler(self, interested_result, handler):
         if interested_result not in self.results_handler_list:
@@ -111,13 +136,13 @@ class CommandsMultiplexer:
         measurement_type = new_measurement.type
         if measurement_type in self.probes_preparer_list:
             # *** Ensure that all "preparer" methods return exactly three values (triad). ***
-            successs_message, measurement_as_dict, error_cause = self.probes_preparer_list[measurement_type](new_measurement)
-            if successs_message == "OK":
+            success_message, measurement_as_dict, error_cause = self.probes_preparer_list[measurement_type](new_measurement)
+            if success_message == "OK":
                 msm_id = measurement_as_dict["_id"]
                 msm_type = measurement_as_dict["type"]
                 self.started_measurement[msm_id] = msm_type
                 print(f"CommandsMultiplexer: stored msm_id |{msm_id}| , type: |{msm_type}|")
-            return successs_message, measurement_as_dict, error_cause
+            return success_message, measurement_as_dict, error_cause
         else:
             return "Error", "Check the measurement type", f"Unkown measure type: {measurement_type}"
 
@@ -137,7 +162,10 @@ class CommandsMultiplexer:
     def root_service_default_handler(self, probe_sender, type, payload):
         if type == "state":
             if payload["state"] == "ONLINE" or payload["state"] == "UPDATE":
-                self.probe_ip[probe_sender] = payload["ip"]
+                probe_ip = payload["ip"]
+                self.set_probe_ip(probe_id = probe_sender, probe_ip = probe_ip)
+                if probe_ip in self.event_ask_probe_ip:
+                    self.event_ask_probe_ip[probe_ip].set()
                 json_set_coordinator_ip = {"coordinator_ip": self.coordinator_ip}
                 self.root_service_send_command(probe_sender, "set_coordinator_ip", json_set_coordinator_ip)
                 print(f"CommandsMultiplexer: root_service -> [{probe_sender}] -> state [{payload['state']}] -> IP |{self.probe_ip[probe_sender]}|")

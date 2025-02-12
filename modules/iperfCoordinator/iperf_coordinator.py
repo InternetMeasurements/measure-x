@@ -16,10 +16,12 @@ class Iperf_Coordinator:
                  registration_handler_status,
                  registration_handler_result,
                  registration_measure_preparer,
+                 ask_probe_ip,
                  mongo_db : MongoDB):
         self.mqtt = mqtt 
         self.probes_configurations_dir = 'probes_configurations'
         self.probes_server_port = {}
+        self.ask_probe_ip = ask_probe_ip
         self.mongo_db = mongo_db
         self.queued_measurements = {}
         self.events_received_server_ack = {}
@@ -196,6 +198,11 @@ class Iperf_Coordinator:
     def probes_preparer_to_measurements(self, new_measurement : MeasurementModelMongo):
         new_measurement.assign_id()
         measurement_id = str(new_measurement._id)
+
+        dest_probe_ip = self.ask_probe_ip(new_measurement.dest_probe)
+        if dest_probe_ip is None:
+            return "Error", f"No response from client probe: {new_measurement.source_probe}", "Reponse Timeout"
+
         self.events_received_server_ack[measurement_id] = [threading.Event(), None]
         self.queued_measurements[str(new_measurement._id)] = new_measurement
 
@@ -221,7 +228,7 @@ class Iperf_Coordinator:
                 json_config = self.get_json_from_probe_yaml(probes_configurations_path)
                 json_config['role'] = "Client"
                 json_config['msm_id'] = measurement_id
-                json_config['destination_server_ip'] = new_measurement.dest_probe_ip
+                json_config['destination_server_ip'] = dest_probe_ip
                 json_config['destination_server_port'] = self.probes_server_port[new_measurement.dest_probe]
 
                 self.send_probe_iperf_conf(probe_id = new_measurement.source_probe, json_config = json_config) # Sending client configuration
