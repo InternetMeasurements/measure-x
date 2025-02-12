@@ -23,3 +23,6 @@ connexion[swagger-ui]
 python_dateutil==2.8.2
 setuptools==67.8.0
 swagger-ui-bundle
+
+# Compress and decompress data result
+cbor2
