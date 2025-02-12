@@ -5,7 +5,6 @@ import subprocess
 import platform
 import signal
 import psutil
-import socket
 import time
 from pingparsing import PingParsing
 from mqttModule.mqttClient import ProbeMqttClient
@@ -117,9 +116,7 @@ class PingController:
         print(f"PingController: sent NACK, reason-> {error_info}")
 
     def send_ping_result(self, json_ping_result : json, icmp_replies, timestamp, msm_id):
-        hostname = socket.gethostname()
-        my_ip = socket.gethostbyname(hostname)
-
+        my_ip = shared_state.get_probe_ip()
         json_ping_result["source"] = my_ip
         json_ping_result["timestamp"] = timestamp
         json_ping_result["msm_id"] = msm_id
