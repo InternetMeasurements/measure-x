@@ -59,7 +59,7 @@ class EnergyController:
                         self.send_energy_NACK(failed_command="stop", error_info=stop_msg, measurement_id=msm_id)
                     else:
                         self.send_energy_ACK(successed_command="stop", measurement_id=msm_id)
-                        self.compress_and_send(msm_id=msm_id)
+                        self.compress_and_publish_energy_result(msm_id=msm_id)
             case _:
                 print(f"EnergyController: unkown command -> {command}")
                 self.send_energy_NACK(failed_command=command, error_info="Unknown command")
