@@ -150,13 +150,6 @@ class ProbeMqttClient(mqtt.Client):
             }
         }
         if (state == "ONLINE") or (state == "UPDATE"):
-            #hostname = socket.gethostname()
-            #my_ip = socket.gethostbyname(hostname)
-            #if my_ip == "127.0.1.1":
-                #my_ip = netifaces.ifaddresses(INTERFACE_NAME)[netifaces.AF_INET][0]['addr']
-            #my_ip = netifaces.ifaddresses(netifaces.interfaces()[0])[netifaces.AF_INET][0]['addr']
-            
-            #raise Exception(f"No network interfaces found! List -> {available_interfaces}")
             json_status["payload"]["ip"] = shared_state.get_probe_ip()
         self.publish_on_status_topic(json.dumps(json_status))
 
