@@ -1,6 +1,9 @@
 import json
+import cbor2, pandas as pd
 from energyModule.ina219Driver import Ina219Driver, SYNC_OTII_PIN
 from mqttModule.mqttClient import ProbeMqttClient
+
+DEFAULT_MEASUREMENTS_PATH = "measurements/"
 
 """ Class that implements the POWER CONSUMPTION measurement funcionality """
 class EnergyController:
@@ -56,9 +59,27 @@ class EnergyController:
                         self.send_energy_NACK(failed_command="stop", error_info=stop_msg, measurement_id=msm_id)
                     else:
                         self.send_energy_ACK(successed_command="stop", measurement_id=msm_id)
+                        self.compress_and_send(msm_id=msm_id)
             case _:
                 print(f"EnergyController: unkown command -> {command}")
                 self.send_energy_NACK(failed_command=command, error_info="Unknown command")
+
+
+    def compress_and_publish_energy_result(self, msm_id):
+        df = pd.read_csv(msm_id + ".csv")
+        data = df.to_dict(orient='records')
+        compressed_data = cbor2.dumps(data)
+        json_energy_result = {
+            "handler": "energy",
+            "type": "result",
+            "payload": {
+                "msm_id": msm_id,
+                "data": compressed_data
+             }
+        }
+        self.mqtt_client.publish_on_result_topic(result=json.dumps(json_energy_result))
+        print(f"EnergyController: compressed and published result of msm -> {msm_id}")
+    
 
     def INA_sensor_test(self):
         test_sensor = self.driverINA.i2C_INA_check()
