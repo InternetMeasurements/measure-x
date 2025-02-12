@@ -201,7 +201,7 @@ class Iperf_Coordinator:
 
         dest_probe_ip = self.ask_probe_ip(new_measurement.dest_probe)
         if dest_probe_ip is None:
-            return "Error", f"No response from client probe: {new_measurement.source_probe}", "Reponse Timeout"
+            return "Error", f"No response from client probe: {new_measurement.dest_probe}", "Reponse Timeout"
 
         self.events_received_server_ack[measurement_id] = [threading.Event(), None]
         self.queued_measurements[str(new_measurement._id)] = new_measurement
