@@ -22,5 +22,5 @@ mqtt_client:
     status_topic: "probes/PROBE_ID/status"
     results_topic: "probes/PROBE_ID/results"
     error_topic: "probes/PROBE_ID/errors"
-    qos: 0
+    qos: 1
     retain: False
