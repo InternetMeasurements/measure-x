@@ -106,7 +106,12 @@ class EnergyCoordinator:
             return
         c_data = base64.b64decode(c_data_b64)
         timeseries = cbor2.loads(c_data)
-        energy_result = EnergyResultModelMongo(msm_id = msm_id, timeseries = timeseries)
+        duration = None
+        if len(timeseries) != 0:
+            first_sample_timestamp = timeseries[0]["Timestamp"]
+            last_sample_timestamp = timeseries[-1]["Timestamp"]
+            duration = last_sample_timestamp - first_sample_timestamp
+        energy_result = EnergyResultModelMongo(msm_id = msm_id, timeseries = timeseries, duration=duration)
         energy_result_id = self.mongo_db.insert_energy_result(result = energy_result)
         if energy_result_id is not None:
             if self.mongo_db.update_results_array_in_measurement(msm_id = msm_id):
