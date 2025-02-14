@@ -20,8 +20,8 @@ def get_ntp_offset():
         for line in output:
             if COORDINATOR_IP in line:
                 parts = line.split()
-                offset = float(parts[6])  # Offset (ritardo)
-                error = float(parts[8])   # Errore massimo stimato
+                offset = float(parts[1])  # Offset (ritardo)
+                error = float(parts[2])   # Errore massimo stimato
                 return offset, error
     except Exception as e:
         print(f"Errore nell'esecuzione di ntpdate: {e}")
