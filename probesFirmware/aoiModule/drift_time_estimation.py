@@ -11,7 +11,7 @@ def get_ntp_offset():
     """Esegue ntpdate e restituisce offset e errore massimo."""
     try:
         result = subprocess.run(
-            ["sudo", "ntpdate", "-q", COORDINATOR_IP],
+            ["sudo", "ntpdate", COORDINATOR_IP],
             capture_output=True,
             text=True
         )
