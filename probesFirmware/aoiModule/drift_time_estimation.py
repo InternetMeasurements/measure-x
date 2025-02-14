@@ -22,7 +22,7 @@ def get_ntp_offset():
                 parts = line.split()
                 offset = float(parts[3])  # Offset (ritardo)
 
-                error = float(parts[6])   # Errore massimo stimato
+                error = float(parts[5])   # Errore massimo stimato
                 return offset, error
     except Exception as e:
         print(f"Errore nell'esecuzione di ntpdate: {e}")
