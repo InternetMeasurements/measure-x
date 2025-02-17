@@ -1,10 +1,11 @@
 import json
-import base64
-import cbor2, pandas as pd
+import base64, cbor2, pandas as pd
+import psutil, time
 from energyModule.ina219Driver import Ina219Driver, SYNC_OTII_PIN
 from mqttModule.mqttClient import ProbeMqttClient
+from shared_resources import shared_state
 
-DEFAULT_MEASUREMENTS_PATH = "measurements/"
+DEFAULT_ENERGY_MEASUREMENT_FOLDER = "energy_measurements"
 
 """ Class that implements the POWER CONSUMPTION measurement funcionality """
 class EnergyController:
@@ -25,6 +26,10 @@ class EnergyController:
         if registration_response != "OK" :
             self.mqtt_client.publish_error(handler = "energy", payload = registration_response)
             print(f"EnergyController: registration handler failed. Reason -> {registration_response}")
+
+        self.start_timestamp = None
+        self.bytes_received_at_measure_start = None
+        self.byte_trasmitted_at_measure_start = None
 
         
     def energy_command_handler(self, command : str, payload: json):
@@ -49,6 +54,11 @@ class EnergyController:
                     if start_msg != "OK":
                         self.send_energy_NACK(failed_command="start", error_info=start_msg, measurement_id=msm_id)
                     else:
+                        netstat = psutil.net_io_counters(pernic=True)
+                        default_nic_netstat = netstat[shared_state.default_nic_name]
+                        self.start_timestamp = time.time()
+                        self.bytes_received_at_measure_start =  default_nic_netstat.bytes_recv
+                        self.byte_trasmitted_at_measure_start = default_nic_netstat.bytes_sent
                         self.send_energy_ACK(successed_command="start", measurement_id=msm_id)
             case "stop":
                     msm_id = payload['msm_id'] if 'msm_id' in payload else None
@@ -60,13 +70,30 @@ class EnergyController:
                         self.send_energy_NACK(failed_command="stop", error_info=stop_msg, measurement_id=msm_id)
                     else:
                         self.send_energy_ACK(successed_command="stop", measurement_id=msm_id)
-                        self.compress_and_publish_energy_result(msm_id=msm_id)
+                        self.compress_and_publish_energy_result(msm_id = msm_id)
             case _:
                 print(f"EnergyController: unkown command -> {command}")
                 self.send_energy_NACK(failed_command=command, error_info="Unknown command")
 
 
     def compress_and_publish_energy_result(self, msm_id):
+        stop_timestamp = time.time()
+        measure_duration = self.start_timestamp - stop_timestamp
+
+        netstat = psutil.net_io_counters(pernic=True)
+        default_nic_netstat = netstat[shared_state.default_nic_name]
+        bytes_received_at_measure_stop =  default_nic_netstat.bytes_recv
+        byte_trasmitted_at_measure_stop = default_nic_netstat.bytes_sent
+        total_byte_received = bytes_received_at_measure_stop - self.bytes_received_at_measure_start
+        total_byte_trasmitted = byte_trasmitted_at_measure_stop - self.byte_trasmitted_at_measure_start
+
+        """
+            Calcolare la tensione di alimentazione
+            raw_data = bus.read_i2c_block_data(INA219_ADDRESS, INA219_REG_BUS_VOLTAGE, 2)
+            voltage = (raw_data[0] << 8 | raw_data[1]) * 16/32767
+            print(f"volt: {voltage} V")
+        """
+
         df = pd.read_csv(msm_id + ".csv")
         data = df.to_dict(orient='records')
         compressed_data = cbor2.dumps(data)
@@ -76,7 +103,11 @@ class EnergyController:
             "type": "result",
             "payload": {
                 "msm_id": msm_id,
-                "c_data_b64": compressed_data_b64
+                "energy": 0,
+                "c_data_b64": compressed_data_b64,
+                "byte_tx": total_byte_trasmitted,
+                "byte_rx": total_byte_received,
+                "duration": measure_duration
              }
         }
         self.mqtt_client.publish_on_result_topic(result=json.dumps(json_energy_result))
