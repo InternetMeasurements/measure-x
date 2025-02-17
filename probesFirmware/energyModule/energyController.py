@@ -89,10 +89,7 @@ class EnergyController:
         # MEASURE ENERGY (J)
         current_mean = df["Current"].mean()
         voltage = self.driverINA.get_bus_voltage()
-        energy_joule = current_mean * voltage * measure_duration        
-
-        print(f"ILOC[-1] -> {df['Timestamp'].iloc[-1]}")
-        print(f"ILOC[0] -> {df['Timestamp'].iloc[0]}")
+        energy_joule = current_mean * voltage * measure_duration
 
         # MEASURE BYTE TX and RX
         netstat = psutil.net_io_counters(pernic=True)
