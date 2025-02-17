@@ -199,9 +199,16 @@ class Iperf_Coordinator:
         new_measurement.assign_id()
         measurement_id = str(new_measurement._id)
 
+        source_probe_ip = self.ask_probe_ip(new_measurement.source_probe)
+        if source_probe_ip is None:
+            return "Error", f"No response from client probe: {new_measurement.source_probe}", "Reponse Timeout"
+
         dest_probe_ip = self.ask_probe_ip(new_measurement.dest_probe)
         if dest_probe_ip is None:
             return "Error", f"No response from client probe: {new_measurement.dest_probe}", "Reponse Timeout"
+
+        new_measurement.source_probe_ip = source_probe_ip
+        new_measurement.dest_probe_ip = dest_probe_ip
 
         self.events_received_server_ack[measurement_id] = [threading.Event(), None]
         self.queued_measurements[str(new_measurement._id)] = new_measurement
