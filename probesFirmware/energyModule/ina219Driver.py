@@ -5,7 +5,6 @@ import csv
 import threading
 
 SYNC_OTII_PIN_NUMBER = 4
-DEFAULT_ENERGY_MEASUREMENT_FOLDER = "energy_measurements/"
 SYNC_OTII_PIN = LED(SYNC_OTII_PIN_NUMBER)
 DEFAULT_I2C_INA219_ADDRESS = 0x40
 
@@ -29,11 +28,10 @@ class Ina219Driver:
         return voltage
 
     def start_current_measurement(self, filename) -> str:
-        global DEFAULT_ENERGY_MEASUREMENT_FOLDER
         if self.measurement_thread is not None:
             return "There is already a measurement thread in execution"
         try:
-            self.last_filename = DEFAULT_ENERGY_MEASUREMENT_FOLDER + filename + ".csv"
+            self.last_filename = filename
             self.measurement_thread = threading.Thread(target=self.body_measurement_thread, args=())
             self.measurement_thread.start()
             return "OK"

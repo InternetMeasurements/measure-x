@@ -53,7 +53,7 @@ class EnergyController:
                         return
                     if not os.path.exists(DEFAULT_ENERGY_MEASUREMENT_FOLDER):
                         os.makedirs(DEFAULT_ENERGY_MEASUREMENT_FOLDER)
-                    start_msg = self.driverINA.start_current_measurement(filename = msm_id)
+                    start_msg = self.driverINA.start_current_measurement(filename = DEFAULT_ENERGY_MEASUREMENT_FOLDER + "/" + msm_id + ".csv")
                     if start_msg != "OK":
                         self.send_energy_NACK(failed_command="start", error_info=start_msg, measurement_id=msm_id)
                     else:
@@ -85,7 +85,7 @@ class EnergyController:
         measure_duration = self.start_timestamp - stop_timestamp
 
         # MEASURE ENERGY (J)
-        df = pd.read_csv(msm_id + ".csv")
+        df = pd.read_csv(DEFAULT_ENERGY_MEASUREMENT_FOLDER + "/" + msm_id + ".csv")
         current_mean = df["Current"].mean()
         voltage = self.driverINA.get_bus_voltage()
         print(f"Voltage: {voltage} V")
