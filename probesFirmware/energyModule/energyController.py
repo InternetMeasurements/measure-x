@@ -28,7 +28,6 @@ class EnergyController:
             self.mqtt_client.publish_error(handler = "energy", payload = registration_response)
             print(f"EnergyController: registration handler failed. Reason -> {registration_response}")
 
-        self.start_timestamp = None
         self.bytes_received_at_measure_start = None
         self.byte_trasmitted_at_measure_start = None
 
@@ -59,7 +58,6 @@ class EnergyController:
                     else:
                         netstat = psutil.net_io_counters(pernic=True)
                         default_nic_netstat = netstat[shared_state.default_nic_name]
-                        self.start_timestamp = time.time()
                         self.bytes_received_at_measure_start =  default_nic_netstat.bytes_recv
                         self.byte_trasmitted_at_measure_start = default_nic_netstat.bytes_sent
                         self.send_energy_ACK(successed_command="start", measurement_id=msm_id)
@@ -80,16 +78,19 @@ class EnergyController:
 
 
     def compress_and_publish_energy_result(self, msm_id):
-        stop_timestamp = time.time()
-        # MEASURE DURATION
-        measure_duration = self.start_timestamp - stop_timestamp
+
+        df = pd.read_csv(DEFAULT_ENERGY_MEASUREMENT_FOLDER + "/" + msm_id + ".csv")
 
         # MEASURE ENERGY (J)
-        df = pd.read_csv(DEFAULT_ENERGY_MEASUREMENT_FOLDER + "/" + msm_id + ".csv")
         current_mean = df["Current"].mean()
         voltage = self.driverINA.get_bus_voltage()
-        print(f"Voltage: {voltage} V")
         energy_joule = current_mean * voltage * measure_duration
+
+        # MEASURE DURATION
+        measure_duration = df['Timestamp'].iloc[-1] - df['Timestamp'].iloc[0]
+
+        print(f"ILOC[-1] -> {df['Timestamp'].iloc[-1]}")
+        print(f"ILOC[0] -> {df['Timestamp'].iloc[0]}")
 
         # MEASURE BYTE TX and RX
         netstat = psutil.net_io_counters(pernic=True)
