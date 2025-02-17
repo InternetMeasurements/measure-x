@@ -1,3 +1,4 @@
+import os
 import json
 import base64, cbor2, pandas as pd
 import psutil, time
@@ -50,6 +51,8 @@ class EnergyController:
                     if self.INA_sensor_test() != "PASSED":
                         self.send_energy_NACK(failed_command="start", error_info="INA219 NOT FOUND", measurement_id=msm_id)
                         return
+                    if not os.path.exists(DEFAULT_ENERGY_MEASUREMENT_FOLDER):
+                        os.makedirs(DEFAULT_ENERGY_MEASUREMENT_FOLDER)
                     start_msg = self.driverINA.start_current_measurement(filename = msm_id)
                     if start_msg != "OK":
                         self.send_energy_NACK(failed_command="start", error_info=start_msg, measurement_id=msm_id)
