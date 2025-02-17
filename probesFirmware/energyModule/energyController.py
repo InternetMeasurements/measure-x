@@ -81,13 +81,13 @@ class EnergyController:
 
         df = pd.read_csv(DEFAULT_ENERGY_MEASUREMENT_FOLDER + "/" + msm_id + ".csv")
 
+        # MEASURE DURATION
+        measure_duration = df['Timestamp'].iloc[-1] - df['Timestamp'].iloc[0]
+
         # MEASURE ENERGY (J)
         current_mean = df["Current"].mean()
         voltage = self.driverINA.get_bus_voltage()
-        energy_joule = current_mean * voltage * measure_duration
-
-        # MEASURE DURATION
-        measure_duration = df['Timestamp'].iloc[-1] - df['Timestamp'].iloc[0]
+        energy_joule = current_mean * voltage * measure_duration        
 
         print(f"ILOC[-1] -> {df['Timestamp'].iloc[-1]}")
         print(f"ILOC[0] -> {df['Timestamp'].iloc[0]}")
