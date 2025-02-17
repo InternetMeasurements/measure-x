@@ -23,6 +23,10 @@ class Ina219Driver:
         
     def i2C_INA_check(self):
         return self.ina219.is_device_present()
+    
+    def get_bus_voltage(self):
+        voltage = self.ina219.read(_REG_BUS_VOLTAGE) * (16 / 32767)
+        return voltage
 
     def start_current_measurement(self, filename) -> str:
         global DEFAULT_ENERGY_MEASUREMENT_FOLDER
@@ -79,6 +83,7 @@ class Ina219Driver:
 # Config Register (R/W)
 _REG_CONFIG = 0x00
 _REG_CURRENT = 0x04
+_REG_BUS_VOLTAGE = 0x02
 # CALIBRATION REGISTER (R/W)
 _REG_CALIBRATION = 0x05
 
