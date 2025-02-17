@@ -29,7 +29,7 @@ class Ina219Driver:
 
     def start_current_measurement(self, filename) -> str:
         if self.measurement_thread is not None:
-            return "There is already a measurement thread in execution"
+            return "There is already an Energy measurement in execution"
         try:
             self.last_filename = filename
             self.measurement_thread = threading.Thread(target=self.body_measurement_thread, args=())

@@ -82,7 +82,9 @@ class EnergyController:
         df = pd.read_csv(DEFAULT_ENERGY_MEASUREMENT_FOLDER + "/" + msm_id + ".csv")
 
         # MEASURE DURATION
-        measure_duration = df['Timestamp'].iloc[-1] - df['Timestamp'].iloc[0]
+        start_timestamp = df['Timestamp'].iloc[0]
+        stop_timestamp = df['Timestamp'].iloc[-1]
+        measure_duration = stop_timestamp - start_timestamp
 
         # MEASURE ENERGY (J)
         current_mean = df["Current"].mean()
