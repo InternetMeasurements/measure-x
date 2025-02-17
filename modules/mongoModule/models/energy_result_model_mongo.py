@@ -1,7 +1,7 @@
 from bson import ObjectId
 
 class EnergyResultModelMongo:
-    def __init__(self, msm_id : str, timeseries, energy = None, byte_tx = None, byte_rx = None, duration = None):
+    def __init__(self, msm_id : str, timeseries, energy, byte_tx, byte_rx, duration):
         self._id = None
         self.msm_id = msm_id
         self.timeseries = timeseries
