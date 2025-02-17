@@ -17,6 +17,7 @@ class SharedState:
             cls.instance.lock = threading.Lock()
             cls.instance.probe_state = READY
             cls.instance.coordinator_ip = None
+            cls.default_nic_name = None
             cls.probe_ip = None
         return cls.instance
     
@@ -30,6 +31,7 @@ class SharedState:
                 try:
                     gateways = netifaces.gateways()
                     default_iface = gateways['default'][netifaces.AF_INET][1]
+                    self.default_nic_name = default_iface
                     my_ip = netifaces.ifaddresses(default_iface)[netifaces.AF_INET][0]['addr']
                     self.probe_ip = my_ip
                     print(f"SharedState: default nic -> |{default_iface}| , my_ip -> |{my_ip}| ")
