@@ -1,5 +1,5 @@
 import subprocess
-import time
+import time, csv
 from datetime import datetime
 
 COORDINATOR_IP = "192.168.1.123"
@@ -8,7 +8,6 @@ INTERVAL = 30 * 60  # 1800 secondi
 time_counter = 8
 
 def get_ntp_offset():
-    """Esegue ntpdate e restituisce offset e errore massimo."""
     try:
         result = subprocess.run(
             ["sudo", "ntpdate", COORDINATOR_IP],
@@ -29,20 +28,25 @@ def get_ntp_offset():
         return None, None
 
 def log_ntp_drift():
-    global time_counter
-    with open(LOG_FILE, "a") as file:
-        counter = 0
-        while counter < time_counter:
-            offset, error = get_ntp_offset()
-            if offset is not None and error is not None:
-                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                log_entry = f"{timestamp}, Offset: {offset:.6f} s, Max error: {error:.6f} s\n"
-                file.write(log_entry)
-                print(log_entry.strip())
+    with open(LOG_FILE, mode="w", newline="") as csv_file:
+        fieldnames = ["Timestamp", "Offset (s)", "Max Error (s)"]
+        writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+        writer.writeheader()
 
-            time.sleep(INTERVAL)
-            counter += 1
+        try:
+            for _ in range(time_counter):
+                offset, error = get_ntp_offset()
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                
+                writer.writerow({"Timestamp": timestamp, "Offset (s)": offset, "Max Error (s)": error})
+                print(f"{timestamp}, Offset: {offset:.6f} s, Max error: {error:.6f} s")
+
+                time.sleep(INTERVAL)
+
+        except KeyboardInterrupt:
+            print("Measurement stopped from keyboard")
+        finally:
+            csv_file.close()
 
 if __name__ == "__main__":
     log_ntp_drift()
-    print("END")
