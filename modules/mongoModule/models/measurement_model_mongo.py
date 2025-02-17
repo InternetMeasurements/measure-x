@@ -29,14 +29,18 @@ class MeasurementModelMongo:
         try:
             type = measurement_as_dict['type']
             source_probe = measurement_as_dict['source_probe']
-            dest_probe = measurement_as_dict['dest_probe']
-            source_probe_ip = measurement_as_dict['source_probe_ip']
-            dest_probe_ip = measurement_as_dict['dest_probe_ip']
         except Exception as e:
             return None
-        _id = state = description = start_time = gps_source_probe = gps_dest_probe = coexisting_application = stop_time = results = None 
+        _id = state = dest_probe = source_probe_ip = dest_probe_ip = description = start_time = None
+        gps_source_probe = gps_dest_probe = coexisting_application = stop_time = results = None 
         if ('_id' in measurement_as_dict):
             _id = measurement_as_dict['_id']
+        if 'dest_probe' in measurement_as_dict:
+            dest_probe = measurement_as_dict['dest_probe']
+        if 'source_probe_ip' in measurement_as_dict:
+            source_probe_ip = measurement_as_dict['source_probe_ip']
+        if 'dest_probe_ip' in measurement_as_dict:
+            dest_probe_ip = measurement_as_dict['dest_probe_ip']
         if 'state' in measurement_as_dict:
             state = measurement_as_dict['state']
         if 'description' in measurement_as_dict:
