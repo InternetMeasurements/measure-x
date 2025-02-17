@@ -78,32 +78,36 @@ class EnergyController:
 
     def compress_and_publish_energy_result(self, msm_id):
         stop_timestamp = time.time()
+        # MEASURE DURATION
         measure_duration = self.start_timestamp - stop_timestamp
 
+        # MEASURE ENERGY (J)
+        df = pd.read_csv(msm_id + ".csv")
+        current_mean = df["Current"].mean()
+        voltage = self.driverINA.get_bus_voltage()
+        print(f"Voltage: {voltage} V")
+        energy_joule = current_mean * voltage * measure_duration
+
+        # MEASURE BYTE TX and RX
         netstat = psutil.net_io_counters(pernic=True)
         default_nic_netstat = netstat[shared_state.default_nic_name]
         bytes_received_at_measure_stop =  default_nic_netstat.bytes_recv
         byte_trasmitted_at_measure_stop = default_nic_netstat.bytes_sent
         total_byte_received = bytes_received_at_measure_stop - self.bytes_received_at_measure_start
         total_byte_trasmitted = byte_trasmitted_at_measure_stop - self.byte_trasmitted_at_measure_start
-
-        """
-            Calcolare la tensione di alimentazione
-            raw_data = bus.read_i2c_block_data(INA219_ADDRESS, INA219_REG_BUS_VOLTAGE, 2)
-            voltage = (raw_data[0] << 8 | raw_data[1]) * 16/32767
-            print(f"volt: {voltage} V")
-        """
-
-        df = pd.read_csv(msm_id + ".csv")
+        
+        # MEASURE TIMESERIES COMPRESSION
         data = df.to_dict(orient='records')
         compressed_data = cbor2.dumps(data)
         compressed_data_b64 = base64.b64encode(compressed_data).decode("utf-8")
+
+        # MEASURE RESULT MESSAGE
         json_energy_result = {
             "handler": "energy",
             "type": "result",
             "payload": {
                 "msm_id": msm_id,
-                "energy": 0,
+                "energy": energy_joule,
                 "c_data_b64": compressed_data_b64,
                 "byte_tx": total_byte_trasmitted,
                 "byte_rx": total_byte_received,
