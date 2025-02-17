@@ -158,6 +158,11 @@ class Ping_Coordinator:
         new_measurement.assign_id()
         measurement_id = str(new_measurement._id)
 
+        if new_measurement.source_probe_ip is None or new_measurement.source_probe_ip == "":
+            source_probe_ip = self.ask_probe_ip(new_measurement.source_probe)
+            if source_probe_ip is None:
+                return "Error", f"No response from probe: {new_measurement.source_probe}", "Reponse Timeout"
+        
         dest_probe_ip = None # This IP is that of the "machine" that receive the ping message, not the ping initiator!
         if (new_measurement.dest_probe != None) and (new_measurement.dest_probe != ""): # If those are both false, then the ping dest is another probe
             dest_probe_ip = self.ask_probe_ip(new_measurement.dest_probe)
@@ -180,6 +185,8 @@ class Ping_Coordinator:
 
         probe_sender_event_message = self.events_received_ack_from_probe_sender[measurement_id][1]
         if probe_sender_event_message == "OK": # If the ping start succeded, then...
+            new_measurement.source_probe_ip = source_probe_ip
+            new_measurement.dest_probe_ip = dest_probe_ip
             inserted_measurement_id = self.mongo_db.insert_measurement(measure = new_measurement)
             if inserted_measurement_id is None:
                 print(f"Ping_Coordinator: can't start ping. Error while storing ping measurement on Mongo")
