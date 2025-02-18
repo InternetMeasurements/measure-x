@@ -245,14 +245,18 @@ class IperfController:
                     iperf_process_pid = process.info['pid']
                     break
             if iperf_process_pid == None:
+                print("Ritornato Processo non trovato")
                 return "Process " + process_name + "-" + self.last_role + " not in Execution"
             try:
                 os.kill(iperf_process_pid, signal.SIGTERM)
                 self.iperf_thread.join()
+                print("Ritornato OK dalla kill")
                 return "OK"
             except OSError as e:
+                print(f"Ritornata eccez dalla kill -> {str(e)}")
                 return str(e)
         else:
+            print("Ritornato processo non in esecuzione")
             return "Process " + process_name + " not in execution"
 
 
