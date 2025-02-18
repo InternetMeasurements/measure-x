@@ -214,11 +214,9 @@ class IperfController:
                             json.dump(self.last_json_result, output_file, indent=4)
                         print(f"IperfController: results saved in: {complete_output_json_dir}")
                 except json.JSONDecodeError as e:
-                    print("JSONDecodeError")
                     self.last_error = "Decode result json failed"
                     return -1
                 except Exception as e:
-                    print("Exception")
                     if "Connection refused" in str(e):
                         self.last_error = str(e)
                     return -1                    
@@ -236,7 +234,6 @@ class IperfController:
                 print(f"Errore nell'esecuzione di iperf: {result.stderr}  | return_code: {result.returncode }")
                 self.send_iperf_NACK(failed_command="conf", error_info=result.stderr, role="Server", msm_id=self.last_measurement_id)
             shared_state.set_probe_as_ready()
-        print("run_iperf_ OK")
         return result.returncode
     
 
@@ -330,7 +327,7 @@ class IperfController:
         except Exception as e:
             #print(f"Exception in publish_last_output_iperf -> {e} ")
             #print(f"last_json_result --> {self.last_json_result}")
-            self.send_iperf_NACK(failed_command = "start", error_info = "Check the probes IP",
+            self.send_iperf_NACK(failed_command = "start", error_info = "May be the iperf-server is down",
                                    role = "Client", msm_id = self.last_measurement_id)
             self.reset_conf()
 

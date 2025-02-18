@@ -98,9 +98,10 @@ class Iperf_Coordinator:
                         if measurement_id is None:
                             print(f"Received ACK from |{probe_sender}| with None measurement -> IGNORE.")
                             return
-                        self.events_stop_server_ack[measurement_id][1] = "OK"
-                        self.events_stop_server_ack[measurement_id][0].set()
-                        print(f"Iperf_Coordinator: probe |{probe_sender}| , stop -> |ACK| , msm_id -> {measurement_id}")
+                        if measurement_id in self.events_stop_server_ack:
+                            self.events_stop_server_ack[measurement_id][1] = "OK"
+                            self.events_stop_server_ack[measurement_id][0].set()
+                            print(f"Iperf_Coordinator: probe |{probe_sender}| , stop -> |ACK| , msm_id -> {measurement_id}")
                         self.probes_server_port.pop(probe_sender, None)
                     case _:
                         print(f"ACK received for unkonwn iperf command -> {command_executed_on_probe}")
