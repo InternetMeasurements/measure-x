@@ -10,13 +10,16 @@ from modules.mongoModule.models.ping_result_model_mongo import PingResultModelMo
 
 class Ping_Coordinator:
 
-    def __init__(self, mqtt_client : Mqtt_Client, registration_handler_status, 
-                 registration_handler_result, registration_measure_preparer, 
-                 ask_probe_ip, mongo_db : MongoDB):
+    def __init__(self, mqtt_client : Mqtt_Client, registration_handler_status,
+                 registration_handler_result, registration_measure_preparer,
+                 ask_probe_ip, registration_measurement_stopper,
+                 mongo_db : MongoDB):
         self.mqtt_client = mqtt_client
-        self.ask_probe_ip = ask_probe_ip
         self.mongo_db = mongo_db
+        self.ask_probe_ip = ask_probe_ip
         self.events_received_ack_from_probe_sender = {}
+        self.events_received_stop_ack = {}
+        self.queued_measurements = {}
 
         # Requests to commands_multiplexer: handler STATUS registration
         registration_response = registration_handler_status( interested_status = "ping",
@@ -43,6 +46,15 @@ class Ping_Coordinator:
         else:
             print(f"Ping_Coordinator: registration preparer failed. Reason -> {registration_response}")
 
+        # Requests to commands_multiplexer: Measurement-Stopper registration
+        registration_response = registration_measurement_stopper(
+            interested_measurement_type = "ping",
+            stopper_method = self.ping_measurement_stopper)
+        if registration_response == "OK" :
+            print(f"Ping_Coordinator: registered measurement stopper for measurements type -> ping")
+        else:
+            print(f"Ping_Coordinator: registration measurement stopper failed. Reason -> {registration_response}")
+
 
     def handler_received_status(self, probe_sender, type, payload : json):
         msm_id = payload["msm_id"] if ("msm_id" in payload) else None
@@ -52,11 +64,22 @@ class Ping_Coordinator:
                 if command == "start":
                     self.events_received_ack_from_probe_sender[msm_id][1] = "OK"
                     self.events_received_ack_from_probe_sender[msm_id][0].set()
+                elif command == "stop":
+                    if msm_id is None:
+                        print(f"Ping_Coordinator: received |stop| ACK from probe |{probe_sender}| wihout measure_id")
+                        return
+                    self.events_received_stop_ack[msm_id][1] = "OK"
+                    self.events_received_stop_ack[msm_id][0].set()
+                print(f"Ping_Coordinator: received ACK from probe |{probe_sender}| , command -> |{command}|")
             case "NACK":
                 reason = payload['reason']
-                self.events_received_ack_from_probe_sender[msm_id][1] = reason
-                self.events_received_ack_from_probe_sender[msm_id][0].set()
-                print(f"Ping_Coordinator: probe |{probe_sender}| -> |{command}| -> NACK, reason -> {reason}")
+                if command == "start":
+                    self.events_received_ack_from_probe_sender[msm_id][1] = reason
+                    self.events_received_ack_from_probe_sender[msm_id][0].set()
+                elif command == "stop":
+                    self.events_received_stop_ack[msm_id][1] = reason
+                    self.events_received_stop_ack[msm_id][0].set()
+                print(f"Ping_Coordinator: probe |{probe_sender}| , command: |{command}| -> NACK, reason -> {reason}")
             case _:
                 print(f"Ping_Coordinator: received unkown type message -> |{type}|")
 
@@ -83,16 +106,17 @@ class Ping_Coordinator:
         }
         self.mqtt_client.publish_on_command_topic(probe_id = probe_sender, complete_command=json.dumps(json_ping_start))
 
-
-    def send_probe_ping_stop(self, probe_destination):
+    def send_probe_ping_stop(self, probe_id, msm_id_to_stop):
         json_ping_stop = {
             "handler": "ping",
             "command": "stop",
-            "payload": {}
+            "payload": {
+                "msm_id": msm_id_to_stop
+            }
         }
-        self.mqtt_client.publish_on_command_topic(probe_id=probe_destination, complete_command=json.dumps(json_ping_stop))
+        self.mqtt_client.publish_on_command_topic(probe_id = probe_id, complete_command=json.dumps(json_ping_stop))
 
-
+    
     def store_measurement_result(self, result : json) -> bool:
         ping_result = PingResultModelMongo(
             msm_id = ObjectId(result["msm_id"]),
@@ -153,7 +177,7 @@ class Ping_Coordinator:
 
 
     def probes_preparer_to_measurements(self, new_measurement : MeasurementModelMongo):
-        DEFAULT_PACKET_NUMBER = 4
+        DEFAULT_PACKET_NUMBER = 32
         DEFAULT_PACKET_SIZE = 32
         new_measurement.assign_id()
         measurement_id = str(new_measurement._id)
@@ -191,6 +215,7 @@ class Ping_Coordinator:
             if inserted_measurement_id is None:
                 print(f"Ping_Coordinator: can't start ping. Error while storing ping measurement on Mongo")
                 return "Error", "Can't send start! Error while inserting measurement ping in mongo", "MongoDB Down?"
+            self.queued_measurements[measurement_id] = new_measurement
             return "OK", new_measurement.to_dict(), None
         elif probe_sender_event_message is not None:
             print(f"Preparer ping: awaked from server conf NACK -> {probe_sender_event_message}")
@@ -198,3 +223,19 @@ class Ping_Coordinator:
         else:
             print(f"Preparer ping: No response from probe -> |{new_measurement.source_probe}")
             return "Error", f"No response from Probe: {new_measurement.source_probe}" , "Response Timeout"
+        
+
+    def ping_measurement_stopper(self, msm_id_to_stop : str):
+        if msm_id_to_stop not in self.queued_measurements:
+            return "Error", f"Unknown ping measurement |{msm_id_to_stop}|", "May be not started"
+        measurement_to_stop : MeasurementModelMongo = self.queued_measurements[msm_id_to_stop]
+        self.events_received_stop_ack[msm_id_to_stop] = [threading.Event(), None]
+        self.send_probe_ping_stop(probe_id = measurement_to_stop.source_probe, msm_id_to_stop = msm_id_to_stop)
+        self.events_received_stop_ack[msm_id_to_stop][0].wait(5)
+        # ------------------------------- WAIT FOR RECEIVE AN ACK/NACK -------------------------------
+        stop_event_message = self.events_received_stop_ack[msm_id_to_stop][1]
+        if stop_event_message == "OK":
+            return "OK", f"Measurement {msm_id_to_stop} STOPPED", None
+        if stop_event_message is not None:
+            return "Error", f"Probe |{measurement_to_stop.source_probe}| says: |{stop_event_message}|", ""
+        return "Error", f"Can't stop the measurement -> |{msm_id_to_stop}|", f"No response from probe |{measurement_to_stop.source_probe}|"
