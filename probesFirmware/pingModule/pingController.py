@@ -26,9 +26,12 @@ class PingController:
         
         
     def ping_command_handler(self, command : str, payload: json):
+        msm_id = payload["msm_id"] if ("msm_id" in payload) else None
+        if msm_id is None:
+            self.send_ping_NACK(failed_command = command, error_info = "No measurement_id provided", measurement_related_conf = msm_id)
+            return
         match command:
             case 'start':
-                msm_id = payload['msm_id'] if ('msm_id' in payload) else None
                 if not shared_state.set_probe_as_busy():
                     self.send_ping_NACK(failed_command = command, error_info = "PROBE BUSY", measurement_related_conf = msm_id)
                     return
@@ -38,9 +41,12 @@ class PingController:
             case 'stop':
                 termination_message = self.stop_ping_thread()
                 if termination_message != "OK":
-                    self.send_ping_NACK(failed_command=command, error_info=termination_message)
+                    self.send_ping_NACK(failed_command=command, error_info=termination_message, measurement_related_conf = msm_id)
+                else:
+                    self.send_ping_ACK(successed_command="stop", measurement_related_conf=msm_id)
             case _:
-                self.send_ping_NACK(failed_command = command, error_info = "Command not handled")
+                
+                self.send_ping_NACK(failed_command = command, error_info = "Command not handled", measurement_related_conf = msm_id)
             
 
     def start_ping(self, payload : json):
@@ -64,14 +70,15 @@ class PingController:
                                     icmp_replies = dict_result.icmp_replies,
                                     timestamp = timestamp,
                                     msm_id=msm_id)
-            shared_state.set_probe_as_ready()
         except subprocess.CalledProcessError as e: 
             if e.returncode == -signal.SIGTERM: # if the returncode of the ping process is SIG_TERM, then the process has been stopped from the coordinator. So, it's better to "ACK it"
-                self.send_ping_ACK(successed_command="stop")
+                self.send_ping_ACK(successed_command="stop", measurement_related_conf = msm_id)
             else: # if the return code is different from (SIG.TERM and CorrectTermination), then something strange happened, so the probe sends NACK to the coordinator
-                self.send_ping_NACK(failed_command="ping", error_info=str(e))
+                self.send_ping_NACK(failed_command="start", error_info=str(e), measurement_related_conf = msm_id)
         except Exception as e: #In case of abnormal exception, send the nack to the coordinator
-            self.send_ping_NACK(failed_command="ping", error_info=str(e))
+            self.send_ping_NACK(failed_command="start", error_info=str(e), measurement_related_conf=msm_id)
+        finally:
+            shared_state.set_probe_as_ready()
 
     
         
@@ -98,13 +105,13 @@ class PingController:
             return str(e)
         
 
-    def send_ping_ACK(self, successed_command, measurement_related_conf = None): # Incapsulating from the ping client
+    def send_ping_ACK(self, successed_command, measurement_related_conf): # Incapsulating from the ping client
         json_ack = {
             "command": successed_command,
             "msm_id" : measurement_related_conf
             }
         self.mqtt_client.publish_command_ACK(handler='ping', payload = json_ack)
-        print(f"PingController: sent ACK -> {successed_command}")
+        print(f"PingController: sent ACK -> {successed_command} for measure -> |{measurement_related_conf}|")
 
     def send_ping_NACK(self, failed_command, error_info, measurement_related_conf = None):
         json_nack = {
@@ -113,7 +120,7 @@ class PingController:
             "msm_id" : measurement_related_conf
             }
         self.mqtt_client.publish_command_NACK(handler='ping', payload = json_nack)
-        print(f"PingController: sent NACK, reason-> {error_info}")
+        print(f"PingController: sent NACK, reason-> {error_info} for measure -> |{measurement_related_conf}|")
 
     def send_ping_result(self, json_ping_result : json, icmp_replies, timestamp, msm_id):
         my_ip = shared_state.get_probe_ip()
