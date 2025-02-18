@@ -125,9 +125,9 @@ class IperfController:
                     self.start_iperf()
                     self.last_execution_code = None
             case 'stop':
-                msm_id = payload['msm_id'] if "msm_id" in payload else None
+                msm_id = payload["msm_id"] if ("msm_id" in payload) else None
                 if msm_id is None:
-                    self.send_iperf_NACK(failed_command="stop", error_info="No measure_id provided", msm_id=None, role="Server")
+                    self.send_iperf_NACK(failed_command="stop", error_info="No measure_id provided", role="Server")
                     return
                 termination_message = self.stop_iperf_thread(msm_id)
                 if termination_message == "OK":
@@ -271,12 +271,12 @@ class IperfController:
         print(f"IperfController: ACK sending -> {json_ack}")
         self.mqtt_client.publish_command_ACK(handler='iperf', payload=json_ack) 
 
-    def send_iperf_NACK(self, failed_command, error_info, msm_id, role = None):
+    def send_iperf_NACK(self, failed_command, error_info, msm_id = None, role = None):
         json_nack = {
             "command" : failed_command,
             "reason" : error_info,
             "role": self.last_role if (role is None) else role,
-            "msm_id" : self.last_measurement_id if (msm_id is None) else msm_id
+            "msm_id" : msm_id #self.last_measurement_id if (msm_id is None) else msm_id
             }
         print(f"IperfController: NACK sending -> {json_nack}")
         self.mqtt_client.publish_command_NACK(handler='iperf', payload = json_nack) 

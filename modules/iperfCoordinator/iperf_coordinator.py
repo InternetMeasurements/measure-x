@@ -166,7 +166,9 @@ class Iperf_Coordinator:
         json_iperf_stop = {
             "handler": "iperf",
             "command": "stop",
-            "payload": {}
+            "payload": {
+                "msm_id": msm_id
+            }
         }
         self.mqtt.publish_on_command_topic(probe_id = probe_id, complete_command = json.dumps(json_iperf_stop))
 
