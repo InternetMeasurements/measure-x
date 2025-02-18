@@ -209,9 +209,13 @@ class IperfController:
                         with open(complete_output_json_dir, "w") as output_file:
                             json.dump(self.last_json_result, output_file, indent=4)
                         print(f"IperfController: results saved in: {complete_output_json_dir}")
-                except json.JSONDecodeError:
-                    print("IperfController: decode result json failed")
-                    self.send_iperf_NACK(failed_command="start", error_info="Decode result json failed", role="Client", msm_id = self.last_measurement_id)
+                except Exception as e:
+                    if (result.stderr is not None) and ("the server has terminated" in result.stderr):
+                        nack_message = "Connection refused from server"
+                    else:
+                        nack_message = "Decode result json failed"
+                    print(f"IperfController: sending NACK start, reason -> {nack_message}")
+                    self.send_iperf_NACK(failed_command="start", error_info=nack_message, role="Client", msm_id=self.last_measurement_id)
         else:
             #command += "-s -p " + str(self.listening_port) # server mode and listening port
             print("IperfController: iperf3 server, listening...")
