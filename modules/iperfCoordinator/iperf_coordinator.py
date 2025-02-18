@@ -131,9 +131,10 @@ class Iperf_Coordinator:
                             print(f"Iperf_Coordinator: probe |{probe_sender}|->|Iperf stopped|->|NACK| : None measure")
                         else:
                             print(f"Iperf_Coordinator: probe |{probe_sender}|->|Iperf stopped|->|NACK| : reason_payload -> {reason}")
-                            if role_conf_failed is not None and role_conf_failed == "Server":
-                                self.events_stop_server_ack[measurement_id][1] = reason
-                                self.events_stop_server_ack[measurement_id][0].set()
+                            if (role_conf_failed is not None) and (role_conf_failed == "Server"):
+                                if measurement_id in self.events_stop_server_ack:
+                                    self.events_stop_server_ack[measurement_id][1] = reason
+                                    self.events_stop_server_ack[measurement_id][0].set()
             case _:
                 print(f"Iperf_Coordinator: received unkown type message -> |{type}|")
 
