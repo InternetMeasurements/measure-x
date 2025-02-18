@@ -194,6 +194,7 @@ class IperfController:
 
             command.append("--json")
             result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)        
+            print(f"RESULT -> {result}")
             if result.returncode != 0:
                 if result.returncode != signal.SIGTERM:
                     self.last_error = result.stderr
