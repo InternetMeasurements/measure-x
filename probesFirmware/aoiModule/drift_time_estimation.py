@@ -4,7 +4,7 @@ from datetime import datetime
 
 COORDINATOR_IP = "192.168.1.123"
 LOG_FILE = "ntp_drift_log.txt"
-INTERVAL = 30 * 60  # 1800 secondi
+INTERVAL = 60 * 60  # 1800 secondi
 time_counter = 8
 
 def get_ntp_offset():
