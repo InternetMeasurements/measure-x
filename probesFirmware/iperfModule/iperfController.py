@@ -195,7 +195,7 @@ class IperfController:
 
             command.append("--json")
             result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)        
-            
+            print(f"RESULT -> {result}")
             if result.returncode != 0:
                 if result.returncode != signal.SIGTERM:
                     self.last_error = result.stderr
@@ -319,11 +319,7 @@ class IperfController:
         except Exception as e:
             #print(f"Exception in publish_last_output_iperf -> {e} ")
             #print(f"last_json_result --> {self.last_json_result}")
-            if "Connection refused" in self.last_json_result:
-                nack_message = "Connection refused: The server rejected the connection."
-            else:    
-                nack_message = "Check the probes IP"
-            self.send_iperf_NACK(failed_command = "start", error_info = nack_message,
+            self.send_iperf_NACK(failed_command = "start", error_info = "Check the probes IP",
                                    role = "Client", msm_id = self.last_measurement_id)
             self.reset_conf()
 
