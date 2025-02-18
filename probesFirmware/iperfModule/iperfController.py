@@ -202,6 +202,9 @@ class IperfController:
             else:
                 try: # Reading the result in the stdout
                     self.last_json_result = json.loads(result.stdout)
+                    if (self.self.last_json_result is not None) and ("error" in self.last_json_result) and (self.last_json_result["error"] == "the server has terminated"):
+                        raise Exception("Connection refused from server")
+                        
                     if self.save_result_on_flash: # if the save_on_flash mode in enabled...
                         base_path = Path(__file__).parent
                         complete_output_json_dir = os.path.join(base_path, self.output_iperf_dir , self.output_json_filename + self.last_measurement_id + ".json")
@@ -209,8 +212,8 @@ class IperfController:
                             json.dump(self.last_json_result, output_file, indent=4)
                         print(f"IperfController: results saved in: {complete_output_json_dir}")
                 except Exception as e:
-                    if (result.stderr is not None) and ("the server has terminated" in result.stderr):
-                        self.last_error = "Connection refused from server"
+                    if "Connection refused" in str(e):
+                        self.last_error = str(e)
                     else:
                         self.last_error = "Decode result json failed"
                     return -1
