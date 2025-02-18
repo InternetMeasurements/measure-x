@@ -68,17 +68,20 @@ class Ping_Coordinator:
                     if msm_id is None:
                         print(f"Ping_Coordinator: received |stop| ACK from probe |{probe_sender}| wihout measure_id")
                         return
-                    self.events_received_stop_ack[msm_id][1] = "OK"
-                    self.events_received_stop_ack[msm_id][0].set()
+                    if msm_id in self.events_received_stop_ack:
+                        self.events_received_stop_ack[msm_id][1] = "OK"
+                        self.events_received_stop_ack[msm_id][0].set()
                 print(f"Ping_Coordinator: received ACK from probe |{probe_sender}| , command -> |{command}|")
             case "NACK":
                 reason = payload['reason']
                 if command == "start":
-                    self.events_received_ack_from_probe_sender[msm_id][1] = reason
-                    self.events_received_ack_from_probe_sender[msm_id][0].set()
+                    if msm_id in self.events_received_ack_from_probe_sender:
+                        self.events_received_ack_from_probe_sender[msm_id][1] = reason
+                        self.events_received_ack_from_probe_sender[msm_id][0].set()
                 elif command == "stop":
-                    self.events_received_stop_ack[msm_id][1] = reason
-                    self.events_received_stop_ack[msm_id][0].set()
+                    if msm_id in self.events_received_stop_ack:
+                        self.events_received_stop_ack[msm_id][1] = reason
+                        self.events_received_stop_ack[msm_id][0].set()
                 print(f"Ping_Coordinator: probe |{probe_sender}| , command: |{command}| -> NACK, reason -> {reason}")
             case _:
                 print(f"Ping_Coordinator: received unkown type message -> |{type}|")
