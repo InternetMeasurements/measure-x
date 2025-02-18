@@ -53,8 +53,7 @@ class EnergyController:
                         return
                     base_path = Path(__file__).parent
                     energy_measurement_folder_path = os.path.join(base_path, DEFAULT_ENERGY_MEASUREMENT_FOLDER)
-                    if not os.path.exists(energy_measurement_folder_path):
-                        os.makedirs(energy_measurement_folder_path)
+                    Path(energy_measurement_folder_path).mkdir(parents=True, exist_ok=True)
                     complete_file_path = os.path.join(energy_measurement_folder_path, msm_id + ".csv")
                     start_msg = self.driverINA.start_current_measurement(filename = complete_file_path)
                     if start_msg != "OK":
