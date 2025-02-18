@@ -117,7 +117,8 @@ class Iperf_Coordinator:
                             print(f"Iperf_Coordinator: measurement |{measurement_id}| setted as failed")
                         if role_conf_failed == "Client":
                             if measurement_id is not None: # I must stop the iperf server on the probe
-                                self.send_probe_iperf_stop(self.queued_measurements[measurement_id].dest_probe, measurement_id)
+                                if measurement_id not in self.events_stop_server_ack:
+                                    self.send_probe_iperf_stop(self.queued_measurements[measurement_id].dest_probe, measurement_id)
                     case "conf":
                         if role_conf_failed == "Server":
                             self.events_received_server_ack[measurement_id][1] = reason
