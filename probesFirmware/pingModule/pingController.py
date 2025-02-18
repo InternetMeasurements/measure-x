@@ -16,6 +16,7 @@ class PingController:
         self.mqtt_client = mqtt_client        
         self.ping_thread = None
         self.ping_result = None
+        self.last_msm_id = None
 
         # Requests to commands_demultiplexer
         registration_response = registration_handler_request_function(
@@ -39,11 +40,17 @@ class PingController:
                 self.ping_thread = threading.Thread(target=self.start_ping, args=(payload,))
                 self.ping_thread.start()
             case 'stop':
+                if (self.last_msm_id is not None) and (msm_id != self.last_msm_id):
+                    self.send_ping_NACK(failed_command=command, 
+                                        error_info="Measure_ID Mismatch: The provided measure_id does not correspond to the ongoing measurement",
+                                        measurement_related_conf = msm_id)
+                    return
                 termination_message = self.stop_ping_thread()
                 if termination_message != "OK":
                     self.send_ping_NACK(failed_command=command, error_info=termination_message, measurement_related_conf = msm_id)
                 else:
                     self.send_ping_ACK(successed_command="stop", measurement_related_conf=msm_id)
+                    self.last_msm_id = None
             case _:
                 
                 self.send_ping_NACK(failed_command = command, error_info = "Command not handled", measurement_related_conf = msm_id)
@@ -62,6 +69,7 @@ class PingController:
         command += [destination_ip, "-c", str(packets_number), "-s", str(packets_size)]
         timestamp = time.time() # start_timestamp
         try:
+            self.last_msm_id = msm_id
             ping_result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
             if ping_result.returncode == 0:
                 parser = PingParsing()
@@ -79,7 +87,6 @@ class PingController:
             self.send_ping_NACK(failed_command="start", error_info=str(e), measurement_related_conf=msm_id)
         finally:
             shared_state.set_probe_as_ready()
-
     
         
     def stop_ping_thread(self):
@@ -92,7 +99,7 @@ class PingController:
                     break
         if ping_process == None:
             return "Process " + process_name + " not in Execution"
-        
+    
         try:
             os.kill(ping_process, signal.SIGTERM)
             self.ping_thread.join()
