@@ -2,6 +2,7 @@ import os
 import json
 import base64, cbor2, pandas as pd
 import psutil, time
+from pathlib import Path
 from energyModule.ina219Driver import Ina219Driver, SYNC_OTII_PIN
 from mqttModule.mqttClient import ProbeMqttClient
 from shared_resources import shared_state
@@ -50,9 +51,12 @@ class EnergyController:
                     if self.INA_sensor_test() != "PASSED":
                         self.send_energy_NACK(failed_command="start", error_info="INA219 NOT FOUND", measurement_id=msm_id)
                         return
-                    if not os.path.exists(DEFAULT_ENERGY_MEASUREMENT_FOLDER):
-                        os.makedirs(DEFAULT_ENERGY_MEASUREMENT_FOLDER)
-                    start_msg = self.driverINA.start_current_measurement(filename = DEFAULT_ENERGY_MEASUREMENT_FOLDER + "/" + msm_id + ".csv")
+                    base_path = Path(__file__).parent
+                    energy_measurement_folder_path = os.path.join(base_path, DEFAULT_ENERGY_MEASUREMENT_FOLDER)
+                    if not os.path.exists(energy_measurement_folder_path):
+                        os.makedirs(energy_measurement_folder_path)
+                    complete_file_path = os.path.join(energy_measurement_folder_path, msm_id + ".csv")
+                    start_msg = self.driverINA.start_current_measurement(filename = complete_file_path)
                     if start_msg != "OK":
                         self.send_energy_NACK(failed_command="start", error_info=start_msg, measurement_id=msm_id)
                     else:
@@ -78,8 +82,10 @@ class EnergyController:
 
 
     def compress_and_publish_energy_result(self, msm_id):
-
-        df = pd.read_csv(DEFAULT_ENERGY_MEASUREMENT_FOLDER + "/" + msm_id + ".csv")
+        
+        base_path = Path(__file__).parent
+        energy_measurement_file_path = os.path.join(base_path, DEFAULT_ENERGY_MEASUREMENT_FOLDER, msm_id + ".csv")
+        df = pd.read_csv(energy_measurement_file_path)
 
         # MEASURE DURATION
         start_timestamp = df['Timestamp'].iloc[0]
