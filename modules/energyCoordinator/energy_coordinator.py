@@ -187,8 +187,8 @@ class EnergyCoordinator:
         if stop_event_message == "OK":
             return "OK", f"Measurement {msm_id_to_stop} STOPPED", None
         elif stop_event_message is not None:
-            print(f"Measurement stoppper: awaked from probe energy NACK -> {stop_event_message}")
-            return "Error", f"Probe |{queued_measurement.source_probe}| says: {stop_event_message}", ""
+            print(f"Measurement stoppper: awaked from probe energy NACK -> |{stop_event_message}|")
+            return "Error", f"Probe |{queued_measurement.source_probe}| says: |{stop_event_message}|", ""
         else:
             print(f"Measurement stoppper: No response from probe -> |{queued_measurement.source_probe}")
-            return "Error", f"No response from Probe: {queued_measurement.source_probe}" , "Response Timeout"
+            return "Error", f"No response from Probe: |{queued_measurement.source_probe}|" , "Response Timeout"

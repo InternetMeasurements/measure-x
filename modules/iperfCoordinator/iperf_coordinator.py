@@ -291,7 +291,7 @@ class Iperf_Coordinator:
 
     def iperf_measurement_stopper(self, msm_id_to_stop : str):
         if msm_id_to_stop not in self.queued_measurements:
-            return "Error", f"Unknown measurement |{msm_id_to_stop}|", "May be not started"
+            return "Error", f"Unknown iperf measurement |{msm_id_to_stop}|", "May be not started"
         measurement_to_stop : MeasurementModelMongo = self.queued_measurements[msm_id_to_stop]
         self.events_stop_server_ack[msm_id_to_stop] = [threading.Event(), None]
         self.send_probe_iperf_stop(probe_id=measurement_to_stop.dest_probe, msm_id=msm_id_to_stop)
@@ -301,8 +301,8 @@ class Iperf_Coordinator:
         if stop_event_message == "OK":
             return "OK", f"Measurement {msm_id_to_stop} STOPPED", None
         if stop_event_message is not None:
-            return "Error", f"Probe |{measurement_to_stop.dest_probe}| says: {stop_event_message}", ""
-        return "Error", f"Can't stop the measurement -> {msm_id_to_stop}", "No response from probe server"
+            return "Error", f"Probe |{measurement_to_stop.dest_probe}| says: |{stop_event_message}|", ""
+        return "Error", f"Can't stop the measurement -> |{msm_id_to_stop}|", f"No response from probe server |{measurement_to_stop.dest_probe}|"
         
         
         
