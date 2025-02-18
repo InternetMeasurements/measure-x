@@ -194,7 +194,6 @@ class IperfController:
 
             command.append("--json")
             result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)        
-            print(f"RESULT -> {result}")
             if result.returncode != 0:
                 if result.returncode != signal.SIGTERM:
                     self.last_error = result.stderr
@@ -202,7 +201,9 @@ class IperfController:
             else:
                 try: # Reading the result in the stdout
                     self.last_json_result = json.loads(result.stdout)
-                    if (self.self.last_json_result is not None) and ("error" in self.last_json_result) and (self.last_json_result["error"] == "the server has terminated"):
+                    if (self.self.last_json_result is not None) and ( 
+                            ("error" in self.last_json_result) or ("Broken pipe" in self.last_json_result)
+                            ) and (self.last_json_result["error"] == "the server has terminated"):
                         raise Exception("Connection refused from server")
                         
                     if self.save_result_on_flash: # if the save_on_flash mode in enabled...
@@ -211,12 +212,13 @@ class IperfController:
                         with open(complete_output_json_dir, "w") as output_file:
                             json.dump(self.last_json_result, output_file, indent=4)
                         print(f"IperfController: results saved in: {complete_output_json_dir}")
+                except json.JSONDecodeError as e:
+                    self.last_error = "Decode result json failed"
+                    return -1
                 except Exception as e:
                     if "Connection refused" in str(e):
                         self.last_error = str(e)
-                    else:
-                        self.last_error = "Decode result json failed"
-                    return -1
+                    return -1                    
         else:
             #command += "-s -p " + str(self.listening_port) # server mode and listening port
             print("IperfController: iperf3 server, listening...")
