@@ -127,18 +127,18 @@ class IperfController:
             case 'stop':
                 termination_message = self.stop_iperf_thread()
                 if termination_message == "OK":
-                    self.send_iperf_ACK(successed_command=command)
+                    self.send_iperf_ACK(successed_command=command, msm_id=self.last_measurement_id)
                     shared_state.set_probe_as_ready()
                     self.reset_conf()
                 else:
-                    self.send_iperf_NACK(failed_command=command, error_info=termination_message)
-                self.last_measurement_id = None
+                    self.send_iperf_NACK(failed_command=command, error_info=termination_message, msm_id=self.last_measurement_id)
+                #self.last_measurement_id = None
                 #
                 # IL RESET CONF VA FATTO A PRESCINDERE DAL RISULTATO DELLO STOP?     
                 #
             case _:
                 print(f"IperfController: command not handled -> {command}")
-                self.send_iperf_NACK(failed_command=command, error_info="Command not handled")
+                self.send_iperf_NACK(failed_command=command, error_info="Command not handled", msm_id=None)
     
         
     def start_iperf(self):
@@ -170,7 +170,7 @@ class IperfController:
             time.sleep(0.5)
 
         if (execution_return_code != 0) and (execution_return_code != signal.SIGTERM):
-            self.send_iperf_NACK(failed_command="start", error_info=self.last_error)
+            self.send_iperf_NACK(failed_command="start", error_info=self.last_error, msm_id=None)
         else:
             self.reset_conf()
         shared_state.set_probe_as_ready()
@@ -259,13 +259,14 @@ class IperfController:
         print(f"IperfController: ACK sending -> {json_ack}")
         self.mqtt_client.publish_command_ACK(handler='iperf', payload=json_ack) 
 
-    def send_iperf_NACK(self, failed_command, error_info, role = None, msm_id = None):
+    def send_iperf_NACK(self, failed_command, error_info, msm_id, role = None):
         json_nack = {
             "command" : failed_command,
             "reason" : error_info,
             "role": self.last_role if (role is None) else role,
             "msm_id" : self.last_measurement_id if (msm_id is None) else msm_id
             }
+        print(f"IperfController: NACK sending -> {json_nack}")
         self.mqtt_client.publish_command_NACK(handler='iperf', payload = json_nack) 
 
 
@@ -316,9 +317,12 @@ class IperfController:
             self.last_json_result = None # reset the result about last iperf measurement
             print(f"iperfController: measurement [{self.last_measurement_id}] result published")
         except Exception as e:
-            print(f"Exception in publish_last_output_iperf -> {e} ")
-            print(f"last_json_result --> {self.last_json_result}")
-            nack_message = "Check the probes IP"
+            #print(f"Exception in publish_last_output_iperf -> {e} ")
+            #print(f"last_json_result --> {self.last_json_result}")
+            if "Connection refused" in self.last_json_result:
+                nack_message = "Connection refused: The server rejected the connection."
+            else:    
+                nack_message = "Check the probes IP"
             self.send_iperf_NACK(failed_command = "start", error_info = nack_message,
                                    role = "Client", msm_id = self.last_measurement_id)
             self.reset_conf()

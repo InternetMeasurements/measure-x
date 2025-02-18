@@ -17,6 +17,7 @@ class Iperf_Coordinator:
                  registration_handler_result,
                  registration_measure_preparer,
                  ask_probe_ip,
+                 registration_measurement_stopper,
                  mongo_db : MongoDB):
         self.mqtt = mqtt 
         self.probes_configurations_dir = 'probes_configurations'
@@ -26,6 +27,7 @@ class Iperf_Coordinator:
         self.queued_measurements = {}
         self.events_received_server_ack = {}
         self.events_received_client_ack = {}
+        self.events_stop_server_ack = {}
 
         # Requests to commands_multiplexer: handler STATUS registration
         registration_response = registration_handler_status(
@@ -53,6 +55,15 @@ class Iperf_Coordinator:
             print(f"Iperf_Coordinator: registered prepaper for measurements type -> iperf")
         else:
             print(f"Iperf_Coordinator: registration preparer failed. Reason -> {registration_response}")
+        
+        # Requests to commands_multiplexer: Measurement-Stopper registration
+        registration_response = registration_measurement_stopper(
+            interested_measurement_type = "iperf",
+            stopper_method = self.iperf_measurement_stopper)
+        if registration_response == "OK" :
+            print(f"Iperf_Coordinator: registered measurement stopper for measurements type -> iperf")
+        else:
+            print(f"Iperf_Coordinator: registration measurement stopper failed. Reason -> {registration_response}")
 
 
     def handler_received_result(self, probe_sender, result: json):
@@ -83,8 +94,14 @@ class Iperf_Coordinator:
                             self.events_received_client_ack[measurement_id][0].set()
                             print(f"Iperf_Coordinator: probe |{probe_sender}|->|conf|-> client |ACK|")
                     case "stop":
-                         print(f"Iperf_Coordinator: probe |{probe_sender}|->|Iperf stopped|->|ACK|")
-                         self.probes_server_port.pop(probe_sender, None)
+                        measurement_id = payload["msm_id"]
+                        if measurement_id is None:
+                            print(f"Received ACK from |{probe_sender}| with None measurement -> IGNORE.")
+                            return
+                        self.events_stop_server_ack[measurement_id][1] = "OK"
+                        self.events_stop_server_ack[measurement_id][0].set()
+                        print(f"Iperf_Coordinator: probe |{probe_sender}| , stop -> |ACK| , msm_id -> {measurement_id}")
+                        self.probes_server_port.pop(probe_sender, None)
                     case _:
                         print(f"ACK received for unkonwn iperf command -> {command_executed_on_probe}")
             case "NACK":
@@ -95,7 +112,6 @@ class Iperf_Coordinator:
                 print(f"Iperf_Coordinator: probe |{probe_sender}|->|{command_failed_on_probe}|->|NACK|, reason_payload --> {reason}, measure --> {measurement_id}")
                 match command_failed_on_probe:
                     case "start":
-                        print("comando fallito start")
                         if self.mongo_db.set_measurement_as_failed_by_id(measurement_id = measurement_id):
                             print(f"Iperf_Coordinator: measurement |{measurement_id}| setted as failed")
                         if role_conf_failed == "Client":
@@ -109,8 +125,13 @@ class Iperf_Coordinator:
                             self.events_received_client_ack[measurement_id][1] = reason
                             self.events_received_client_ack[measurement_id][0].set()
                     case "stop":
-                        print(f"Iperf_Coordinator: probe |{probe_sender}|->|Iperf stopped|->|NACK| : reason_payload -> {reason}")
-
+                        if measurement_id is None:
+                            print(f"Iperf_Coordinator: probe |{probe_sender}|->|Iperf stopped|->|NACK| : None measure")
+                        else:
+                            print(f"Iperf_Coordinator: probe |{probe_sender}|->|Iperf stopped|->|NACK| : reason_payload -> {reason}")
+                            if role_conf_failed is not None and role_conf_failed == "Server":
+                                self.events_stop_server_ack[measurement_id][1] = reason
+                                self.events_stop_server_ack[measurement_id][0].set()
             case _:
                 print(f"Iperf_Coordinator: received unkown type message -> |{type}|")
 
@@ -199,6 +220,12 @@ class Iperf_Coordinator:
         new_measurement.assign_id()
         measurement_id = str(new_measurement._id)
 
+        if new_measurement.source_probe is None:
+            return "Error", f"No source probe id provided", "Missing source_probe parameter"
+
+        if new_measurement.dest_probe is None:
+            return "Error", f"No destination probe id provided", "Missing dest_probe parameter"
+
         source_probe_ip = self.ask_probe_ip(new_measurement.source_probe)
         if source_probe_ip is None:
             return "Error", f"No response from client probe: {new_measurement.source_probe}", "Reponse Timeout"
@@ -259,7 +286,25 @@ class Iperf_Coordinator:
         else:
             print(f"Preparer iperf: No response from server probe -> |{new_measurement.dest_probe}")
             return "Error", f"No response from Probe: {new_measurement.dest_probe}" , "Response Timeout"
+
+    def iperf_measurement_stopper(self, msm_id_to_stop : str):
+        if msm_id_to_stop not in self.queued_measurements:
+            return "Error", f"Unknown measurement |{msm_id_to_stop}|", "May be not started"
+        measurement_to_stop : MeasurementModelMongo = self.queued_measurements[msm_id_to_stop]
+        self.events_stop_server_ack[msm_id_to_stop] = [threading.Event(), None]
+        self.send_probe_iperf_stop(probe_id=measurement_to_stop.dest_probe, msm_id=msm_id_to_stop)
+        self.events_stop_server_ack[msm_id_to_stop][0].wait(5)
+        # ------------------------------- YOU MUST WAIT (AT MOST 5s) FOR AN ACK/NACK OF STOP COMMAND FROM DEST PROBE (IPERF-SERVER)
+        stop_event_message = self.events_stop_server_ack[msm_id_to_stop][1]
+        if stop_event_message == "OK":
+            return "OK", f"Measurement {msm_id_to_stop} STOPPED", None
+        if stop_event_message is not None:
+            return "Error", f"Probe |{measurement_to_stop.dest_probe}| says: {stop_event_message}", ""
+        return "Error", f"Can't stop the measurement -> {msm_id_to_stop}", "No response from probe server"
         
+        
+        
+    
     # NOT USED BUT USEFULL FOR TESTING
     def print_summary_result(self, measurement_result : json):
         start_timestamp = measurement_result["start_timestamp"]
