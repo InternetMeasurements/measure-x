@@ -202,7 +202,7 @@ class IperfController:
             else:
                 try: # Reading the result in the stdout
                     self.last_json_result = json.loads(result.stdout)
-                    if (self.self.last_json_result is not None) and ( 
+                    if (self.last_json_result is not None) and ( 
                             ("error" in self.last_json_result) or ("Broken pipe" in self.last_json_result)
                             ) and (self.last_json_result["error"] == "the server has terminated"):
                         raise Exception("Connection refused from server")
@@ -214,9 +214,11 @@ class IperfController:
                             json.dump(self.last_json_result, output_file, indent=4)
                         print(f"IperfController: results saved in: {complete_output_json_dir}")
                 except json.JSONDecodeError as e:
+                    print("JSONDecodeError")
                     self.last_error = "Decode result json failed"
                     return -1
                 except Exception as e:
+                    print("Exception")
                     if "Connection refused" in str(e):
                         self.last_error = str(e)
                     return -1                    
@@ -234,6 +236,7 @@ class IperfController:
                 print(f"Errore nell'esecuzione di iperf: {result.stderr}  | return_code: {result.returncode }")
                 self.send_iperf_NACK(failed_command="conf", error_info=result.stderr, role="Server", msm_id=self.last_measurement_id)
             shared_state.set_probe_as_ready()
+        print("run_iperf_ OK")
         return result.returncode
     
 
