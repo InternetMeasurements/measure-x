@@ -220,18 +220,14 @@ class IperfController:
                         self.last_error = str(e)
                     return -1                    
         else:
-            #command += "-s -p " + str(self.listening_port) # server mode and listening port
             print("IperfController: iperf3 server, listening...")
             command += ["-s", "-p", str(self.listening_port), "-i", "0"]
             if self.verbose_function:
                 command.append("-V")
             result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            if result.returncode == 0:
-                print(result.stdout)
-            # elif result.returncode == 15: # This returncode 15, means that the subprocess has received a SIG.TERM signal, and then the process has been gently terminated
-            elif result.returncode != signal.SIGTERM:
-                print(f"Errore nell'esecuzione di iperf: {result.stderr}  | return_code: {result.returncode }")
-                self.send_iperf_NACK(failed_command="conf", error_info=result.stderr, role="Server", msm_id=self.last_measurement_id)
+            if (result.returncode != 0) and (result.returncode != 1) and (result.returncode != signal.SIGTERM) :
+                print(f"Iperf execution error. stderr: {result.stderr}  | return_code: {result.returncode }")
+                self.send_iperf_NACK(failed_command="conf", error_info = result.stderr, role="Server", msm_id=self.last_measurement_id)
             shared_state.set_probe_as_ready()
         return result.returncode
     
