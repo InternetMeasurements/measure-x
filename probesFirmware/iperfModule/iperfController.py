@@ -159,7 +159,7 @@ class IperfController:
     def iperf_client_body(self): # BODY CLIENT THREAD 
         repetition_count = 0
         execution_return_code = -2
-        while repetition_count < self.total_repetition:
+        while (repetition_count < self.total_repetition):
             time.sleep(0.5)
             print(f"\n*************** Repetition: {repetition_count + 1} ***************")
             execution_return_code = self.run_iperf_execution()
@@ -171,8 +171,7 @@ class IperfController:
 
         if (execution_return_code != 0) and (execution_return_code != signal.SIGTERM):
             self.send_iperf_NACK(failed_command="start", error_info=self.last_error, msm_id=None)
-        else:
-            self.reset_conf()
+        self.reset_conf()
         shared_state.set_probe_as_ready()
         
 
@@ -211,11 +210,10 @@ class IperfController:
                         print(f"IperfController: results saved in: {complete_output_json_dir}")
                 except Exception as e:
                     if (result.stderr is not None) and ("the server has terminated" in result.stderr):
-                        nack_message = "Connection refused from server"
+                        self.last_error = "Connection refused from server"
                     else:
-                        nack_message = "Decode result json failed"
-                    print(f"IperfController: sending NACK start, reason -> {nack_message}")
-                    self.send_iperf_NACK(failed_command="start", error_info=nack_message, role="Client", msm_id=self.last_measurement_id)
+                        self.last_error = "Decode result json failed"
+                    return -1
         else:
             #command += "-s -p " + str(self.listening_port) # server mode and listening port
             print("IperfController: iperf3 server, listening...")
