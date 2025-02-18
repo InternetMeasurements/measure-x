@@ -125,7 +125,11 @@ class IperfController:
                     self.start_iperf()
                     self.last_execution_code = None
             case 'stop':
-                termination_message = self.stop_iperf_thread()
+                msm_id = payload['msm_id'] if "msm_id" in payload else None
+                if msm_id is None:
+                    self.send_iperf_NACK(failed_command="stop", error_info="No measure_id provided", msm_id=None, role="Server")
+                    return
+                termination_message = self.stop_iperf_thread(msm_id)
                 if termination_message == "OK":
                     self.send_iperf_ACK(successed_command=command, msm_id=self.last_measurement_id)
                     shared_state.set_probe_as_ready()
@@ -232,7 +236,7 @@ class IperfController:
         return result.returncode
     
 
-    def stop_iperf_thread(self):
+    def stop_iperf_thread(self, msm_id):
         iperf_process_pid = None
         process_name = "iperf3"
         if (self.iperf_thread is not None) and (self.last_role is not None):
@@ -241,18 +245,19 @@ class IperfController:
                     iperf_process_pid = process.info['pid']
                     break
             if iperf_process_pid == None:
-                print("Ritornato Processo non trovato")
                 return "Process " + process_name + "-" + self.last_role + " not in Execution"
+            if msm_id != self.last_measurement_id:
+                    self.send_iperf_NACK(failed_command="stop", 
+                                         error_info="Measure_ID Mismatch: The provided measure_id does not correspond to the ongoing measurement",
+                                         msm_id=msm_id, role="Server")
+                    return
             try:
                 os.kill(iperf_process_pid, signal.SIGTERM)
                 self.iperf_thread.join()
-                print("Ritornato OK dalla kill")
                 return "OK"
             except OSError as e:
-                print(f"Ritornata eccez dalla kill -> {str(e)}")
                 return str(e)
         else:
-            print("Ritornato processo non in esecuzione")
             return "Process " + process_name + " not in execution"
 
 
