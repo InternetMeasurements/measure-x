@@ -35,7 +35,7 @@ def create_measurement(body):  # noqa: E501
     """
     if connexion.request.is_json:
         try:
-            print(f"Riceuvot -> {connexion.request.get_json()}")
+            #print(f"Ricevuto -> {connexion.request.get_json()}")
             measurement = MeasurementModelMongo.cast_dict_in_MeasurementModelMongo(connexion.request.get_json())  # noqa: E501
             if measurement is None:
                 msg_to_return = "There is at least one missing measurement field"

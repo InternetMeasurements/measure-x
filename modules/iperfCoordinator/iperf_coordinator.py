@@ -197,8 +197,8 @@ class Iperf_Coordinator:
             if self.mongo_db.set_measurement_as_completed(measurement_id):
                 print(f"Iperf_Coordinator: measurement |{measurement_id}| completed ")
             self.send_probe_iperf_stop(self.queued_measurements[measurement_id].dest_probe, measurement_id)
-        else:
-            print("Iperf_Coordinator: result not last")
+#        else:
+#            print("Iperf_Coordinator: result not last")
 
 
     def get_json_from_probe_yaml(self, probes_configurations_path) -> json:

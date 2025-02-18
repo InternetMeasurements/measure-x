@@ -38,7 +38,7 @@ class CommandsDemultiplexer():
             print(f"CommandsDemultiplexer: Json Command format Wrong! -> {complete_command}")
             return
 
-        print(f"CommandsDemultiplexer: complete_command -> {nested_command} ")
+        #print(f"CommandsDemultiplexer: complete_command -> {nested_command} ")
         handler = nested_command["handler"]
         command = nested_command["command"]
         payload = nested_command["payload"]
@@ -60,7 +60,7 @@ class CommandsDemultiplexer():
             case "set_coordinator_ip":
                 coordinator_ip = str(payload['coordinator_ip'])
                 shared_state.set_coordinator_ip(coordinator_ip = coordinator_ip)
-                print(f"CommandsDemultiplexer: coordinator_ip received -> {shared_state.get_coordinator_ip()}")
+                #print(f"CommandsDemultiplexer: coordinator_ip received -> {shared_state.get_coordinator_ip()}")
                 if self.event_to_set_in_case_of_root_service_command_reception is not None:
                     self.event_to_set_in_case_of_root_service_command_reception.set()
             case "get_probe_ip":
