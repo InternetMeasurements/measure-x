@@ -181,7 +181,7 @@ class Iperf_Coordinator:
             c_full_result = base64.b64decode(full_result_c_b64)
             full_result = cbor2.loads(c_full_result)
         else:
-            print(f"Iperf_Coordnator: WARNING -> received result without full_result , measure_id -> {result["msm_id"]}")
+            print(f"Iperf_Coordnator: WARNING -> received result without full_result , measure_id -> {result['msm_id']}")
             full_result = None
 
         mongo_result = IperfResultModelMongo(
