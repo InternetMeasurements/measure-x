@@ -167,8 +167,8 @@ class CommandsMultiplexer:
                 print(f"CommandsMultiplexer: root_service -> received state None from probe |{probe_sender}|")
                 return
             probe_ip = payload["ip"] if ("ip" in payload) else None
-            if probe_ip is None:
-                print(f"CommandsMultiplexer: root_service -> received state from probe |{probe_sender}| without ip")
+            if (probe_ip is None) and (state_info != "OFFLINE"):
+                print(f"CommandsMultiplexer: root_service -> received state -> |{state_info}| from probe |{probe_sender}| without ip")
                 return
             json_set_coordinator_ip = {"coordinator_ip": self.coordinator_ip}
             match state_info:
@@ -195,6 +195,6 @@ class CommandsMultiplexer:
             "command": command,
             "payload": root_service_payload
         }
-        time.sleep(0.5)
+        time.sleep(0.3)
         print(f"CommandsMultiplexer: root_service sending to |{probe_id}| , coordinator ip -> |{self.coordinator_ip}|")
         self.mqtt_client.publish_on_command_topic(probe_id = probe_id, complete_command=json.dumps(json_command))
