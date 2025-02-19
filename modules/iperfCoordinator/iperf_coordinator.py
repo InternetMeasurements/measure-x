@@ -185,7 +185,7 @@ class Iperf_Coordinator:
             destination_port = result["destination_port"],
             bytes_received = result["bytes_received"],
             duration = result["duration"],
-            avg_speed = result["avg_speed"]
+            avg_speed = result["avg_speed"],
             full_result = result["full_result"]
         )
         result_id = str(self.mongo_db.insert_iperf_result(result=mongo_result))
