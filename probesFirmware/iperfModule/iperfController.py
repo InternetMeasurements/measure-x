@@ -2,6 +2,7 @@ import time
 import os
 import json
 import subprocess
+import base64, cbor2
 from pathlib import Path
 import threading
 import signal
@@ -303,6 +304,9 @@ class IperfController:
             duration = self.last_json_result["end"]["sum_received"]["seconds"]
             avg_speed = self.last_json_result["end"]["sum_received"]["bits_per_second"]
 
+            compressed_full_result = cbor2.dumps(self.last_json_result)
+            compressed_full_result_b64 = base64.b64encode(compressed_full_result).decode("utf-8")
+
             json_summary_data = {
                 "handler": "iperf",
                 "type": "result",
@@ -320,7 +324,7 @@ class IperfController:
                     "duration": duration,
                     "avg_speed": avg_speed,
                     "last_result": last_result,
-                    "full_result": self.last_json_result
+                    "full_result_c_b64": compressed_full_result_b64
                 }
             }
 

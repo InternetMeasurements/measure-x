@@ -3,6 +3,7 @@ import json
 import yaml
 import time
 import threading
+import cbor2, base64
 from pathlib import Path
 from modules.mqttModule.mqtt_client import Mqtt_Client
 from bson import ObjectId
@@ -174,6 +175,15 @@ class Iperf_Coordinator:
 
 
     def store_measurement_result(self, result : json):
+
+        full_result_c_b64 = result["full_result_c_b64"] if ("full_result_c_b64" in result) else None # Full Result Compressed and 64Based
+        if full_result_c_b64 is not None:
+            c_full_result = base64.b64decode(full_result_c_b64)
+            full_result = cbor2.loads(c_full_result)
+        else:
+            print(f"Iperf_Coordnator: WARNING -> received result without full_result , measure_id -> {result["msm_id"]}")
+            full_result = None
+
         mongo_result = IperfResultModelMongo(
             msm_id = ObjectId(result["msm_id"]),
             repetition_number = result["repetition_number"],
@@ -186,7 +196,7 @@ class Iperf_Coordinator:
             bytes_received = result["bytes_received"],
             duration = result["duration"],
             avg_speed = result["avg_speed"],
-            full_result = result["full_result"]
+            full_result = full_result
         )
         result_id = str(self.mongo_db.insert_iperf_result(result=mongo_result))
         if result_id is not None:
