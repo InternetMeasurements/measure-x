@@ -46,8 +46,8 @@ class CommandsMultiplexer:
         if probe_ip is not None:
             return probe_ip
         self.event_ask_probe_ip[probe_id] = threading.Event()
-        print(f"CommandsMultiplexer: Unknown |{probe_id}| IP. Asking...")
-        self.root_service_send_command(probe_id, "get_probe_ip", {} )
+        print(f"CommandsMultiplexer: Unknown probe |{probe_id}| IP. Asking...")
+        self.root_service_send_command(probe_id, "get_probe_ip", {"coordinator_ip": self.coordinator_ip} )
         self.event_ask_probe_ip[probe_id].wait(timeout = 5)
         # ------------------------------- WAITING FOR PROBE IP RESPONSE -------------------------------
         self.event_ask_probe_ip.pop(probe_id, None)
@@ -105,6 +105,7 @@ class CommandsMultiplexer:
         except json.JSONDecodeError as e:
             print(f"CommandsMultiplexer: result_multiplexer: json exception -> {e}")
             
+
     def status_multiplexer(self, probe_sender, nested_status):  # invoked by mqtt module
         try:
             nested_json_status = json.loads(nested_status)
@@ -117,6 +118,7 @@ class CommandsMultiplexer:
                 print(f"CommandsMultiplexer: status_multiplexer: no registered handler for |{handler}|. TYPE: {type}|\n-> PRINT: -> {payload}")
         except json.JSONDecodeError as e:
             print(f"CommandsMultiplexer: status_multiplexer: json exception -> {e}")
+
 
     def errors_multiplexer(self, probe_sender, nested_error):  # invoked by mqtt module
         try:
@@ -160,18 +162,33 @@ class CommandsMultiplexer:
     # Default handler for the root_service probe message reception
     def root_service_default_handler(self, probe_sender, type, payload):
         if type == "state":
-            if payload["state"] == "ONLINE" or payload["state"] == "UPDATE":
-                probe_ip = payload["ip"]
-                self.set_probe_ip(probe_id = probe_sender, probe_ip = probe_ip)
-                if probe_ip in self.event_ask_probe_ip: # if this message is triggered by an "ask_probe_ip", then signal it
-                    self.event_ask_probe_ip[probe_ip].set()
-                # In any case, i send the coordinator ip
-                json_set_coordinator_ip = {"coordinator_ip": self.coordinator_ip}
-                self.root_service_send_command(probe_sender, "set_coordinator_ip", json_set_coordinator_ip)
-                print(f"CommandsMultiplexer: root_service -> [{probe_sender}] -> state [{payload['state']}] -> IP |{self.probe_ip[probe_sender]}|")
-            elif payload["state"] == "OFFLINE":
-                self.probe_ip.pop(probe_sender, None)
-                print(f"CommandsMultiplexer: root_service -> [{probe_sender}] -> state [{payload['state']}]")
+            state_info = payload["state"] if ("state" in payload) else None
+            if state_info is None:
+                print(f"CommandsMultiplexer: root_service -> received state None from probe |{probe_sender}|")
+                return
+            probe_ip = payload["ip"] if ("ip" in payload) else None
+            if probe_ip is None:
+                print(f"CommandsMultiplexer: root_service -> received state from probe |{probe_sender}| without ip")
+                return
+            json_set_coordinator_ip = {"coordinator_ip": self.coordinator_ip}
+            match state_info:
+                case "ONLINE":
+                    self.set_probe_ip(probe_id = probe_sender, probe_ip = probe_ip)
+                    if probe_ip in self.event_ask_probe_ip: # if this message is triggered by an "ask_probe_ip", then signal it
+                        self.event_ask_probe_ip[probe_ip].set()
+                    self.root_service_send_command(probe_sender, "set_coordinator_ip", json_set_coordinator_ip)
+                    print(f"CommandsMultiplexer: root_service -> [{probe_sender}] -> state [{payload['state']}] -> IP |{self.probe_ip[probe_sender]}|")
+                case "UPDATE":
+                    if self.get_probe_ip_if_present() is None:
+                        self.set_probe_ip(probe_id = probe_sender, probe_ip = probe_ip)
+                        if probe_ip in self.event_ask_probe_ip: # if this message is triggered by an "ask_probe_ip", then signal it
+                            self.event_ask_probe_ip[probe_ip].set()
+                        #self.root_service_send_command(probe_sender, "set_coordinator_ip", json_set_coordinator_ip)
+                case "OFFLINE":
+                    self.probe_ip.pop(probe_sender, None)
+                    print(f"CommandsMultiplexer: root_service -> probe [{probe_sender}] -> state [{state_info}]")
+                case _:
+                    print(f"CommandsMultiplexer: root_service -> received unknown state_info -> |{state_info}| , from probe -> |{probe_sender}|")
 
 
     def root_service_send_command(self, probe_id, command, root_service_payload):
