@@ -319,7 +319,8 @@ class IperfController:
                     "bytes_received": bytes_received,
                     "duration": duration,
                     "avg_speed": avg_speed,
-                    "last_result": last_result
+                    "last_result": last_result,
+                    "full_result": self.last_json_result
                 }
             }
 
