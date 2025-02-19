@@ -24,6 +24,8 @@ class IperfResultModelMongo:
             'transport_protocol': self.transport_protocol,
             'start_timestamp': self.start_timestamp,
             'bytes_received': self.bytes_received,
+            'source_port': self.source_port,
+            'destination_port': self.destination_port,
             'duration': self.duration,
             'avg_speed': self.avg_speed,
             'full_result': self.full_result
