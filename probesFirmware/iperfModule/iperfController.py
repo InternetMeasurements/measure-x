@@ -136,7 +136,7 @@ class IperfController:
                     shared_state.set_probe_as_ready()
                     self.reset_conf()
                 else:
-                    self.send_iperf_NACK(failed_command=command, error_info=termination_message, msm_id=self.last_measurement_id)
+                    self.send_iperf_NACK(failed_command=command, error_info=termination_message, msm_id = msm_id)
                 #self.last_measurement_id = None
                 #
                 # IL RESET CONF VA FATTO A PRESCINDERE DAL RISULTATO DELLO STOP?     
@@ -248,10 +248,13 @@ class IperfController:
             if iperf_process_pid == None:
                 return "Process " + process_name + "-" + self.last_role + " not in Execution"
             if msm_id != self.last_measurement_id:
+                    return "Measure_id MISMATCH: The provided measure_id does not correspond to the ongoing measurement"
+                    """
                     self.send_iperf_NACK(failed_command="stop", 
-                                         error_info="Measure_ID Mismatch: The provided measure_id does not correspond to the ongoing measurement",
+                                         error_info="",
                                          msm_id=msm_id, role="Server")
                     return
+                    """
             try:
                 os.kill(iperf_process_pid, signal.SIGTERM)
                 self.iperf_thread.join()
