@@ -179,11 +179,9 @@ class CommandsMultiplexer:
                     self.root_service_send_command(probe_sender, "set_coordinator_ip", json_set_coordinator_ip)
                     print(f"CommandsMultiplexer: root_service -> [{probe_sender}] -> state [{payload['state']}] -> IP |{self.probe_ip[probe_sender]}|")
                 case "UPDATE":
-                    if self.get_probe_ip_if_present() is None:
-                        self.set_probe_ip(probe_id = probe_sender, probe_ip = probe_ip)
-                        if probe_ip in self.event_ask_probe_ip: # if this message is triggered by an "ask_probe_ip", then signal it
-                            self.event_ask_probe_ip[probe_ip].set()
-                        #self.root_service_send_command(probe_sender, "set_coordinator_ip", json_set_coordinator_ip)
+                    self.set_probe_ip(probe_id = probe_sender, probe_ip = probe_ip)
+                    if probe_ip in self.event_ask_probe_ip: # if this message is triggered by an "ask_probe_ip", then signal it
+                        self.event_ask_probe_ip[probe_ip].set()
                 case "OFFLINE":
                     self.probe_ip.pop(probe_sender, None)
                     print(f"CommandsMultiplexer: root_service -> probe [{probe_sender}] -> state [{state_info}]")

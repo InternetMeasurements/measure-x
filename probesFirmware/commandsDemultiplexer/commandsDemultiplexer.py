@@ -64,16 +64,26 @@ class CommandsDemultiplexer():
                 if self.event_to_set_in_case_of_root_service_command_reception is not None:
                     self.event_to_set_in_case_of_root_service_command_reception.set()
             case "get_probe_ip":
+                coordinator_ip = str(payload['coordinator_ip']) if "coordinator_ip" in payload else None
+                if coordinator_ip is None:
+                    print(f"CommandsDemultiplexer: root_service -> WARNING: received get_probe_ip without coordinator_ip. The probe will not responde")
+                    return
+                shared_state.set_coordinator_ip(coordinator_ip = coordinator_ip)
                 self.mqtt_client.publish_probe_state("UPDATE")
             case _:
                 print(f"CommandsDemultiplexer: root_service handler -> Unkown command -> {command}")
     
     def wait_for_set_coordinator_ip(self):
-        # This is a BLOCKING METHOD
+        """# This is a BLOCKING METHOD
         self.event_to_set_in_case_of_root_service_command_reception = threading.Event()
         self.mqtt_client.publish_probe_state("UPDATE")
         #print("CommandsDemultiplexer: waiting for coordinator_ip reception ...")
         self.event_to_set_in_case_of_root_service_command_reception.wait(timeout = 5) 
         # ------------------------- WAIT for ROOT_SERVICE command RECEPTION from COORDINATOR -------------------------
-        self.event_to_set_in_case_of_root_service_command_reception = None
-
+        self.event_to_set_in_case_of_root_service_command_reception = None"""
+        print("METODO NON NECESSARIO -> DEPRECATO")
+        """
+        Non c'è bisogno di questo metodo perchè se la probe viene riavviata, e quindi non conosce l'ip del coordinator,
+        anche se quest'ultimo conosce l'ip della probe, comunque la probe quando si avvia, pubblica il messaggio ONLINE
+        e quindi verrà a conoscenza dell'indirizzo ip del coordinator.
+        """
