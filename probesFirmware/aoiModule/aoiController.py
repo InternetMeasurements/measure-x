@@ -98,9 +98,9 @@ class AgeOfInformationController:
     
 
     def stop_ntpsec_service(self, msm_id, probe_ntp_server_ip):
-        stop_command = [ "systemctl stop ntpsec" ] #[ "sudo systemctl stop ntpsec" ]
+        stop_command = ["systemctl" , "stop" , "ntpsec" ] #[ "sudo systemctl stop ntpsec" ]
         
-        result = subprocess.run(stop_command.split(), stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell = True)
+        result = subprocess.run(stop_command, stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell = True)
         if result.returncode != 0:
             stdout_stop_command = result.stdout.decode('utf-8')
             return f"Error in stopping ntsec service. Return code: {result.returncode}. STDOUT: {stdout_stop_command}"
@@ -110,7 +110,7 @@ class AgeOfInformationController:
     
     
     def start_ntpsec_service(self):
-        start_command = [ "systemctl start ntpsec" ] #[ "sudo systemctl start ntpsec" ]
+        start_command = [ "systemctl" , "start" , "ntpsec" ] #[ "sudo systemctl start ntpsec" ]
         
         result = subprocess.run(start_command.split(), stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell = True)
         if result.returncode != 0:
