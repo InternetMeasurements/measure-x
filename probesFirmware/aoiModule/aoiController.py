@@ -74,7 +74,7 @@ class AgeOfInformationController:
 
     def prepare_probe_to_start_aoi_measure(self, msm_id):
         self._continue = True
-        self.aoi_thread = threading.Thread(target=self.run_aoi_measurement, args=(msm_id))
+        self.aoi_thread = threading.Thread(target=self.run_aoi_measurement, args=(msm_id,))
         self.aoi_thread.start()
 
 

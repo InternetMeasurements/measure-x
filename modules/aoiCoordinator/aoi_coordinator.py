@@ -165,6 +165,12 @@ class Age_of_Information_Coordinator:
                     print(f"AoI_Coordinator: can't start aoi. Error while storing ping measurement on Mongo")
                     return "Error", "Can't send start! Error while inserting measurement aoi in mongo", "MongoDB Down?"
                 return "OK", new_measurement.to_dict(), None
+            elif event_start_msg is not None:
+                print(f"Preparer AoI: awaked from server conf NACK -> {event_start_msg}")
+                return "Error", f"Probe |{new_measurement.source_probe}| says: {event_start_msg}", "State BUSY"
+            else:
+                print(f"Preparer AoI: No response from probe -> |{new_measurement.source_probe}")
+                return "Error", f"No response from Probe: {new_measurement.source_probe}" , "Reponse Timeout"   
         elif event_disable_msg is not None:
             print(f"Preparer AoI: awaked from server conf NACK -> {event_disable_msg}")
             return "Error", f"Probe |{new_measurement.source_probe}| says: {event_disable_msg}", "State BUSY"            
