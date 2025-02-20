@@ -3,7 +3,7 @@ from mqttModule.mqttClient import ProbeMqttClient
 from commandsDemultiplexer.commandsDemultiplexer import CommandsDemultiplexer
 from iperfModule.iperfController import IperfController
 from pingModule.pingController import PingController
-from energyModule.energyController import EnergyController
+#from energyModule.energyController import EnergyController
 from aoiModule.aoiController import AgeOfInformationController
 from shared_resources import shared_state
 
@@ -11,7 +11,6 @@ from shared_resources import shared_state
 class Probe:
     def __init__(self, probe_id):
         self.id = probe_id
-        self.state = None
         self.commands_demultiplexer = CommandsDemultiplexer()
         self.mqtt_client = ProbeMqttClient(probe_id,
                                            self.commands_demultiplexer.decode_command) # The Decode Handler is triggered internally
@@ -23,15 +22,12 @@ class Probe:
         self.ping_controller = PingController(self.mqtt_client,
                                               self.commands_demultiplexer.registration_handler_request)   # ENABLE LATENCY FUNCTIONALITY
         
-        self.energy_controller = EnergyController(self.mqtt_client,
-                                                  self.commands_demultiplexer.registration_handler_request) # ENABLE POWER CONSUMPTION FUNCTIONALITY
+        #self.energy_controller = EnergyController(self.mqtt_client,
+        #                                          self.commands_demultiplexer.registration_handler_request) # ENABLE POWER CONSUMPTION FUNCTIONALITY
         
         self.aoi_controller = AgeOfInformationController(self.mqtt_client, 
                                                          self.commands_demultiplexer.registration_handler_request,
                                                          self.commands_demultiplexer.wait_for_set_coordinator_ip)
-
-    def check_for_ready(self):
-        return self.state
 
     
     def disconnect(self):
