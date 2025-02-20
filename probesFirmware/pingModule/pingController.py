@@ -62,7 +62,7 @@ class PingController:
         packets_size = payload['packets_size']
         msm_id = payload['msm_id']
         # Command construction
-        if platform.system() == "Windows": # It's necessary for the output parsing, execute the ping command linux based
+        if platform.system() == "Windows": # It's necessary for the output parsing to execute the ping-command-linux-based
             command = ["wsl", "ping"]
         else:
             command = ["ping"]
