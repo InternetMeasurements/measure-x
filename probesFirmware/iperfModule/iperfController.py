@@ -137,10 +137,6 @@ class IperfController:
                     self.reset_conf()
                 else:
                     self.send_iperf_NACK(failed_command=command, error_info=termination_message, msm_id = msm_id)
-                #self.last_measurement_id = None
-                #
-                # IL RESET CONF VA FATTO A PRESCINDERE DAL RISULTATO DELLO STOP?     
-                #
             case _:
                 print(f"IperfController: command not handled -> {command}")
                 self.send_iperf_NACK(failed_command=command, error_info="Command not handled", msm_id=None)
@@ -175,7 +171,7 @@ class IperfController:
             time.sleep(0.5)
 
         if (execution_return_code != 0) and (execution_return_code != signal.SIGTERM):
-            self.send_iperf_NACK(failed_command="start", error_info=self.last_error, msm_id=None)
+            self.send_iperf_NACK(failed_command="start", error_info=self.last_error, msm_id=self.last_measurement_id)
         self.reset_conf()
         shared_state.set_probe_as_ready()
         
