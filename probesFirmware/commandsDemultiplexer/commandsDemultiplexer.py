@@ -10,19 +10,21 @@ class CommandsDemultiplexer():
         self.registration_handler_request(interested_command="root_service", handler=self.root_service_command_handler)
 
         self.mqtt_client = None
-        self.event_to_set_in_case_of_root_service_command_reception = None
+        #self.event_to_set_in_case_of_root_service_command_reception = None
         #self.status_handler_list = {} # For the future. Is necessary that the probe knows about the Coordinator state? Or another probe state?
 
     def set_mqtt_client(self, mqtt_client : ProbeMqttClient):
         self.mqtt_client = mqtt_client
 
-    # +------------------ commands_handler_list ------------------+
-    # |      COMMAND     |          HANDLER FUNCTION              |
-    # +------------------+----------------------------------------+
-    # |       iperf      |  iperfController.iperf_command_handler |
-    # |       ping       |  pingController.ping_command_handler   |
-    # |   bg_generator   |                                        |
-    # +------------------+----------------------------------------+
+    # +------------------ commands_handler_list -------------------+
+    # |      COMMAND     |          HANDLER FUNCTION               |
+    # +------------------+-----------------------------------------+
+    # |       iperf      |  iperfController.iperf_command_handler  |
+    # |       ping       |  pingController.ping_command_handler    |
+    # |      energy      |  energyController.energy_command_handler|
+    # |        aoi       |  ageOfInformation.aoi_command_handler   |
+    # |       coex       |  coexApplication.coex_command_handler   |
+    # +------------------+-----------------------------------------+
 
     def registration_handler_request(self, interested_command, handler) -> str:
         if interested_command not in self.commands_handler_list:
@@ -61,8 +63,8 @@ class CommandsDemultiplexer():
                 coordinator_ip = str(payload['coordinator_ip'])
                 shared_state.set_coordinator_ip(coordinator_ip = coordinator_ip)
                 #print(f"CommandsDemultiplexer: coordinator_ip received -> {shared_state.get_coordinator_ip()}")
-                if self.event_to_set_in_case_of_root_service_command_reception is not None:
-                    self.event_to_set_in_case_of_root_service_command_reception.set()
+                #if self.event_to_set_in_case_of_root_service_command_reception is not None:
+                    #self.event_to_set_in_case_of_root_service_command_reception.set()
             case "get_probe_ip":
                 coordinator_ip = str(payload['coordinator_ip']) if "coordinator_ip" in payload else None
                 if coordinator_ip is None:
