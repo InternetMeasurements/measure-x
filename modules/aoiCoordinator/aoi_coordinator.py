@@ -91,7 +91,7 @@ class Age_of_Information_Coordinator:
                 command_executed_on_probe = payload["command"]
                 match command_executed_on_probe:
                     case "start":
-                        print(f"AoI_Coordinator: ACK from probe |{probe_sender}|->|start| , measurement_id -> |{measurement_id}|")
+                        print(f"AoI_Coordinator: ACK from probe |{probe_sender}|->|start| , measurement_id -> |{msm_id}|")
                         if msm_id in self.events_received_status_from_probe_sender:
                             self.events_received_status_from_probe_sender[msm_id][1] = "OK"
                             self.events_received_status_from_probe_sender[msm_id][0].set()

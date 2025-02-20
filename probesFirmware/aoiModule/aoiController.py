@@ -122,7 +122,7 @@ class AgeOfInformationController:
     def send_aoi_ACK(self, successed_command, msm_id = None):
         json_ack = { 
             "command" : successed_command,
-            "measurement_id" : self.last_measurement_id if (msm_id is None) else msm_id
+            "msm_id" : msm_id
             }
         print(f"AoIController: ACK sending -> {json_ack}")
         self.mqtt_client.publish_command_ACK(handler='aoi', payload=json_ack) 
@@ -132,7 +132,7 @@ class AgeOfInformationController:
         json_nack = {
             "command" : failed_command,
             "reason" : error_info,
-            "msm_id" : self.last_measurement_id if (msm_id is None) else msm_id
+            "msm_id" : msm_id
             }
         print(f"AoIController: NACK sending -> {json_nack}")
         self.mqtt_client.publish_command_NACK(handler='aoi', payload = json_nack) 
