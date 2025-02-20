@@ -10,7 +10,7 @@ class Age_of_Information_Coordinator:
         self.mqtt_client = mqtt_client
         self.ask_probe_ip = ask_probe_ip
         self.mongo_db = mongo_db
-        self.events_received_status_from_probe_sender = None
+        self.events_received_status_from_probe_sender = {}
 
         # Requests to commands_multiplexer: handler STATUS registration
         registration_response = registration_handler_status( interested_status = "aoi",
@@ -56,20 +56,20 @@ class Age_of_Information_Coordinator:
         self.mqtt_client.publish_on_command_topic(probe_id = probe_sender, complete_command=json.dumps(json_ping_start))
 
     
-    def send_disable_ntp_service(self, probe_sender, json_paylod):
+    def send_disable_ntp_service(self, probe_sender, json_payload):
         json_ping_start = {
             "handler": "aoi",
             "command": "disable_ntp_service",
-            "payload": json_paylod
+            "payload": json_payload
         }
         self.mqtt_client.publish_on_command_topic(probe_id = probe_sender, complete_command=json.dumps(json_ping_start))
 
 
-    def send_enable_ntp_service(self, probe_sender, json_paylod):
+    def send_enable_ntp_service(self, probe_sender, json_payload):
         json_ping_start = {
             "handler": "aoi",
             "command": "enable_ntp_service",
-            "payload": json_paylod
+            "payload": json_payload
         }
         self.mqtt_client.publish_on_command_topic(probe_id = probe_sender, complete_command=json.dumps(json_ping_start))
 
@@ -131,7 +131,7 @@ class Age_of_Information_Coordinator:
 
     def probes_preparer_to_measurements(self, new_measurement : MeasurementModelMongo):
         new_measurement.assign_id()
-        msm_id = new_measurement._id
+        msm_id = str(new_measurement._id)
 
         source_probe_ip = self.ask_probe_ip(new_measurement.source_probe)
         if source_probe_ip is None:
@@ -146,7 +146,7 @@ class Age_of_Information_Coordinator:
                 "probe_ntp_server": new_measurement.dest_probe_ip,
                 "msm_id": msm_id }
         
-        self.events_received_ack_from_probe_sender[msm_id] = [threading.Event(), None]
+        self.events_received_status_from_probe_sender[msm_id] = [threading.Event(), None]
         self.send_disable_ntp_service(probe_sender = new_measurement.source_probe, json_payload=json_disable_ntp_service_payload)
         self.events_received_status_from_probe_sender[msm_id][0].wait(timeout = 5)        
 
@@ -154,7 +154,7 @@ class Age_of_Information_Coordinator:
         if event_disable_msg == "OK":
             json_start_payload = { "msm_id": msm_id }
 
-            self.events_received_ack_from_probe_sender[msm_id] = [threading.Event(), None]
+            self.events_received_status_from_probe_sender[msm_id] = [threading.Event(), None]
             self.send_probe_aoi_start(probe_sender = new_measurement.source_probe, json_payload=json_start_payload)
             self.events_received_status_from_probe_sender[msm_id][0].wait(timeout = 5)       
 
