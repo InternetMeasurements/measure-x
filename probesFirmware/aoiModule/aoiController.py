@@ -110,9 +110,9 @@ class AgeOfInformationController:
     
     
     def start_ntpsec_service(self):
-        start_command = [ "systemctl" , "start" , "ntpsec" ] #[ "sudo systemctl start ntpsec" ]
+        start_command = [ "systemctl" , "restart" , "ntpsec" ] #[ "sudo systemctl start ntpsec" ]
         
-        result = subprocess.run(start_command.split(), stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell = True)
+        result = subprocess.run(start_command, stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell = True)
         if result.returncode != 0:
             stdout_stop_command = result.stdout.decode('utf-8')
             return f"Error in staring ntsec service. Return code: {result.returncode}. STDOUT: {stdout_stop_command}"
