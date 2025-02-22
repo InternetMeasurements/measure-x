@@ -47,29 +47,50 @@ class Age_of_Information_Coordinator:
             print(f"AoI_Coordinator: registration measurement stopper failed. Reason -> {registration_response}")
 
 
-    def send_probe_aoi_start(self, probe_sender, json_payload):
+    def send_probe_aoi_measure_start(self, probe_sender, msm_id):
         json_ping_start = {
             "handler": "aoi",
             "command": "start",
-            "payload": json_payload
+            "payload": {
+                "msm_id":  msm_id
+            }
+        }
+        self.mqtt_client.publish_on_command_topic(probe_id = probe_sender, complete_command=json.dumps(json_ping_start))
+
+
+    def send_probe_aoi_measure_stop(self, probe_sender, msm_id):
+        json_ping_start = {
+            "handler": "aoi",
+            "command": "stop",
+            "payload": {
+                "msm_id":  msm_id
+            }
         }
         self.mqtt_client.publish_on_command_topic(probe_id = probe_sender, complete_command=json.dumps(json_ping_start))
 
     
-    def send_disable_ntp_service(self, probe_sender, json_payload):
+    def send_disable_ntp_service(self, probe_sender, probe_ntp_server, msm_id, socket_port, role):
         json_ping_start = {
             "handler": "aoi",
             "command": "disable_ntp_service",
-            "payload": json_payload
-        }
+            "payload": {
+                "probe_ntp_server": probe_ntp_server,
+                "socket_port": socket_port,
+                "role": role,
+                "msm_id": msm_id }
+            }
         self.mqtt_client.publish_on_command_topic(probe_id = probe_sender, complete_command=json.dumps(json_ping_start))
 
 
-    def send_enable_ntp_service(self, probe_sender, json_payload):
+    def send_enable_ntp_service(self, probe_sender, msm_id, socket_port, role):
         json_ping_start = {
             "handler": "aoi",
             "command": "enable_ntp_service",
-            "payload": json_payload
+            "payload": {
+                "msm_id": msm_id,
+                "role": role,
+                "socker_port": socket_port
+            }
         }
         self.mqtt_client.publish_on_command_topic(probe_id = probe_sender, complete_command=json.dumps(json_ping_start))
 
