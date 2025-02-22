@@ -200,5 +200,21 @@ class Age_of_Information_Coordinator:
             return "Error", f"No response from Probe: {new_measurement.source_probe}" , "Reponse Timeout"
         
     
-    def aoi_measurement_stopper(self):
-        print("AoI_Coordinator: stopper()")        
+    def aoi_measurement_stopper(self, msm_id_to_stop : str):
+        if msm_id_to_stop not in self.queued_measurements:
+            return "Error", f"Unknown aoi measurement |{msm_id_to_stop}|", "May be not started"
+        measurement_to_stop : MeasurementModelMongo = self.queued_measurements[msm_id_to_stop]
+        self.events_stop_server_ack[msm_id_to_stop] = [threading.Event(), None]
+        self.send_probe_aoi_measure_stop(probe_id = measurement_to_stop.source_probe, msm_id = msm_id_to_stop, role = "Client")
+        self.events_stop_server_ack[msm_id_to_stop][0].wait(5)
+        # ------------------------------- YOU MUST WAIT (AT MOST 5s) FOR AN ACK/NACK OF STOP COMMAND FROM DEST PROBE (AoI-SERVER)
+        stop_event_message = self.events_stop_server_ack[msm_id_to_stop][1]
+        if stop_event_message == "OK":
+            self.events_stop_server_ack[msm_id_to_stop] = [threading.Event(), None]
+            self.send_probe_aoi_measure_stop(probe_id = measurement_to_stop.dest_probe, msm_id = msm_id_to_stop, role = "Server")
+            self.events_stop_server_ack[msm_id_to_stop][0].wait(5)
+
+            return "OK", f"Measurement {msm_id_to_stop} STOPPED", None
+        if stop_event_message is not None:
+            return "Error", f"Probe |{measurement_to_stop.dest_probe}| says: |{stop_event_message}|", ""
+        return "Error", f"Can't stop the measurement -> |{msm_id_to_stop}|", f"No response from probe |{measurement_to_stop.source_probe}|"   
