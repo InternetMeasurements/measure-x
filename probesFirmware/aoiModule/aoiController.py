@@ -13,6 +13,8 @@ class AgeOfInformationController:
         self.aoi_thread = None
         self.last_measurement_id = None
         self.last_probe_ntp_server_ip = None
+        self.last_socket_port = None
+        self.last_role = None
         self._continue = False
         self._continue_lock = threading.Lock()
 
@@ -33,7 +35,7 @@ class AgeOfInformationController:
              return
          match command:
             case "start":
-                if not shared_state.set_probe_as_ready():
+                if not shared_state.set_probe_as_busy():
                     self.send_aoi_NACK(failed_command=command, error_info="PROBE BUSY", msm_id=msm_id)
                     return
                 if shared_state.get_coordinator_ip() is None:
@@ -125,7 +127,6 @@ class AgeOfInformationController:
                                            msm_id=msm_id) 
                     else:
                         self.send_aoi_NACK(failed_command=command, error_info="No AoI measurement in progress", msm_id = None)
-                    self.send_aoi_ACK(successed_command=command, msm_id=msm_id)
                 else:
                     self.send_aoi_NACK(failed_command = command, error_info = (f"Wrong role -> {role}"), msm_id = msm_id)
                 
@@ -166,7 +167,7 @@ class AgeOfInformationController:
         return "OK"
     
 
-    def stop_ntpsec_service(self, msm_id, probe_ntp_server_ip):
+    def stop_ntpsec_service(self):
         stop_command = ["sudo", "systemctl" , "stop" , "ntpsec" ] #[ "sudo systemctl stop ntpsec" ]
         
         result = subprocess.run(stop_command, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
@@ -174,13 +175,11 @@ class AgeOfInformationController:
             stdout_stop_command = result.stdout.decode('utf-8')
             stderr_stop_command = result.stderr.decode('utf-8')
             return f"Error in stopping ntsec service. Return code: {result.returncode}. STDOUT: |{stdout_stop_command}|. STDERR: |{stderr_stop_command}|"
-        self.last_probe_ntp_server_ip = probe_ntp_server_ip
-        self.last_measurement_id = msm_id
         return "OK"
     
     
     def start_ntpsec_service(self):
-        start_command = [ "sudo", "systemctl" , "restart" , "ntpsec" ] #[ "sudo systemctl start ntpsec" ]
+        start_command = [ "sudo", "systemctl" , "restart" , "ntpsec" ]
         
         result = subprocess.run(start_command, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
         stdout_stop_command = result.stdout.decode('utf-8')
@@ -221,5 +220,6 @@ class AgeOfInformationController:
         print("reset_vars()")
         self.last_measurement_id = None
         self.last_probe_ntp_server_ip = None
+        self.last_socket_port = None
+        self.last_role = None
         self.aoi_thread = None
-        self._continue = False
