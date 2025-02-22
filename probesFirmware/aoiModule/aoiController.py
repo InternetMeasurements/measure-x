@@ -1,3 +1,4 @@
+import time
 import json
 import subprocess, threading, signal
 from datetime import datetime, timezone
@@ -69,7 +70,6 @@ class AgeOfInformationController:
                     self.send_aoi_ACK(successed_command=command, msm_id=msm_id)
                 else:
                     self.send_aoi_NACK(failed_command=command, error_info=termination_message)
-                self.reset_vars()
                                 
 
     def prepare_probe_to_start_aoi_measure(self, msm_id):
@@ -79,20 +79,20 @@ class AgeOfInformationController:
 
 
     def run_aoi_measurement(self, msm_id):
-        result = subprocess.run( ['sudo', 'ntpdate', self.last_probe_ntp_server_ip], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        if result.returncode == 0:
-            while(self._continue):
+        while(self._continue):
+            result = subprocess.run( ['sudo', 'ntpdate', self.last_probe_ntp_server_ip], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            if result.returncode == 0:
                 current_time_utc = datetime.now(timezone.utc)
                 print(f"Current UTC time: {current_time_utc}")
-                threading.sleep(1)
-                
-        else:
-            self.send_aoi_NACK(failed_command="start", error_info=result.stderr.decode('utf-8'), msm_id=msm_id)
+                time.sleep(1)
+            else:
+                self.send_aoi_NACK(failed_command="start", error_info=result.stderr.decode('utf-8'), msm_id=msm_id)
+        self.reset_vars()
 
 
     def stop_aoi_thread(self) -> str:
         if self.aoi_thread is None:
-            return "Process NTPDATE not in Execution"
+            return "No AoI measure in progress"
         self._continue = False
         return "OK"
     
@@ -140,6 +140,8 @@ class AgeOfInformationController:
 
 
     def reset_vars(self):
+        print("reset_vars()")
         self.last_measurement_id = None
+        self.last_probe_ntp_server_ip = None
         self.aoi_thread = None
         self._continue = False
