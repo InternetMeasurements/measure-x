@@ -91,12 +91,14 @@ class AgeOfInformationController:
     def run_aoi_measurement(self, msm_id):
         while(self._continue):
             result = subprocess.run( ['sudo', 'ntpdate', self.last_probe_ntp_server_ip], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            stdout_command = result.stdout.decode('utf-8')
             if result.returncode == 0:
-                current_time_utc = datetime.now(timezone.utc)
-                print(f"Current UTC time: {current_time_utc}")
+                #current_time_utc = datetime.now(timezone.utc)
+                print(f"STDOUT: |{stdout_command}|")
                 time.sleep(1)
             else:
-                self.send_aoi_NACK(failed_command="start", error_info=result.stderr.decode('utf-8'), msm_id=msm_id)
+                stderr_command = result.stderr.decode('utf-8')
+                self.send_aoi_NACK(failed_command="start", error_info=stderr_command, msm_id=msm_id)
         self.reset_vars()
 
 
@@ -124,9 +126,10 @@ class AgeOfInformationController:
         start_command = [ "sudo", "systemctl" , "restart" , "ntpsec" ] #[ "sudo systemctl start ntpsec" ]
         
         result = subprocess.run(start_command, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+        stdout_stop_command = result.stdout.decode('utf-8')
         if result.returncode != 0:
-            stdout_stop_command = result.stdout.decode('utf-8')
-            return f"Error in staring ntsec service. Return code: {result.returncode}. STDOUT: {stdout_stop_command}"
+            stderr_stop_command = result.stderr.decode('utf-8')
+            return f"Error in staring ntsec service. Return code: {result.returncode}. STDOUT: |{stdout_stop_command}|. STDERR: |{stderr_stop_command}|"
         return "OK"
     
 
