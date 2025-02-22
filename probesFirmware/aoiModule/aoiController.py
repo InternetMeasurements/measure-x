@@ -100,10 +100,11 @@ class AgeOfInformationController:
     def stop_ntpsec_service(self, msm_id, probe_ntp_server_ip):
         stop_command = ["sudo", "systemctl" , "stop" , "ntpsec" ] #[ "sudo systemctl stop ntpsec" ]
         
-        result = subprocess.run(stop_command, stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell = True)
+        result = subprocess.run(stop_command, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
         if result.returncode != 0:
             stdout_stop_command = result.stdout.decode('utf-8')
-            return f"Error in stopping ntsec service. Return code: {result.returncode}. STDOUT: {stdout_stop_command}"
+            stderr_stop_command = result.stderr.decode('utf-8')
+            return f"Error in stopping ntsec service. Return code: {result.returncode}. STDOUT: |{stdout_stop_command}|. STDERR: |{stderr_stop_command}|"
         self.last_probe_ntp_server_ip = probe_ntp_server_ip
         self.last_measurement_id = msm_id
         return "OK"
@@ -112,7 +113,7 @@ class AgeOfInformationController:
     def start_ntpsec_service(self):
         start_command = [ "sudo", "systemctl" , "restart" , "ntpsec" ] #[ "sudo systemctl start ntpsec" ]
         
-        result = subprocess.run(start_command, stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell = True)
+        result = subprocess.run(start_command, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
         if result.returncode != 0:
             stdout_stop_command = result.stdout.decode('utf-8')
             return f"Error in staring ntsec service. Return code: {result.returncode}. STDOUT: {stdout_stop_command}"
