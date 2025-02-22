@@ -79,7 +79,7 @@ class AgeOfInformationController:
 
 
     def run_aoi_measurement(self, msm_id):
-        result = subprocess.run( ['sudo', 'ntpdate', shared_state.get_coordinator_ip()], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        result = subprocess.run( ['sudo', 'ntpdate', self.last_probe_ntp_server_ip], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if result.returncode == 0:
             while(self._continue):
                 current_time_utc = datetime.now(timezone.utc)
