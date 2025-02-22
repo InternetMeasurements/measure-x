@@ -71,21 +71,44 @@ class AgeOfInformationController:
                 else:
                     self.send_aoi_NACK(failed_command = command, error_info = disable_msg, msm_id = msm_id)
             case "enable_ntp_service":
-                if not shared_state.set_probe_as_ready():
-                    self.send_aoi_NACK(failed_command=command, error_info="PROBE BUSY", msm_id=msm_id)
+                role = payload["role"] if ("role" in payload) else None
+                if role is None:
+                    self.send_aoi_NACK(failed_command=command, error_info="No role provided", msm_id=msm_id)
                     return
-                enable_msg = self.start_ntpsec_service()
-                if enable_msg == "OK":
-                    self.send_aoi_ACK(successed_command = command, msm_id = msm_id)
-                else:
-                    self.send_aoi_NACK(failed_command = command, error_info = enable_msg, msm_id = msm_id)
-            case "stop":
-                msm_id = payload['msm_id']
-                termination_message = self.stop_aoi_thread()
-                if termination_message == "OK":
+                if role == "Server":
+                    if not shared_state.set_probe_as_busy():
+                        self.send_aoi_NACK(failed_command=command, error_info="PROBE BUSY", msm_id=msm_id)
+                        return
+                    socket_port = payload["socket_port"] if ("socket_port" in payload) else None
+                    if socket_port is None:
+                        self.send_aoi_NACK(failed_command=command, error_info="No socket_port provided", msm_id=msm_id)
+                        return
+                    enable_msg = self.start_ntpsec_service()
+                    if enable_msg == "OK":
+                        self.last_socket_port = socket_port
+                        self.last_role = role
+                        self.send_aoi_ACK(successed_command = command, msm_id = msm_id)
+                    else:
+                        self.send_aoi_NACK(failed_command = command, error_info = enable_msg, msm_id = msm_id)
+                elif role == "Client":
+                    if (not shared_state.probe_is_ready()) and (self.last_measurement_id == msm_id):
+                        enable_msg = self.start_ntpsec_service()
+                        if enable_msg == "OK":
+                            self.send_aoi_ACK(successed_command = command, msm_id = msm_id)
+                            shared_state.set_probe_as_ready()
+                        else:
+                            self.send_aoi_NACK(failed_command = command, error_info = enable_msg, msm_id = msm_id)
+                    elif (not shared_state.probe_is_ready()):
+                        self.send_aoi_NACK(failed_command=command, 
+                                           error_info="Measure_id MISMATCH: The provided measure_id does not correspond to the ongoing measurement", 
+                                           msm_id=msm_id) 
+                    else:
+                        self.send_aoi_NACK(failed_command=command, error_info="No AoI measurement in progress", msm_id = None)
                     self.send_aoi_ACK(successed_command=command, msm_id=msm_id)
                 else:
-                    self.send_aoi_NACK(failed_command=command, error_info=termination_message)
+                    self.send_aoi_NACK(failed_command = command, error_info = (f"Wrong role -> {role}"), msm_id = msm_id)
+                
+                
                                 
 
     def prepare_probe_to_start_aoi_measure(self, msm_id):
