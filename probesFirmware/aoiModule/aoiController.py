@@ -40,7 +40,11 @@ class AgeOfInformationController:
                     if shared_state.get_coordinator_ip() is None: # Necessary check for confirm the coordinator response of coordinator_ip
                         self.send_aoi_NACK(failed_command="start", error_info = "No response from coordinator. Missing coordinator ip for root service", msm_id=msm_id)
                         return
-                self.prepare_probe_to_start_aoi_measure(msm_id=msm_id)
+                returned_msg = self.prepare_probe_to_start_aoi_measure(msm_id=msm_id)
+                if returned_msg == "OK":
+                    self.send_aoi_ACK(successed_command=command, msm_id=msm_id)
+                else:
+                    self.send_aoi_NACK(failed_command=command, error_info=returned_msg, msm_id=msm_id)
             case "disable_ntp_service":
                 if not shared_state.set_probe_as_ready():
                     self.send_aoi_NACK(failed_command=command, error_info="PROBE BUSY", msm_id=msm_id)
@@ -73,9 +77,15 @@ class AgeOfInformationController:
                                 
 
     def prepare_probe_to_start_aoi_measure(self, msm_id):
-        self._continue = True
-        self.aoi_thread = threading.Thread(target=self.run_aoi_measurement, args=(msm_id,))
-        self.aoi_thread.start()
+        try:
+            self._continue = True
+            self.aoi_thread = threading.Thread(target=self.run_aoi_measurement, args=(msm_id,))
+            self.aoi_thread.start()
+            return "OK"
+        except Exception as e:
+            returned_msg = (f"AoIController: exception while starting measure thread -> {str(e)}")
+            print(returned_msg)
+            return returned_msg
 
 
     def run_aoi_measurement(self, msm_id):
