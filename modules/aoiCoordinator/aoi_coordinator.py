@@ -162,42 +162,49 @@ class Age_of_Information_Coordinator:
             return "Error", f"No response from client probe: {new_measurement.dest_probe}", "Reponse Timeout"
         new_measurement.source_probe_ip = source_probe_ip
         new_measurement.dest_probe_ip = dest_probe_ip
-
-        json_disable_ntp_service_payload = {
-                "probe_ntp_server": new_measurement.dest_probe_ip,
-                "msm_id": msm_id }
         
         self.events_received_status_from_probe_sender[msm_id] = [threading.Event(), None]
-        self.send_disable_ntp_service(probe_sender = new_measurement.source_probe, json_payload=json_disable_ntp_service_payload)
+        self.send_enable_ntp_service(probe_sender=new_measurement.dest_probe,msm_id=msm_id, socket_port = DEFAULT_SOCKET_PORT, role="Server")
         self.events_received_status_from_probe_sender[msm_id][0].wait(timeout = 5)        
 
-        event_disable_msg = self.events_received_status_from_probe_sender[msm_id][1]
-        if event_disable_msg == "OK":
-            json_start_payload = { "msm_id": msm_id }
-
+        event_enable_msg = self.events_received_status_from_probe_sender[msm_id][1]
+        if event_enable_msg == "OK":            
             self.events_received_status_from_probe_sender[msm_id] = [threading.Event(), None]
-            self.send_probe_aoi_start(probe_sender = new_measurement.source_probe, json_payload=json_start_payload)
-            self.events_received_status_from_probe_sender[msm_id][0].wait(timeout = 5)       
+            self.send_disable_ntp_service(probe_sender = new_measurement.source_probe, probe_ntp_server=new_measurement.dest_probe_ip, 
+                                          msm_id = msm_id, socket_port = DEFAULT_SOCKET_PORT, role = "Client")
+            self.events_received_status_from_probe_sender[msm_id][0].wait(5)
 
-            event_start_msg = self.events_received_status_from_probe_sender[msm_id][1]
-            if event_start_msg == "OK":
-                inserted_measurement_id = self.mongo_db.insert_measurement(measure = new_measurement)
-                if inserted_measurement_id is None:
-                    print(f"AoI_Coordinator: can't start aoi. Error while storing ping measurement on Mongo")
-                    return "Error", "Can't send start! Error while inserting measurement aoi in mongo", "MongoDB Down?"
-                return "OK", new_measurement.to_dict(), None
-            elif event_start_msg is not None:
-                print(f"Preparer AoI: awaked from server conf NACK -> {event_start_msg}")
-                return "Error", f"Probe |{new_measurement.source_probe}| says: {event_start_msg}", "State BUSY"
-            else:
-                print(f"Preparer AoI: No response from probe -> |{new_measurement.source_probe}")
-                return "Error", f"No response from Probe: {new_measurement.source_probe}" , "Reponse Timeout"   
-        elif event_disable_msg is not None:
-            print(f"Preparer AoI: awaked from server conf NACK -> {event_disable_msg}")
-            return "Error", f"Probe |{new_measurement.source_probe}| says: {event_disable_msg}", "State BUSY"            
+            event_disable_msg = self.events_received_status_from_probe_sender[msm_id][1]
+            if event_disable_msg == "OK":
+                """
+                    Prima di avviare lo start alla probe2, devi avviare il NTP server sulla probe4!
+                    Controlla perchè sulla probe2 dice STATE READY ancor prima di inviare l'aCk di start
+                """
+
+                self.events_received_status_from_probe_sender[msm_id] = [threading.Event(), None]
+                self.send_probe_aoi_measure_start(probe_sender = new_measurement.source_probe, msm_id = msm_id)
+                self.events_received_status_from_probe_sender[msm_id][0].wait(timeout = 5)       
+
+                event_start_msg = self.events_received_status_from_probe_sender[msm_id][1]
+                if event_start_msg == "OK":
+                    self.queued_measurements[msm_id] = new_measurement
+                    inserted_measurement_id = self.mongo_db.insert_measurement(measure = new_measurement)
+                    if inserted_measurement_id is None:
+                        print(f"AoI_Coordinator: can't start aoi. Error while storing ping measurement on Mongo")
+                        return "Error", "Can't send start! Error while inserting measurement aoi in mongo", "MongoDB Down?"
+                    return "OK", new_measurement.to_dict(), None
+                elif event_start_msg is not None:
+                    print(f"Preparer AoI: awaked from server conf NACK -> {event_start_msg}")
+                    return "Error", f"Probe |{new_measurement.source_probe}| says: {event_start_msg}", ""
+                else:
+                    print(f"Preparer AoI: No response from probe -> |{new_measurement.source_probe}")
+                    return "Error", f"No response from Probe: {new_measurement.source_probe}" , "Reponse Timeout"   
+        elif event_enable_msg is not None:
+            print(f"Preparer AoI: awaked from server conf NACK -> {event_enable_msg}")
+            return "Error", f"Probe |{new_measurement.dest_probe}| says: {event_enable_msg}", ""            
         else:
-            print(f"Preparer AoI: No response from probe -> |{new_measurement.source_probe}")
-            return "Error", f"No response from Probe: {new_measurement.source_probe}" , "Reponse Timeout"
+            print(f"Preparer AoI: No response from probe -> |{new_measurement.dest_probe}")
+            return "Error", f"No response from Probe: {new_measurement.dest_probe}" , "Reponse Timeout"
         
     
     def aoi_measurement_stopper(self, msm_id_to_stop : str):
