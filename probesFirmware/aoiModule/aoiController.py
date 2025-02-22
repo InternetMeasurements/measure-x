@@ -14,6 +14,7 @@ class AgeOfInformationController:
         self.last_measurement_id = None
         self.last_probe_ntp_server_ip = None
         self._continue = False
+        self._continue_lock = threading.Lock()
 
         self.wait_for_set_coordinator_ip = wait_for_set_coordinator_ip
 
@@ -113,7 +114,7 @@ class AgeOfInformationController:
 
     def prepare_probe_to_start_aoi_measure(self, msm_id):
         try:
-            self._continue = True
+            self.set_continue_value(True)
             self.aoi_thread = threading.Thread(target=self.run_aoi_measurement, args=(msm_id,))
             self.aoi_thread.start()
             return "OK"
@@ -124,7 +125,7 @@ class AgeOfInformationController:
 
 
     def run_aoi_measurement(self, msm_id):
-        while(self._continue):
+        while(self.get_continue_value()):
             result = subprocess.run( ['sudo', 'ntpdate', self.last_probe_ntp_server_ip], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             stdout_command = result.stdout.decode('utf-8')
             if result.returncode == 0:
@@ -134,13 +135,14 @@ class AgeOfInformationController:
             else:
                 stderr_command = result.stderr.decode('utf-8')
                 self.send_aoi_NACK(failed_command="start", error_info=stderr_command, msm_id=msm_id)
-        self.reset_vars()
-
+                break
+           
 
     def stop_aoi_thread(self) -> str:
         if self.aoi_thread is None:
             return "No AoI measure in progress"
-        self._continue = False
+        self.set_continue_value(False)
+        self.aoi_thread.join()
         return "OK"
     
 
@@ -186,6 +188,14 @@ class AgeOfInformationController:
         print(f"AoIController: NACK sending -> {json_nack}")
         self.mqtt_client.publish_command_NACK(handler='aoi', payload = json_nack) 
 
+
+    def get_continue_value(self):
+        with self._continue_lock:
+            return self._continue
+    
+    def set_continue_value(self, _continue):
+        with self._continue_lock:
+            self._continue = _continue
 
     def reset_vars(self):
         print("reset_vars()")
