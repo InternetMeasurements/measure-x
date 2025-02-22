@@ -2,6 +2,8 @@ import threading, json
 from modules.mqttModule.mqtt_client import Mqtt_Client
 from modules.mongoModule.mongoDB import MongoDB, MeasurementModelMongo
 
+DEFAULT_SOCKET_PORT = 50505
+
 class Age_of_Information_Coordinator:
 
     def __init__(self, mqtt_client : Mqtt_Client, registration_handler_error, registration_handler_status,
@@ -10,7 +12,9 @@ class Age_of_Information_Coordinator:
         self.mqtt_client = mqtt_client
         self.ask_probe_ip = ask_probe_ip
         self.mongo_db = mongo_db
+        self.queued_measurements = {}
         self.events_received_status_from_probe_sender = {}
+        self.events_stop_server_ack = {}
 
         # Requests to commands_multiplexer: handler STATUS registration
         registration_response = registration_handler_status( interested_status = "aoi",
@@ -95,12 +99,9 @@ class Age_of_Information_Coordinator:
         self.mqtt_client.publish_on_command_topic(probe_id = probe_sender, complete_command=json.dumps(json_ping_start))
 
 
-        
-
     def handler_received_result(self):
         return
     
-
     
     def handler_received_status(self, probe_sender, type, payload : json):
         msm_id = payload["msm_id"] if "msm_id" in payload else None
