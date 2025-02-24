@@ -166,6 +166,7 @@ class AgeOfInformationController:
             return "OK"
         except Exception as e:
             print(f"AoIController: Exception while creating socket -> {str(e)}")
+            self.measure_socket.close()
             return str(e)
                 
 
@@ -234,13 +235,13 @@ class AgeOfInformationController:
         self.stop_thread_event.set()
         self.aoi_thread.join()
         self.stop_thread_event.clear()
+        self.measure_socket.close()
         shared_state.set_probe_as_ready()
         return "OK"
     
 
     def stop_ntpsec_service(self):
         stop_command = ["sudo", "systemctl" , "stop" , "ntpsec" ] #[ "sudo systemctl stop ntpsec" ]
-        
         result = subprocess.run(stop_command, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
         if result.returncode != 0:
             stdout_stop_command = result.stdout.decode('utf-8')
@@ -251,7 +252,6 @@ class AgeOfInformationController:
     
     def start_ntpsec_service(self):
         start_command = [ "sudo", "systemctl" , "restart" , "ntpsec" ]
-        
         result = subprocess.run(start_command, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
         stdout_stop_command = result.stdout.decode('utf-8')
         if result.returncode != 0:
