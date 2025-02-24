@@ -136,7 +136,7 @@ class AgeOfInformationController:
                         socket_creation_msg = self.create_socket()
                         if socket_creation_msg == "OK":
                             self.create_thread_to_aoi_measure(msm_id)
-                            self.send_aoi_ACK(successed_command = command, msm_id = msm_id)
+                            #self.send_aoi_ACK(successed_command = command, msm_id = msm_id)
                         else:
                             self.send_aoi_NACK(failed_command=command, error_info=socket_creation_msg, msm_id=msm_id)
                     else:
@@ -217,6 +217,7 @@ class AgeOfInformationController:
                     fieldnames = ["Timestamp", "AoI"]
                     writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
                     writer.writeheader()
+                    self.send_aoi_ACK(successed_command="start", msm_id=msm_id)
                     while(not self.stop_thread_event.is_set()):
                         data, addr = self.measure_socket.recvfrom(1024)
                         receive_time = time.perf_counter()
