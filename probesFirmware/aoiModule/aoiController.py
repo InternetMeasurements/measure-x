@@ -197,6 +197,7 @@ class AgeOfInformationController:
                 if stderr_command is not None:
                     self.send_aoi_NACK(failed_command="start", error_info=stderr_command, msm_id=msm_id)
         elif self.last_role == "Server":
+            receive_error = None
             try:
                 data, addr = self.measure_socket.recvfrom(1024)
                 receive_time = time.perf_counter()
@@ -207,7 +208,11 @@ class AgeOfInformationController:
                 self.last_update_time = receive_time
                 print(f"Ricevuto: {data.decode()} da {addr}")
             except socket.error as e:
+                receive_error = str(e)
                 print(f"Errore socket: {e}")
+            finally:
+                if receive_error is not None:
+                    self.send_aoi_NACK(failed_command="start", error_info=receive_error, msm_id=msm_id)
 
     def stop_aoi_thread(self) -> str:
         if self.aoi_thread is None:
