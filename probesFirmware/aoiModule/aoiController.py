@@ -291,10 +291,12 @@ class AgeOfInformationController:
         aoi_measurement_file_path = os.path.join(base_path, DEFAULT_AoI_MEASUREMENT_FOLDER, msm_id + ".csv")
         df = pd.read_csv(aoi_measurement_file_path)
 
-        # MEASURE TIMESERIES COMPRESSION
-        data = df.to_dict(orient='records')
-        compressed_data = cbor2.dumps(data)
-        compressed_data_b64 = base64.b64encode(compressed_data).decode("utf-8")
+        # MEASURE AoI-TIMESERIES COMPRESSION
+        aois = df.to_dict(orient='records')
+        compressed_aois = cbor2.dumps(aois)
+        c_aois_b64 = base64.b64encode(compressed_aois).decode("utf-8")
+        aoi_min = df["AoI"].min()
+        aoi_max = df["AoI"].max()
 
         # MEASURE RESULT MESSAGE
         json_energy_result = {
@@ -302,7 +304,9 @@ class AgeOfInformationController:
             "type": "result",
             "payload": {
                 "msm_id": msm_id,
-                "c_data_b64": compressed_data_b64,
+                "c_aois_b64": c_aois_b64,
+                "aoi_min" : aoi_min,
+                "aoi_max" : aoi_max
              }
         }
         self.mqtt_client.publish_on_result_topic(result=json.dumps(json_energy_result))
