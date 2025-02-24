@@ -79,14 +79,17 @@ class AgeOfInformationController:
                 probe_ntp_server_ip = payload["probe_ntp_server"] if ("probe_ntp_server" in payload) else None
                 if probe_ntp_server_ip is None:
                     self.send_aoi_NACK(failed_command=command, error_info="No probe-ntp-server provided", msm_id=msm_id)
+                    shared_state.set_probe_as_ready()
                     return
                 socket_port = payload["socket_port"] if ("socket_port" in payload) else None
                 if socket_port is None:
                     self.send_aoi_NACK(failed_command=command, error_info="No socket port provided", msm_id=msm_id)
+                    shared_state.set_probe_as_ready()
                     return
                 role = payload["role"] if ("role" in payload) else None
                 if socket_port is None:
                     self.send_aoi_NACK(failed_command=command, error_info="No role provided", msm_id=msm_id)
+                    shared_state.set_probe_as_ready()
                     return
                 disable_msg = self.stop_ntpsec_service()
                 if disable_msg == "OK":
@@ -101,6 +104,7 @@ class AgeOfInformationController:
                         self.send_aoi_NACK(failed_command = command, error_info = socket_creation_msg, msm_id = msm_id)
                 else:
                     self.send_aoi_NACK(failed_command = command, error_info = disable_msg, msm_id = msm_id)
+                    shared_state.set_probe_as_ready()
             case "enable_ntp_service":
                 role = payload["role"] if ("role" in payload) else None
                 if role is None:
@@ -113,6 +117,7 @@ class AgeOfInformationController:
                     socket_port = payload["socket_port"] if ("socket_port" in payload) else None
                     if socket_port is None:
                         self.send_aoi_NACK(failed_command=command, error_info="No socket_port provided", msm_id=msm_id)
+                        shared_state.set_probe_as_ready()
                         return
                     enable_msg = self.start_ntpsec_service()
                     if enable_msg == "OK":
@@ -125,6 +130,7 @@ class AgeOfInformationController:
                             self.send_aoi_ACK(successed_command = command, msm_id = msm_id)
                     else:
                         self.send_aoi_NACK(failed_command = command, error_info = enable_msg, msm_id = msm_id)
+                        shared_state.set_probe_as_ready()
                 elif role == "Client":
                     if (not shared_state.probe_is_ready()) and (self.last_measurement_id == msm_id):
                         enable_msg = self.start_ntpsec_service()
