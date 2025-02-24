@@ -70,6 +70,7 @@ class AgeOfInformationController:
                                            error_info="Measure_id MISMATCH: The provided measure_id does not correspond to the ongoing measurement", 
                                            msm_id=msm_id)
                     return
+                print("stopping...")
                 termination_message = self.stop_aoi_thread()
                 if termination_message == "OK":
                     self.send_aoi_ACK(successed_command=command, msm_id=msm_id)
@@ -134,8 +135,7 @@ class AgeOfInformationController:
                         self.last_measurement_id = msm_id
                         socket_creation_msg = self.create_socket()
                         if socket_creation_msg == "OK":
-                            self.aoi_thread = threading.Thread(target=self.run_aoi_measurement, args=(msm_id,))
-                            self.aoi_thread.start()
+                            self.create_thread_to_aoi_measure(msm_id)
                             self.send_aoi_ACK(successed_command = command, msm_id = msm_id)
                         else:
                             self.send_aoi_NACK(failed_command=command, error_info=socket_creation_msg, msm_id=msm_id)
@@ -164,6 +164,7 @@ class AgeOfInformationController:
         try:
             self.measure_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             self.measure_socket.bind((shared_state.get_probe_ip(), self.last_socket_port))
+            self.measure_socket.settimeout(4)
             return "OK"
         except socket.error as e:
             print(f"AoIController: Socket error while creating socket -> {str(e)}")
@@ -224,6 +225,8 @@ class AgeOfInformationController:
                         aoi = receive_time - client_timestamp
                         writer.writerow({"Timestamp": receive_time, "AoI": aoi})
                         print(f"Timestamp: |{receive_time}| , AoI: |{aoi:.6f}|")
+                except socket.timeout:
+                    pass
                 except Exception as e:
                     receive_error = str(e)
                 finally:
