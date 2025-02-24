@@ -177,11 +177,6 @@ class Age_of_Information_Coordinator:
 
             event_disable_msg = self.events_received_status_from_probe_sender[msm_id][1]
             if event_disable_msg == "OK":
-                """
-                    Prima di avviare lo start alla probe2, devi avviare il NTP server sulla probe4!
-                    Controlla perchè sulla probe2 dice STATE READY ancor prima di inviare l'aCk di start
-                """
-
                 self.events_received_status_from_probe_sender[msm_id] = [threading.Event(), None]
                 self.send_probe_aoi_measure_start(probe_sender = new_measurement.source_probe, msm_id = msm_id)
                 self.events_received_status_from_probe_sender[msm_id][0].wait(timeout = 5)       
