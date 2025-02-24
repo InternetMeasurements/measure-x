@@ -128,6 +128,8 @@ class AgeOfInformationController:
                             self.aoi_thread = threading.Thread(target=self.run_aoi_measurement, args=(msm_id,))
                             self.aoi_thread.start()
                             self.send_aoi_ACK(successed_command = command, msm_id = msm_id)
+                        else:
+                            self.send_aoi_NACK(failed_command=command, error_info=socket_creation_msg, msm_id=msm_id)
                     else:
                         self.send_aoi_NACK(failed_command = command, error_info = enable_msg, msm_id = msm_id)
                         shared_state.set_probe_as_ready()
@@ -151,11 +153,11 @@ class AgeOfInformationController:
                 
     def create_socket(self):
         try:
-            self.measure_socket = socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self.measure_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             self.measure_socket.bind(shared_state.get_probe_ip(), self.last_socket_port)
             return "OK"
         except Exception as e:
-            print(f"AoIController: exception while creating socket -> {str(e)}")
+            print(f"AoIController: Exception while creating socket -> {str(e)}")
             return str(e)
                 
 
