@@ -188,6 +188,7 @@ class AgeOfInformationController:
 
     def run_aoi_measurement(self, msm_id):
         if self.last_role == "Client":
+            print("Role client thread")
             stderr_command = None
             try:
                 result = subprocess.run( ['sudo', 'ntpdate', self.last_probe_ntp_server_ip], stdout=subprocess.PIPE, stderr=subprocess.PIPE)

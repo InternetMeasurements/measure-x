@@ -192,7 +192,7 @@ class Age_of_Information_Coordinator:
             if event_disable_msg == "OK":
                 self.events_received_status_from_probe_sender[msm_id] = [threading.Event(), None]
                 self.send_probe_aoi_measure_start(probe_sender = new_measurement.source_probe, msm_id = msm_id)
-                self.events_received_status_from_probe_sender[msm_id][0].wait(timeout = 5)       
+                self.events_received_status_from_probe_sender[msm_id][0].wait(timeout = 5)
 
                 event_start_msg = self.events_received_status_from_probe_sender[msm_id][1]
                 if event_start_msg == "OK":
