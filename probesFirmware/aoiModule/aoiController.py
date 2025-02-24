@@ -39,22 +39,27 @@ class AgeOfInformationController:
              return
          match command:
             case "start":
-                if not shared_state.set_probe_as_busy():
-                    self.send_aoi_NACK(failed_command=command, error_info="PROBE BUSY", msm_id=msm_id)
-                    return
-                if shared_state.get_coordinator_ip() is None:
-                    self.wait_for_set_coordinator_ip()
-                    if shared_state.get_coordinator_ip() is None: # Necessary check for confirm the coordinator response of coordinator_ip
-                        self.send_aoi_NACK(failed_command="start", error_info = "No response from coordinator. Missing coordinator ip for root service", msm_id=msm_id)
+                if (not shared_state.probe_is_ready()):
+                    if self.last_measurement_id != msm_id:
+                        self.send_aoi_NACK(failed_command=command, 
+                                           error_info="Measure_id MISMATCH: The provided measure_id does not correspond to the ongoing measurement",
+                                           msm_id=msm_id)
                         return
-                returned_msg = self.prepare_probe_to_start_aoi_measure(msm_id=msm_id)
-                if returned_msg == "OK":
-                    self.send_aoi_ACK(successed_command=command, msm_id=msm_id)
+                    if shared_state.get_coordinator_ip() is None:
+                        self.wait_for_set_coordinator_ip() # BLOCKING METHOD!
+                        if shared_state.get_coordinator_ip() is None: # Necessary check for confirm the coordinator response of coordinator_ip
+                            self.send_aoi_NACK(failed_command="start", error_info = "No response from coordinator. Missing coordinator ip for root service", msm_id=msm_id)
+                            return
+                    returned_msg = self.create_thread_to_aoi_measure(msm_id = msm_id)
+                    if returned_msg == "OK":
+                        self.send_aoi_ACK(successed_command = command, msm_id = msm_id)
+                    else:
+                        self.send_aoi_NACK(failed_command = command, error_info = returned_msg, msm_id = msm_id)
                 else:
-                    self.send_aoi_NACK(failed_command=command, error_info=returned_msg, msm_id=msm_id)
+                    self.send_aoi_NACK(failed_command = command, error_info = "No AoI measurement in progress", msm_id = msm_id)
             case "stop":
                 if shared_state.probe_is_ready():
-                    self.send_aoi_NACK(failed_command=command, error_info="No AoI measurement in progress", msm_id=msm_id)
+                    self.send_aoi_NACK(failed_command = command, error_info = "No AoI measurement in progress", msm_id = msm_id)
                     return
                 if self.last_measurement_id != msm_id:
                     self.send_aoi_NACK(failed_command=command, 
@@ -161,7 +166,7 @@ class AgeOfInformationController:
             return str(e)
                 
 
-    def prepare_probe_to_start_aoi_measure(self, msm_id):
+    def create_thread_to_aoi_measure(self, msm_id):
         try:
             self.set_continue_value(True)
             self.aoi_thread = threading.Thread(target=self.run_aoi_measurement, args=(msm_id,))
