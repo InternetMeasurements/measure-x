@@ -1,6 +1,7 @@
 import time
 import json
 import subprocess, threading, signal
+import socket
 from datetime import datetime, timezone
 from mqttModule.mqttClient import ProbeMqttClient
 from shared_resources import shared_state
@@ -10,13 +11,16 @@ class AgeOfInformationController:
     def __init__(self, mqtt_client : ProbeMqttClient, registration_handler_request_function, wait_for_set_coordinator_ip):
         
         self.mqtt_client = mqtt_client
-        self.aoi_thread = None
         self.last_measurement_id = None
         self.last_probe_ntp_server_ip = None
         self.last_socket_port = None
         self.last_role = None
         self._continue = False
         self._continue_lock = threading.Lock()
+        self.measure_socket = None
+
+        self.aoi_thread = None
+        self.aoi_server_thread = None
 
         self.wait_for_set_coordinator_ip = wait_for_set_coordinator_ip
 
@@ -90,7 +94,11 @@ class AgeOfInformationController:
                     self.last_probe_ntp_server_ip = probe_ntp_server_ip
                     self.last_socket_port = socket_port
                     self.last_role = role
-                    self.send_aoi_ACK(successed_command = command, msm_id = msm_id)
+                    socket_creation_msg = self.create_socket()
+                    if socket_creation_msg == "OK":
+                        self.send_aoi_ACK(successed_command = command, msm_id = msm_id)
+                    else:
+                        self.send_aoi_NACK(failed_command = command, error_info = socket_creation_msg, msm_id = msm_id)
                 else:
                     self.send_aoi_NACK(failed_command = command, error_info = disable_msg, msm_id = msm_id)
             case "enable_ntp_service":
@@ -110,7 +118,11 @@ class AgeOfInformationController:
                     if enable_msg == "OK":
                         self.last_socket_port = socket_port
                         self.last_role = role
-                        self.send_aoi_ACK(successed_command = command, msm_id = msm_id)
+                        socket_creation_msg = self.create_socket()
+                        if socket_creation_msg == "OK":
+                            self.aoi_thread = threading.Thread(target=self.run_aoi_measurement, args=(msm_id,))
+                            self.aoi_thread.start()
+                            self.send_aoi_ACK(successed_command = command, msm_id = msm_id)
                     else:
                         self.send_aoi_NACK(failed_command = command, error_info = enable_msg, msm_id = msm_id)
                 elif role == "Client":
@@ -131,7 +143,15 @@ class AgeOfInformationController:
                     self.send_aoi_NACK(failed_command = command, error_info = (f"Wrong role -> {role}"), msm_id = msm_id)
                 
                 
-                                
+    def create_socket(self):
+        try:
+            self.measure_socket = socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self.measure_socket.bind(shared_state.get_probe_ip(), self.last_socket_port)
+            return "OK"
+        except Exception as e:
+            print(f"AoIController: exception while creating socket -> {str(e)}")
+            return str(e)
+                
 
     def prepare_probe_to_start_aoi_measure(self, msm_id):
         try:
@@ -146,18 +166,31 @@ class AgeOfInformationController:
 
 
     def run_aoi_measurement(self, msm_id):
-        while(self.get_continue_value()):
+        if self.last_role == "Client":
             result = subprocess.run( ['sudo', 'ntpdate', self.last_probe_ntp_server_ip], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            stdout_command = result.stdout.decode('utf-8')
             if result.returncode == 0:
-                #current_time_utc = datetime.now(timezone.utc)
-                print(f"STDOUT: |{stdout_command}|")
-                time.sleep(1)
+                while(self.get_continue_value()):
+                        timestamp_message = {
+                            "timestamp": time.perf_counter()
+                        }
+                        json_timestamp = json.dumps(timestamp_message)
+                        self.sock.sendto(json_timestamp.encode(), (self.last_probe_ntp_server_ip, self.last_socket_port))
+                        time.sleep(1)
             else:
                 stderr_command = result.stderr.decode('utf-8')
                 self.send_aoi_NACK(failed_command="start", error_info=stderr_command, msm_id=msm_id)
-                break
-           
+        elif self.last_role == "Server":
+            try:
+                data, addr = self.measure_socket.recvfrom(1024)
+                receive_time = time.perf_counter()
+                if self.last_update_time is not None:
+                    aoi = receive_time - self.last_update_time
+                    print(f"AoI: {aoi:.6f} secondi")
+                
+                self.last_update_time = receive_time
+                print(f"Ricevuto: {data.decode()} da {addr}")
+            except socket.error as e:
+                print(f"Errore socket: {e}")
 
     def stop_aoi_thread(self) -> str:
         if self.aoi_thread is None:
