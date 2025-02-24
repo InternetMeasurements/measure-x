@@ -208,6 +208,7 @@ class AgeOfInformationController:
                 self.last_update_time = receive_time
                 print(f"Ricevuto: {data.decode()} da {addr}")
             except Exception as e:
+                print(f"Exception -> {e}")
                 receive_error = str(e)
             finally:
                 if receive_error is not None:
