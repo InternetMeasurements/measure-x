@@ -180,18 +180,22 @@ class AgeOfInformationController:
 
     def run_aoi_measurement(self, msm_id):
         if self.last_role == "Client":
-            result = subprocess.run( ['sudo', 'ntpdate', self.last_probe_ntp_server_ip], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            if result.returncode == 0:
-                while(self.get_continue_value()):
-                        timestamp_message = {
-                            "timestamp": time.perf_counter()
-                        }
-                        json_timestamp = json.dumps(timestamp_message)
-                        self.sock.sendto(json_timestamp.encode(), (self.last_probe_ntp_server_ip, self.last_socket_port))
-                        time.sleep(1)
-            else:
+            stderr_command = None
+            try:
+                result = subprocess.run( ['sudo', 'ntpdate', self.last_probe_ntp_server_ip], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                if result.returncode == 0:
+                    while(self.get_continue_value()):
+                            timestamp_message = {
+                                "timestamp": time.perf_counter()
+                            }
+                            json_timestamp = json.dumps(timestamp_message)
+                            self.measure_socket.sendto(json_timestamp.encode(), (self.last_probe_ntp_server_ip, self.last_socket_port))
+                            time.sleep(1)
+            except Exception as e:
                 stderr_command = result.stderr.decode('utf-8')
-                self.send_aoi_NACK(failed_command="start", error_info=stderr_command, msm_id=msm_id)
+            finally:
+                if stderr_command is not None:
+                    self.send_aoi_NACK(failed_command="start", error_info=stderr_command, msm_id=msm_id)
         elif self.last_role == "Server":
             try:
                 data, addr = self.measure_socket.recvfrom(1024)
