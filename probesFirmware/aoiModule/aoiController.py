@@ -191,6 +191,7 @@ class AgeOfInformationController:
                             }
                             json_timestamp = json.dumps(timestamp_message)
                             self.measure_socket.sendto(json_timestamp.encode(), (self.last_probe_ntp_server_ip, self.last_socket_port))
+                            print("AoI client: sending...")
                             time.sleep(1)
             except Exception as e:
                 stderr_command = result.stderr.decode('utf-8')
@@ -200,6 +201,7 @@ class AgeOfInformationController:
         elif self.last_role == "Server":
             receive_error = None
             try:
+                print("Aoi server: receive...")
                 data, addr = self.measure_socket.recvfrom(1024)
                 receive_time = time.perf_counter()
                 if self.last_update_time is not None:
