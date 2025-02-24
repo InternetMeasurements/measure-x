@@ -1,6 +1,9 @@
 import threading, json
+import cbor2, base64
+from bson import ObjectId
 from modules.mqttModule.mqtt_client import Mqtt_Client
 from modules.mongoModule.mongoDB import MongoDB, MeasurementModelMongo
+from modules.mongoModule.models.age_of_information_model_mongo import AgeOfInformationResultModelMongo
 
 DEFAULT_SOCKET_PORT = 50505
 
@@ -99,8 +102,13 @@ class Age_of_Information_Coordinator:
         self.mqtt_client.publish_on_command_topic(probe_id = probe_sender, complete_command=json.dumps(json_ping_start))
 
 
-    def handler_received_result(self):
-        return
+    def handler_received_result(self, probe_sender, result):
+        msm_id = payload["msm_id"] if "msm_id" in payload else None
+        if msm_id is None:
+            print(f"AoI_Coordinator: received result from probe |{probe_sender}| -> No measure_id provided. IGNORE.")
+            return
+        self.store_measurement_result(probe_sender=probe_sender, result=result)
+        
     
     
     def handler_received_status(self, probe_sender, type, payload : json):
@@ -221,3 +229,34 @@ class Age_of_Information_Coordinator:
         if stop_event_message is not None:
             return "Error", f"Probe |{measurement_to_stop.dest_probe}| says: |{stop_event_message}|", ""
         return "Error", f"Can't stop the measurement -> |{msm_id_to_stop}|", f"No response from probe |{measurement_to_stop.source_probe}|"   
+    
+
+    def store_measurement_result(self, probe_sender, result : json):
+        msm_id = result["msm_id"] if "msm_id" in result else None
+        if msm_id is None:
+            print(f"AoI_Coordinator: received result from probe |{probe_sender}| -> No measure_id provided. IGNORE.")
+            return
+        c_aois_b64 = result["c_aois_b64"] if ("c_aois_b64" in result) else None
+        if c_aois_b64 is None:
+            print(f"AoI_Coordinator: WARNING -> received result without AoI-timeseries , measure_id -> {result['msm_id']}")
+            return
+        aois_b64 = base64.b64decode(c_aois_b64)
+        aois = cbor2.loads(aois_b64)
+
+        mongo_aoi_result = AgeOfInformationResultModelMongo(
+            msm_id = ObjectId(msm_id),
+            aois=aois,
+            aoi_min = result["aoi_min"],
+            aoi_max = result["aoi_max"]
+        )
+
+        result_id = str(self.mongo_db.insert_iperf_result(result = mongo_aoi_result))
+        if result_id is not None:
+            print(f"AoI_Coordinator: result |{result_id}| stored in db")
+        else:
+            print(f"AoI_Coordinator: error while storing result |{result_id}|")
+
+        if self.mongo_db.update_results_array_in_measurement(msm_id=msm_id):
+            print(f"AoI_Coordinator: updated document linking in measure: |{msm_id}|")
+        if self.mongo_db.set_measurement_as_completed(msm_id):
+            print(f"AoI_Coordinator: measurement |{msm_id}| completed ")
