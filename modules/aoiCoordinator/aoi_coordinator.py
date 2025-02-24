@@ -93,7 +93,7 @@ class Age_of_Information_Coordinator:
             "payload": {
                 "msm_id": msm_id,
                 "role": role,
-                "socker_port": socket_port
+                "socket_port": socket_port
             }
         }
         self.mqtt_client.publish_on_command_topic(probe_id = probe_sender, complete_command=json.dumps(json_ping_start))
