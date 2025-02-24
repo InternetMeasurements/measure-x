@@ -226,6 +226,7 @@ class AgeOfInformationController:
                         writer.writerow({"Timestamp": receive_time, "AoI": aoi})
                         print(f"Timestamp: |{receive_time}| , AoI: |{aoi:.6f}|")
                 except socket.timeout:
+                    print("SOCKET TIMEOUT")
                     pass
                 except Exception as e:
                     receive_error = str(e)
