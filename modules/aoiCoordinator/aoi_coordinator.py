@@ -103,11 +103,11 @@ class Age_of_Information_Coordinator:
 
 
     def handler_received_result(self, probe_sender, result):
-        msm_id = payload["msm_id"] if "msm_id" in payload else None
+        msm_id = result["msm_id"] if "msm_id" in result else None
         if msm_id is None:
             print(f"AoI_Coordinator: received result from probe |{probe_sender}| -> No measure_id provided. IGNORE.")
             return
-        self.store_measurement_result(probe_sender=probe_sender, result=result)
+        self.store_measurement_result(probe_sender = probe_sender, result = result)
         
     
     
@@ -221,18 +221,25 @@ class Age_of_Information_Coordinator:
             return "Error", f"Unknown aoi measurement |{msm_id_to_stop}|", "May be not started"
         measurement_to_stop : MeasurementModelMongo = self.queued_measurements[msm_id_to_stop]
         self.events_stop_server_ack[msm_id_to_stop] = [threading.Event(), None]
+        # Stop sending to the Client-AoI-Probe
         self.send_probe_aoi_measure_stop(probe_sender = measurement_to_stop.source_probe, msm_id = msm_id_to_stop)
         self.events_stop_server_ack[msm_id_to_stop][0].wait(5)
         # ------------------------------- YOU MUST WAIT (AT MOST 5s) FOR AN ACK/NACK OF STOP COMMAND FROM DEST PROBE (AoI-SERVER)
         stop_event_message = self.events_stop_server_ack[msm_id_to_stop][1]
         if stop_event_message == "OK":
             self.events_stop_server_ack[msm_id_to_stop] = [threading.Event(), None]
+            # Stop sending to the Server-AoI-Probe
             self.send_probe_aoi_measure_stop(probe_sender = measurement_to_stop.dest_probe, msm_id = msm_id_to_stop)
             self.events_stop_server_ack[msm_id_to_stop][0].wait(5)
 
-            return "OK", f"Measurement {msm_id_to_stop} STOPPED", None
+            stop_event_message = self.events_stop_server_ack[msm_id_to_stop][1]
+            if stop_event_message == "OK":
+                return "OK", f"Measurement {msm_id_to_stop} STOPPED", None
+            if stop_event_message is not None:
+                return "Error", f"Probe |{measurement_to_stop.dest_probe}| says: |{stop_event_message}|", ""
+            return "Error", f"Can't stop the measurement -> |{msm_id_to_stop}|", f"No response from probe |{measurement_to_stop.dest_probe}|"   
         if stop_event_message is not None:
-            return "Error", f"Probe |{measurement_to_stop.dest_probe}| says: |{stop_event_message}|", ""
+            return "Error", f"Probe |{measurement_to_stop.source_probe}| says: |{stop_event_message}|", ""
         return "Error", f"Can't stop the measurement -> |{msm_id_to_stop}|", f"No response from probe |{measurement_to_stop.source_probe}|"   
     
 

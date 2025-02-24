@@ -191,6 +191,7 @@ class AgeOfInformationController:
             try:
                 result = subprocess.run( ['sudo', 'ntpdate', self.last_probe_ntp_server_ip], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 if result.returncode == 0:
+                    print(f"AoIController: clock synced with {self.last_probe_ntp_server_ip}")
                     while(not self.stop_thread_event.is_set()):
                             timestamp_message = {
                                 "timestamp": time.perf_counter()
@@ -232,6 +233,9 @@ class AgeOfInformationController:
                     csv_file.close()
             if receive_error is None:
                 self.compress_and_publish_aoi_result(msm_id = msm_id)
+            else:
+                print("non inviato")
+            shared_state.set_probe_as_ready()
 
     def stop_aoi_thread(self) -> str:
         if self.aoi_thread is None:
@@ -240,7 +244,6 @@ class AgeOfInformationController:
         self.aoi_thread.join()
         self.stop_thread_event.clear()
         self.measure_socket.close()
-        shared_state.set_probe_as_ready()
         return "OK"
     
 
