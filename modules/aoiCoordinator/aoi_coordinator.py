@@ -125,6 +125,11 @@ class Age_of_Information_Coordinator:
                         if msm_id in self.events_received_status_from_probe_sender:
                             self.events_received_status_from_probe_sender[msm_id][1] = "OK"
                             self.events_received_status_from_probe_sender[msm_id][0].set()
+                    case "stop":
+                        print(f"AoI_Coordinator: ACK from probe |{probe_sender}|->|stop| , measurement_id -> |{msm_id}|")
+                        if msm_id in self.events_received_status_from_probe_sender:
+                            self.events_received_status_from_probe_sender[msm_id][1] = "OK"
+                            self.events_received_status_from_probe_sender[msm_id][0].set()
                     case "disable_ntp_service":
                         print(f"AoI_Coordinator: ACK from probe |{probe_sender}| , command: |{command_executed_on_probe}| , msm_id: |{msm_id}|")
                         if msm_id in self.events_received_status_from_probe_sender:
@@ -216,13 +221,13 @@ class Age_of_Information_Coordinator:
             return "Error", f"Unknown aoi measurement |{msm_id_to_stop}|", "May be not started"
         measurement_to_stop : MeasurementModelMongo = self.queued_measurements[msm_id_to_stop]
         self.events_stop_server_ack[msm_id_to_stop] = [threading.Event(), None]
-        self.send_probe_aoi_measure_stop(probe_id = measurement_to_stop.source_probe, msm_id = msm_id_to_stop, role = "Client")
+        self.send_probe_aoi_measure_stop(probe_sender = measurement_to_stop.source_probe, msm_id = msm_id_to_stop)
         self.events_stop_server_ack[msm_id_to_stop][0].wait(5)
         # ------------------------------- YOU MUST WAIT (AT MOST 5s) FOR AN ACK/NACK OF STOP COMMAND FROM DEST PROBE (AoI-SERVER)
         stop_event_message = self.events_stop_server_ack[msm_id_to_stop][1]
         if stop_event_message == "OK":
             self.events_stop_server_ack[msm_id_to_stop] = [threading.Event(), None]
-            self.send_probe_aoi_measure_stop(probe_id = measurement_to_stop.dest_probe, msm_id = msm_id_to_stop, role = "Server")
+            self.send_probe_aoi_measure_stop(probe_sender = measurement_to_stop.dest_probe, msm_id = msm_id_to_stop)
             self.events_stop_server_ack[msm_id_to_stop][0].wait(5)
 
             return "OK", f"Measurement {msm_id_to_stop} STOPPED", None
