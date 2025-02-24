@@ -164,7 +164,7 @@ class AgeOfInformationController:
         try:
             self.measure_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             self.measure_socket.bind((shared_state.get_probe_ip(), self.last_socket_port))
-            self.measure_socket.settimeout(4)
+            #self.measure_socket.settimeout(4)
             return "OK"
         except socket.error as e:
             print(f"AoIController: Socket error while creating socket -> {str(e)}")
