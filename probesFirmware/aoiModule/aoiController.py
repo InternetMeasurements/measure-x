@@ -207,12 +207,12 @@ class AgeOfInformationController:
                 
                 self.last_update_time = receive_time
                 print(f"Ricevuto: {data.decode()} da {addr}")
-            except socket.error as e:
+            except Exception as e:
                 receive_error = str(e)
-                print(f"Errore socket: {e}")
             finally:
                 if receive_error is not None:
                     self.send_aoi_NACK(failed_command="start", error_info=receive_error, msm_id=msm_id)
+                    print(f"Exception in socket reception: {e}")
 
     def stop_aoi_thread(self) -> str:
         if self.aoi_thread is None:
