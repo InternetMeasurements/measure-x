@@ -15,6 +15,7 @@ class AgeOfInformationController:
         self.last_probe_ntp_server_ip = None
         self.last_socket_port = None
         self.last_role = None
+        self.last_update_time = None
         self._continue = False
         self._continue_lock = threading.Lock()
         self.measure_socket = None
@@ -208,7 +209,6 @@ class AgeOfInformationController:
                 self.last_update_time = receive_time
                 print(f"Ricevuto: {data.decode()} da {addr}")
             except Exception as e:
-                print(f"Exception -> {e}")
                 receive_error = str(e)
             finally:
                 if receive_error is not None:
