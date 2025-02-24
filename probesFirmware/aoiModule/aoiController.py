@@ -240,6 +240,8 @@ class AgeOfInformationController:
             else:
                 print("non inviato")
             shared_state.set_probe_as_ready()
+        else:
+            print(f"THREA START WITH STRANGE ROLE -> {self.last_role}")
 
     def stop_aoi_thread(self) -> str:
         if self.aoi_thread is None:
