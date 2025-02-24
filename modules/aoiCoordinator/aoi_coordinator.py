@@ -127,9 +127,9 @@ class Age_of_Information_Coordinator:
                             self.events_received_status_from_probe_sender[msm_id][0].set()
                     case "stop":
                         print(f"AoI_Coordinator: ACK from probe |{probe_sender}|->|stop| , measurement_id -> |{msm_id}|")
-                        if msm_id in self.events_received_status_from_probe_sender:
-                            self.events_received_status_from_probe_sender[msm_id][1] = "OK"
-                            self.events_received_status_from_probe_sender[msm_id][0].set()
+                        if msm_id in self.events_stop_server_ack:
+                            self.events_stop_server_ack[msm_id][1] = "OK"
+                            self.events_stop_server_ack[msm_id][0].set()
                     case "disable_ntp_service":
                         print(f"AoI_Coordinator: ACK from probe |{probe_sender}| , command: |{command_executed_on_probe}| , msm_id: |{msm_id}|")
                         if msm_id in self.events_received_status_from_probe_sender:

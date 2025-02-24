@@ -131,6 +131,7 @@ class AgeOfInformationController:
                     if enable_msg == "OK":
                         self.last_socket_port = socket_port
                         self.last_role = role
+                        self.last_measurement_id = msm_id
                         socket_creation_msg = self.create_socket()
                         if socket_creation_msg == "OK":
                             self.aoi_thread = threading.Thread(target=self.run_aoi_measurement, args=(msm_id,))
