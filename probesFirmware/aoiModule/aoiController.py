@@ -1,10 +1,14 @@
+import os, csv
 import time
 import json
 import subprocess, threading, signal
 import socket
-from datetime import datetime, timezone
+import base64, cbor2, pandas as pd
+from pathlib import Path
 from mqttModule.mqttClient import ProbeMqttClient
 from shared_resources import shared_state
+
+DEFAULT_AoI_MEASUREMENT_FOLDER = "aoi_measurements"
 
 """ Class that implements the AGE OF INFORMATION measurement funcionality """
 class AgeOfInformationController:
@@ -16,8 +20,7 @@ class AgeOfInformationController:
         self.last_socket_port = None
         self.last_role = None
         self.last_update_time = None
-        self._continue = False
-        self._continue_lock = threading.Lock()
+        self.stop_thread_event = threading.Event()
         self.measure_socket = None
 
         self.aoi_thread = None
@@ -67,16 +70,15 @@ class AgeOfInformationController:
                                            error_info="Measure_id MISMATCH: The provided measure_id does not correspond to the ongoing measurement", 
                                            msm_id=msm_id)
                     return
-                if self.last_role == "Cient":
-                    termination_message = self.stop_aoi_thread()
-                    if termination_message == "OK":
-                        self.send_aoi_ACK(successed_command=command, msm_id=msm_id)
-                    else:
-                        self.send_aoi_NACK(failed_command=command, error_info=termination_message)
-                elif self.last_role == "Server":
+                termination_message = self.stop_aoi_thread()
+                if termination_message == "OK":
+                    self.send_aoi_ACK(successed_command=command, msm_id=msm_id)
+                else:
+                    self.send_aoi_NACK(failed_command=command, error_info=termination_message)
+                
                     # Dovrei aver creato un file di misurazioni, tipo quello dell'energy, da leggere ed inviare con MQTT al coordinator
                     # Ricordati di creare da entrambi i lati, server e client, i SOCKET sulla porta self.last_socker_port
-                    print()
+                
              
             case "disable_ntp_service":
                 if not shared_state.set_probe_as_busy():
@@ -169,7 +171,6 @@ class AgeOfInformationController:
 
     def create_thread_to_aoi_measure(self, msm_id):
         try:
-            self.set_continue_value(True)
             self.aoi_thread = threading.Thread(target=self.run_aoi_measurement, args=(msm_id,))
             self.aoi_thread.start()
             return "OK"
@@ -185,7 +186,7 @@ class AgeOfInformationController:
             try:
                 result = subprocess.run( ['sudo', 'ntpdate', self.last_probe_ntp_server_ip], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 if result.returncode == 0:
-                    while(self.get_continue_value()):
+                    while(not self.stop_thread_event.is_set()):
                             timestamp_message = {
                                 "timestamp": time.perf_counter()
                             }
@@ -200,28 +201,40 @@ class AgeOfInformationController:
                     self.send_aoi_NACK(failed_command="start", error_info=stderr_command, msm_id=msm_id)
         elif self.last_role == "Server":
             receive_error = None
-            try:
-                print("Aoi server: receive...")
-                data, addr = self.measure_socket.recvfrom(1024)
-                receive_time = time.perf_counter()
-                if self.last_update_time is not None:
-                    aoi = receive_time - self.last_update_time
-                    print(f"AoI: {aoi:.6f} secondi")
-                
-                self.last_update_time = receive_time
-                print(f"Ricevuto: {data.decode()} da {addr}")
-            except Exception as e:
-                receive_error = str(e)
-            finally:
-                if receive_error is not None:
-                    self.send_aoi_NACK(failed_command="start", error_info=receive_error, msm_id=msm_id)
-                    print(f"Exception in socket reception: {e}")
+            base_path = Path(__file__).parent
+            aoi_measurement_folder_path = os.path.join(base_path, DEFAULT_AoI_MEASUREMENT_FOLDER)
+            Path(aoi_measurement_folder_path).mkdir(parents=True, exist_ok=True)
+            complete_file_path = os.path.join(aoi_measurement_folder_path, msm_id + ".csv")
+            with open(complete_file_path, mode="w", newline="") as csv_file:
+                try:
+                    fieldnames = ["Timestamp", "AoI"]
+                    writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+                    writer.writeheader()
+                    while(not self.stop_thread_event.is_set()):
+                        data, addr = self.measure_socket.recvfrom(1024)
+                        receive_time = time.perf_counter()
+                        json_data = json.loads(data.decode())
+                        client_timestamp = json_data.get("timestamp", None)
+                        aoi = receive_time - client_timestamp
+                        writer.writerow({"Timestamp": receive_time, "AoI": aoi})
+                        print(f"Timestamp: |{receive_time}| , AoI: |{aoi:.6f}|")
+                except Exception as e:
+                    receive_error = str(e)
+                finally:
+                    if receive_error is not None:
+                        self.send_aoi_NACK(failed_command="start", error_info=receive_error, msm_id=msm_id)
+                        print(f"Exception in socket reception: {e}")
+                    csv_file.close()
+            if receive_error is None:
+                self.compress_and_publish_aoi_result(msm_id = msm_id)
 
     def stop_aoi_thread(self) -> str:
         if self.aoi_thread is None:
             return "No AoI measure in progress"
-        self.set_continue_value(False)
+        self.stop_thread_event.set()
         self.aoi_thread.join()
+        self.stop_thread_event.clear()
+        shared_state.set_probe_as_ready()
         return "OK"
     
 
@@ -265,15 +278,6 @@ class AgeOfInformationController:
         print(f"AoIController: NACK sending -> {json_nack}")
         self.mqtt_client.publish_command_NACK(handler='aoi', payload = json_nack) 
 
-
-    def get_continue_value(self):
-        with self._continue_lock:
-            return self._continue
-    
-    def set_continue_value(self, _continue):
-        with self._continue_lock:
-            self._continue = _continue
-
     def reset_vars(self):
         print("reset_vars()")
         self.last_measurement_id = None
@@ -281,3 +285,25 @@ class AgeOfInformationController:
         self.last_socket_port = None
         self.last_role = None
         self.aoi_thread = None
+
+    def compress_and_publish_aoi_result(self, msm_id):
+        base_path = Path(__file__).parent
+        aoi_measurement_file_path = os.path.join(base_path, DEFAULT_AoI_MEASUREMENT_FOLDER, msm_id + ".csv")
+        df = pd.read_csv(aoi_measurement_file_path)
+
+        # MEASURE TIMESERIES COMPRESSION
+        data = df.to_dict(orient='records')
+        compressed_data = cbor2.dumps(data)
+        compressed_data_b64 = base64.b64encode(compressed_data).decode("utf-8")
+
+        # MEASURE RESULT MESSAGE
+        json_energy_result = {
+            "handler": "aoi",
+            "type": "result",
+            "payload": {
+                "msm_id": msm_id,
+                "c_data_b64": compressed_data_b64,
+             }
+        }
+        self.mqtt_client.publish_on_result_topic(result=json.dumps(json_energy_result))
+        print(f"AoIController: compressed and published result of msm -> {msm_id}")
