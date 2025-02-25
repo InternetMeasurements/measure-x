@@ -17,6 +17,7 @@ class AgeOfInformationController:
         self.mqtt_client = mqtt_client
         self.last_measurement_id = None
         self.last_probe_ntp_server_ip = None
+        self.last_probe_server_aoi = None
         self.last_socket_port = None
         self.last_role = None
         self.last_update_time = None
@@ -101,10 +102,16 @@ class AgeOfInformationController:
                     self.send_aoi_NACK(failed_command=command, error_info="No role provided", msm_id=msm_id)
                     shared_state.set_probe_as_ready()
                     return
+                last_probe_server_aoi = payload["probe_server_aoi"] if ("probe_server_aoi" in payload) else None
+                if last_probe_server_aoi is None:
+                    self.send_aoi_NACK(failed_command=command, error_info="No server aoi provided", msm_id=msm_id)
+                    shared_state.set_probe_as_ready()
+                    return
                 disable_msg = self.stop_ntpsec_service()
                 if disable_msg == "OK":
                     self.last_measurement_id = msm_id
                     self.last_probe_ntp_server_ip = probe_ntp_server_ip
+                    self.last_probe_server_aoi = last_probe_server_aoi
                     self.last_socket_port = socket_port
                     self.last_role = role
                     socket_creation_msg = self.create_socket()
@@ -204,7 +211,7 @@ class AgeOfInformationController:
                                 "timestamp": time.perf_counter()
                             }
                             json_timestamp = json.dumps(timestamp_message)
-                            self.measure_socket.sendto(json_timestamp.encode(), (self.last_probe_ntp_server_ip, self.last_socket_port))
+                            self.measure_socket.sendto(json_timestamp.encode(), (self.last_probe_server_aoi, self.last_socket_port))
                 else:
                     raise Exception(result.stderr.decode('utf-8'))
                     #print(f"AoIController: returncode -> {result.returncode}. STDOUT: {result.stdout.decode('utf-8')} , STDERR: {result.stderr.decode('utf-8')}")
@@ -308,6 +315,7 @@ class AgeOfInformationController:
         self.last_socket_port = None
         self.last_role = None
         self.aoi_thread = None
+        self.last_probe_server_aoi = None
 
     def compress_and_publish_aoi_result(self, msm_id):
         base_path = Path(__file__).parent

@@ -76,12 +76,13 @@ class Age_of_Information_Coordinator:
         self.mqtt_client.publish_on_command_topic(probe_id = probe_sender, complete_command=json.dumps(json_ping_start))
 
     
-    def send_disable_ntp_service(self, probe_sender, probe_ntp_server, msm_id, socket_port, role):
+    def send_disable_ntp_service(self, probe_sender, probe_ntp_server, probe_server_aoi, msm_id, socket_port, role):
         json_ping_start = {
             "handler": "aoi",
             "command": "disable_ntp_service",
             "payload": {
                 "probe_ntp_server": probe_ntp_server,
+                "probe_server_aoi": probe_server_aoi,
                 "socket_port": socket_port,
                 "role": role,
                 "msm_id": msm_id }
@@ -182,10 +183,11 @@ class Age_of_Information_Coordinator:
         self.send_enable_ntp_service(probe_sender=new_measurement.dest_probe,msm_id=msm_id, socket_port = DEFAULT_SOCKET_PORT, role="Server")
         self.events_received_status_from_probe_sender[msm_id][0].wait(timeout = 5)        
 
-        event_enable_msg = self.events_received_status_from_probe_sender[msm_id][1]
+        event_enable_msg = self.events_received_status_from_probe_sender[msm_id][1]        
         if event_enable_msg == "OK":            
             self.events_received_status_from_probe_sender[msm_id] = [threading.Event(), None]
-            self.send_disable_ntp_service(probe_sender = new_measurement.source_probe, probe_ntp_server = dest_probe_ip_for_clock_sync, 
+            self.send_disable_ntp_service(probe_sender = new_measurement.source_probe, probe_ntp_server = dest_probe_ip_for_clock_sync,
+                                          probe_server_aoi=new_measurement.dest_probe_ip, 
                                           msm_id = msm_id, socket_port = DEFAULT_SOCKET_PORT, role = "Client")
             self.events_received_status_from_probe_sender[msm_id][0].wait(5)
 
@@ -203,7 +205,9 @@ class Age_of_Information_Coordinator:
                         print(f"AoI_Coordinator: can't start aoi. Error while storing ping measurement on Mongo")
                         return "Error", "Can't send start! Error while inserting measurement aoi in mongo", "MongoDB Down?"
                     return "OK", new_measurement.to_dict(), None
-                elif event_start_msg is not None:
+                
+                self.send_probe_aoi_measure_stop(probe_sender=new_measurement.dest_probe, msm_id=msm_id)
+                if event_start_msg is not None:
                     print(f"Preparer AoI: awaked from server conf NACK -> {event_start_msg}")
                     return "Error", f"Probe |{new_measurement.source_probe}| says: {event_start_msg}", ""
                 else:
