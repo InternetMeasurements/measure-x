@@ -162,7 +162,6 @@ class Age_of_Information_Coordinator:
                             self.events_received_status_from_probe_sender[msm_id][0].set()
                     case _:
                         print(f"AoI_Coordinator: NACK received for unkonwn AoI command -> {command_executed_on_probe}")
-    
 
     def probes_preparer_to_measurements(self, new_measurement : MeasurementModelMongo):
         new_measurement.assign_id()

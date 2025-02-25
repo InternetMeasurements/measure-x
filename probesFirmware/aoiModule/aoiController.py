@@ -43,10 +43,10 @@ class AgeOfInformationController:
              return
          match command:
             case "start":
-                if (not shared_state.probe_is_ready()):
-                    if self.last_measurement_id != msm_id:
+                if (not shared_state.probe_is_ready()): # If the probe has an on-going measurement...
+                    if self.last_measurement_id != msm_id: # If this ongoing measurement is not the one mentioned in the command
                         self.send_aoi_NACK(failed_command=command, 
-                                           error_info="PROBE BUSY",
+                                           error_info="PROBE BUSY", # This error info can be also a MISMATCH error, but in this case is the same
                                            msm_id=msm_id)
                         return
                     if shared_state.get_coordinator_ip() is None:
@@ -83,7 +83,6 @@ class AgeOfInformationController:
                     # Dovrei aver creato un file di misurazioni, tipo quello dell'energy, da leggere ed inviare con MQTT al coordinator
                     # Ricordati di creare da entrambi i lati, server e client, i SOCKET sulla porta self.last_socker_port
                 
-             
             case "disable_ntp_service":
                 if not shared_state.set_probe_as_busy():
                     self.send_aoi_NACK(failed_command=command, error_info="PROBE BUSY", msm_id=msm_id)
@@ -214,7 +213,6 @@ class AgeOfInformationController:
                 if stderr_command is not None:
                     self.send_aoi_NACK(failed_command="start", error_info=stderr_command, msm_id=msm_id)
         elif self.last_role == "Server":
-            print("Role server thread")
             receive_error = None
             base_path = Path(__file__).parent
             aoi_measurement_folder_path = os.path.join(base_path, DEFAULT_AoI_MEASUREMENT_FOLDER)
@@ -225,7 +223,8 @@ class AgeOfInformationController:
                     fieldnames = ["Timestamp", "AoI"]
                     writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
                     writer.writeheader()
-                    self.send_aoi_ACK(successed_command="start", msm_id=msm_id)
+                    print("Role server thread")
+                    #self.send_aoi_ACK(successed_command="start", msm_id=msm_id)
                     while(not self.stop_thread_event.is_set()):
                         data, addr = self.measure_socket.recvfrom(1024)
                         receive_time = time.perf_counter()
