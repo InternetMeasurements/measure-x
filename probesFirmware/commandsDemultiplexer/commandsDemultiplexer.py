@@ -1,5 +1,4 @@
 import json
-import threading
 from mqttModule.mqttClient import ProbeMqttClient
 from shared_resources import shared_state
 
