@@ -271,7 +271,7 @@ class Age_of_Information_Coordinator:
             aoi_max = result["aoi_max"]
         )
 
-        result_id = str(self.mongo_db.insert_iperf_result(result = mongo_aoi_result))
+        result_id = str(self.mongo_db.insert_result(result = mongo_aoi_result))
         if result_id is not None:
             print(f"AoI_Coordinator: result |{result_id}| stored in db")
         else:
