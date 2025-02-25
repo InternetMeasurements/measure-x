@@ -173,6 +173,8 @@ class AgeOfInformationController:
         try:
             self.measure_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             self.measure_socket.bind((shared_state.get_probe_ip(), self.last_socket_port))
+            if self.last_role == "Server":
+                self.measure_socket.settimeout(8)
             print(f"Socket aperto, IP: |{shared_state.get_probe_ip()}| , porta: |{self.last_socket_port}|")
             #self.measure_socket.settimeout(10)
             return "OK"
@@ -243,7 +245,8 @@ class AgeOfInformationController:
                         writer.writerow({"Timestamp": receive_time, "AoI": aoi})
                         print(f"Timestamp: |{receive_time}| , AoI: |{aoi:.6f}|")
                 except socket.timeout:
-                    print("SOCKET TIMEOUT")
+                    print("AoIController: SOCKET TIMEOUT. The client probe is down?")
+                    self.send_aoi_NACK(failed_command="run", error_info="SOCKET TIMEOUT", msm_id=msm_id)
                     pass
                 except Exception as e:
                     receive_error = str(e)
