@@ -171,11 +171,13 @@ class Age_of_Information_Coordinator:
         source_probe_ip = self.ask_probe_ip(new_measurement.source_probe)
         if source_probe_ip is None:
             return "Error", f"No response from client probe: {new_measurement.source_probe}", "Reponse Timeout"
-        dest_probe_ip = self.ask_probe_ip(new_measurement.dest_probe)
-        if dest_probe_ip is None:
+        dest_probe_ip = self.ask_probe_ip(new_measurement.dest_probe) # This call, will trigger the setting of Ip, (both the ip and the sync_clock_ip)
+        if dest_probe_ip is None: # This ip is only used to check if the probe is ONLINE. See later, the used ip is the "clock_sync_ip"
             return "Error", f"No response from client probe: {new_measurement.dest_probe}", "Reponse Timeout"
         new_measurement.source_probe_ip = source_probe_ip
         new_measurement.dest_probe_ip = dest_probe_ip
+
+        dest_probe_ip_for_clock_sync = self.ask_probe_ip(new_measurement.dest_probe, sync_clock_ip = True)
         
         self.events_received_status_from_probe_sender[msm_id] = [threading.Event(), None]
         self.send_enable_ntp_service(probe_sender=new_measurement.dest_probe,msm_id=msm_id, socket_port = DEFAULT_SOCKET_PORT, role="Server")
@@ -184,7 +186,7 @@ class Age_of_Information_Coordinator:
         event_enable_msg = self.events_received_status_from_probe_sender[msm_id][1]
         if event_enable_msg == "OK":            
             self.events_received_status_from_probe_sender[msm_id] = [threading.Event(), None]
-            self.send_disable_ntp_service(probe_sender = new_measurement.source_probe, probe_ntp_server=new_measurement.dest_probe_ip, 
+            self.send_disable_ntp_service(probe_sender = new_measurement.source_probe, probe_ntp_server = dest_probe_ip_for_clock_sync, 
                                           msm_id = msm_id, socket_port = DEFAULT_SOCKET_PORT, role = "Client")
             self.events_received_status_from_probe_sender[msm_id][0].wait(5)
 
@@ -221,15 +223,15 @@ class Age_of_Information_Coordinator:
             return "Error", f"Unknown aoi measurement |{msm_id_to_stop}|", "May be not started"
         measurement_to_stop : MeasurementModelMongo = self.queued_measurements[msm_id_to_stop]
         self.events_stop_server_ack[msm_id_to_stop] = [threading.Event(), None]
-        # Stop sending to the Client-AoI-Probe
-        self.send_probe_aoi_measure_stop(probe_sender = measurement_to_stop.source_probe, msm_id = msm_id_to_stop)
+        # Stop sending to the Server-AoI-Probe
+        self.send_probe_aoi_measure_stop(probe_sender = measurement_to_stop.dest_probe, msm_id = msm_id_to_stop)
         self.events_stop_server_ack[msm_id_to_stop][0].wait(5)
         # ------------------------------- YOU MUST WAIT (AT MOST 5s) FOR AN ACK/NACK OF STOP COMMAND FROM DEST PROBE (AoI-SERVER)
         stop_event_message = self.events_stop_server_ack[msm_id_to_stop][1]
         if stop_event_message == "OK":
             self.events_stop_server_ack[msm_id_to_stop] = [threading.Event(), None]
-            # Stop sending to the Server-AoI-Probe
-            self.send_probe_aoi_measure_stop(probe_sender = measurement_to_stop.dest_probe, msm_id = msm_id_to_stop)
+            # Stop sending to the Client-AoI-Probe
+            self.send_probe_aoi_measure_stop(probe_sender = measurement_to_stop.source_probe, msm_id = msm_id_to_stop)
             self.events_stop_server_ack[msm_id_to_stop][0].wait(5)
 
             stop_event_message = self.events_stop_server_ack[msm_id_to_stop][1]
