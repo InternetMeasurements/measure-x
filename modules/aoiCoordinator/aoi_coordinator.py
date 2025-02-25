@@ -237,7 +237,7 @@ class Age_of_Information_Coordinator:
         stop_event_message = self.events_stop_server_ack[msm_id_to_stop][1]
         stop_server_message_error = stop_event_message if (stop_event_message != "OK") else None
 
-        if "MISMATCH" in stop_server_message_error:
+        if (stop_server_message_error is not None) and ("MISMATCH" in stop_server_message_error):
             return "Error", f"Probe |{measurement_to_stop.dest_probe}| says: |{stop_server_message_error}|", "Probe already busy for different measurement"
 
         self.events_stop_server_ack[msm_id_to_stop] = [threading.Event(), None]
