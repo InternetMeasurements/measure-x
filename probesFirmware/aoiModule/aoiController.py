@@ -203,6 +203,8 @@ class AgeOfInformationController:
                             }
                             json_timestamp = json.dumps(timestamp_message)
                             self.measure_socket.sendto(json_timestamp.encode(), (self.last_probe_ntp_server_ip, self.last_socket_port))
+                else:
+                    print(f"AoIController: returncode -> {result.returncode}. STDOUT: {result.stdout.decode('utf-8')} , STDERR: {result.stderr.decode('utf-8')}")
             except Exception as e:
                 stderr_command = result.stderr.decode('utf-8')
             finally:
