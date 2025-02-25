@@ -46,7 +46,7 @@ class AgeOfInformationController:
                 if (not shared_state.probe_is_ready()):
                     if self.last_measurement_id != msm_id:
                         self.send_aoi_NACK(failed_command=command, 
-                                           error_info="Measure_id MISMATCH: The provided measure_id does not correspond to the ongoing measurement",
+                                           error_info="PROBE BUSY",
                                            msm_id=msm_id)
                         return
                     if shared_state.get_coordinator_ip() is None:
@@ -75,9 +75,11 @@ class AgeOfInformationController:
                 termination_message = self.stop_aoi_thread()
                 if termination_message == "OK":
                     self.send_aoi_ACK(successed_command=command, msm_id=msm_id)
+                    self.reset_vars()
                 else:
                     self.send_aoi_NACK(failed_command=command, error_info=termination_message)
-                
+                shared_state.set_probe_as_ready()
+
                     # Dovrei aver creato un file di misurazioni, tipo quello dell'energy, da leggere ed inviare con MQTT al coordinator
                     # Ricordati di creare da entrambi i lati, server e client, i SOCKET sulla porta self.last_socker_port
                 
