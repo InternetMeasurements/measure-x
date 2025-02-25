@@ -90,7 +90,7 @@ class Age_of_Information_Coordinator:
         self.mqtt_client.publish_on_command_topic(probe_id = probe_sender, complete_command=json.dumps(json_ping_start))
 
 
-    def send_enable_ntp_service(self, probe_sender, msm_id, socket_port, role):
+    def send_enable_ntp_service(self, probe_sender, msm_id, socket_port = None, role = None):
         json_ping_start = {
             "handler": "aoi",
             "command": "enable_ntp_service",
@@ -235,21 +235,41 @@ class Age_of_Information_Coordinator:
         self.events_stop_server_ack[msm_id_to_stop][0].wait(5)
         # ------------------------------- YOU MUST WAIT (AT MOST 5s) FOR AN ACK/NACK OF STOP COMMAND FROM DEST PROBE (AoI-SERVER)
         stop_event_message = self.events_stop_server_ack[msm_id_to_stop][1]
-        if stop_event_message == "OK":
-            self.events_stop_server_ack[msm_id_to_stop] = [threading.Event(), None]
+        stop_server_message_error = stop_event_message if (stop_event_message != "OK") else None
+
+        self.events_stop_server_ack[msm_id_to_stop] = [threading.Event(), None]
+        self.send_probe_aoi_measure_stop(probe_sender = measurement_to_stop.source_probe, msm_id = msm_id_to_stop)
+        self.events_stop_server_ack[msm_id_to_stop][0].wait(5)
+        stop_event_message = self.events_stop_server_ack[msm_id_to_stop][1]
+
+        self.send_enable_ntp_service(probe_sender=measurement_to_stop.source_probe, msm_id=msm_id_to_stop)
+
+        stop_client_message_error = stop_event_message if (stop_event_message != "OK") else None
+
+        if (stop_server_message_error is None) and (stop_client_message_error is None):
+            return "OK", f"Measurement {msm_id_to_stop} STOPPED", None
+
+        if stop_server_message_error is not None:
+            return "Error", f"Probe |{measurement_to_stop.dest_probe}| says: |{stop_server_message_error}|", "AoI server may be is down"
+        
+        if stop_client_message_error is not None:
+            return "Error", f"Probe |{measurement_to_stop.source_probe}| says: |{stop_event_message}|", "AoI client may be is down"
+        
+        """
             # Stop sending to the Client-AoI-Probe
-            self.send_probe_aoi_measure_stop(probe_sender = measurement_to_stop.source_probe, msm_id = msm_id_to_stop)
-            self.events_stop_server_ack[msm_id_to_stop][0].wait(5)
+            
 
             stop_event_message = self.events_stop_server_ack[msm_id_to_stop][1]
             if stop_event_message == "OK":
-                return "OK", f"Measurement {msm_id_to_stop} STOPPED", None
+                
             if stop_event_message is not None:
-                return "Error", f"Probe |{measurement_to_stop.dest_probe}| says: |{stop_event_message}|", ""
+                
             return "Error", f"Can't stop the measurement -> |{msm_id_to_stop}|", f"No response from probe |{measurement_to_stop.dest_probe}|"   
         if stop_event_message is not None:
-            return "Error", f"Probe |{measurement_to_stop.source_probe}| says: |{stop_event_message}|", ""
+
+            
         return "Error", f"Can't stop the measurement -> |{msm_id_to_stop}|", f"No response from probe |{measurement_to_stop.source_probe}|"   
+        """
     
 
     def store_measurement_result(self, probe_sender, result : json):
