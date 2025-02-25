@@ -151,6 +151,7 @@ class ProbeMqttClient(mqtt.Client):
         }
         if (state == "ONLINE") or (state == "UPDATE"):
             json_status["payload"]["ip"] = shared_state.get_probe_ip()
+            json_status["payload"]["clock_sync_ip"] = shared_state.get_probe_ip_for_clock_sync()
         self.publish_on_status_topic(json.dumps(json_status))
 
     def publish_error(self, handler, payload):
