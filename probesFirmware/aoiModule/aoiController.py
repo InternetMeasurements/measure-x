@@ -54,9 +54,10 @@ class AgeOfInformationController:
                         if shared_state.get_coordinator_ip() is None: # Necessary check for confirm the coordinator response of coordinator_ip
                             self.send_aoi_NACK(failed_command="start", error_info = "No response from coordinator. Missing coordinator ip for root service", msm_id=msm_id)
                             return
-                    returned_msg = self.create_thread_to_aoi_measure(msm_id = msm_id)
+                    returned_msg = self.submit_thread_to_aoi_measure(msm_id = msm_id)
                     if returned_msg == "OK":
                         self.send_aoi_ACK(successed_command = command, msm_id = msm_id)
+                        self.aoi_thread.start()
                     else:
                         self.send_aoi_NACK(failed_command = command, error_info = returned_msg, msm_id = msm_id)
                 else:
@@ -135,8 +136,9 @@ class AgeOfInformationController:
                         self.last_measurement_id = msm_id
                         socket_creation_msg = self.create_socket()
                         if socket_creation_msg == "OK":
-                            self.create_thread_to_aoi_measure(msm_id)
-                            #self.send_aoi_ACK(successed_command = command, msm_id = msm_id)
+                            self.submit_thread_to_aoi_measure(msm_id)
+                            self.aoi_thread.start()
+                            self.send_aoi_ACK(successed_command = command, msm_id = msm_id)
                         else:
                             self.send_aoi_NACK(failed_command=command, error_info=socket_creation_msg, msm_id=msm_id)
                     else:
@@ -175,10 +177,9 @@ class AgeOfInformationController:
             return str(e)
                 
 
-    def create_thread_to_aoi_measure(self, msm_id):
+    def submit_thread_to_aoi_measure(self, msm_id):
         try:
             self.aoi_thread = threading.Thread(target=self.run_aoi_measurement, args=(msm_id,))
-            self.aoi_thread.start()
             return "OK"
         except Exception as e:
             returned_msg = (f"AoIController: exception while starting measure thread -> {str(e)}")
@@ -195,19 +196,20 @@ class AgeOfInformationController:
                 if result.returncode == 0:
                     print(f"AoIController: clock synced with {self.last_probe_ntp_server_ip}")
                     while(not self.stop_thread_event.is_set()):
+                            time.sleep(1)
+                            print("AoI client: sending...")
                             timestamp_message = {
                                 "timestamp": time.perf_counter()
                             }
                             json_timestamp = json.dumps(timestamp_message)
                             self.measure_socket.sendto(json_timestamp.encode(), (self.last_probe_ntp_server_ip, self.last_socket_port))
-                            print("AoI client: sending...")
-                            time.sleep(1)
             except Exception as e:
                 stderr_command = result.stderr.decode('utf-8')
             finally:
                 if stderr_command is not None:
                     self.send_aoi_NACK(failed_command="start", error_info=stderr_command, msm_id=msm_id)
         elif self.last_role == "Server":
+            print("Role server thread")
             receive_error = None
             base_path = Path(__file__).parent
             aoi_measurement_folder_path = os.path.join(base_path, DEFAULT_AoI_MEASUREMENT_FOLDER)
