@@ -56,7 +56,6 @@ class AgeOfInformationController:
                             return
                     returned_msg = self.submit_thread_to_aoi_measure(msm_id = msm_id)
                     if returned_msg == "OK":
-                        self.send_aoi_ACK(successed_command = command, msm_id = msm_id)
                         self.aoi_thread.start()
                     else:
                         self.send_aoi_NACK(failed_command = command, error_info = returned_msg, msm_id = msm_id)
@@ -197,6 +196,7 @@ class AgeOfInformationController:
                 result = subprocess.run( ['sudo', 'ntpdate', self.last_probe_ntp_server_ip], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 if result.returncode == 0:
                     print(f"AoIController: clock synced with {self.last_probe_ntp_server_ip}")
+                    self.send_aoi_ACK(successed_command = "start", msm_id = msm_id)
                     while(not self.stop_thread_event.is_set()):
                             time.sleep(1)
                             print("AoI client: sending...")
