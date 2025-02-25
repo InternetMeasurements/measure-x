@@ -42,7 +42,7 @@ class SharedState:
             return self.probe_ip
     
     def get_probe_ip_for_clock_sync(self):
-         with self.lock:
+        with self.lock:
             if (self.probe_ip_for_clock_sync is None) or (self.probe_ip_for_clock_sync == "0.0.0.0"):
                 try:
                     my_ip_for_sync = netifaces.ifaddresses("eth0")[netifaces.AF_INET][0]['addr']
