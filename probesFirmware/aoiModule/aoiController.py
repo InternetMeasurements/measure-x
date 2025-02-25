@@ -257,7 +257,7 @@ class AgeOfInformationController:
                 finally:
                     if receive_error is not None:
                         self.send_aoi_NACK(failed_command="start", error_info=receive_error, msm_id=msm_id)
-                        print(f"Exception in socket reception: {e}")
+                        print(f"Exception in socket reception: {receive_error}")
                     csv_file.close()
             if receive_error is None:
                 self.compress_and_publish_aoi_result(msm_id = msm_id)

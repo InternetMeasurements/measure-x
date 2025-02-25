@@ -90,7 +90,7 @@ class Age_of_Information_Coordinator:
         self.mqtt_client.publish_on_command_topic(probe_id = probe_sender, complete_command=json.dumps(json_ping_start))
 
 
-    def send_enable_ntp_service(self, probe_sender, msm_id, socket_port = None, role = None):
+    def send_enable_ntp_service(self, probe_sender, msm_id, role, socket_port = None):
         json_ping_start = {
             "handler": "aoi",
             "command": "enable_ntp_service",
@@ -166,7 +166,7 @@ class Age_of_Information_Coordinator:
                         if self.mongo_db.set_measurement_as_failed_by_id(measurement_id=msm_id):
                             print(f"AoI_Coordinator: measure |{msm_id}| setted as failed")
                     case _:
-                        print(f"AoI_Coordinator: NACK received for unkonwn AoI command -> {command_executed_on_probe}")
+                        print(f"AoI_Coordinator: NACK received for unkonwn AoI command -> {failed_command}")
 
     def probes_preparer_to_measurements(self, new_measurement : MeasurementModelMongo):
         new_measurement.assign_id()
@@ -237,12 +237,15 @@ class Age_of_Information_Coordinator:
         stop_event_message = self.events_stop_server_ack[msm_id_to_stop][1]
         stop_server_message_error = stop_event_message if (stop_event_message != "OK") else None
 
+        if "MISMATCH" in stop_server_message_error:
+            return "Error", f"Probe |{measurement_to_stop.dest_probe}| says: |{stop_server_message_error}|", "Probe already busy for different measurement"
+
         self.events_stop_server_ack[msm_id_to_stop] = [threading.Event(), None]
         self.send_probe_aoi_measure_stop(probe_sender = measurement_to_stop.source_probe, msm_id = msm_id_to_stop)
         self.events_stop_server_ack[msm_id_to_stop][0].wait(5)
         stop_event_message = self.events_stop_server_ack[msm_id_to_stop][1]
 
-        self.send_enable_ntp_service(probe_sender=measurement_to_stop.source_probe, msm_id=msm_id_to_stop)
+        self.send_enable_ntp_service(probe_sender=measurement_to_stop.source_probe, msm_id=msm_id_to_stop, role="Client")
 
         stop_client_message_error = stop_event_message if (stop_event_message != "OK") else None
 
