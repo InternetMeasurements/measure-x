@@ -3,7 +3,7 @@ from mqttModule.mqttClient import ProbeMqttClient
 from commandsDemultiplexer.commandsDemultiplexer import CommandsDemultiplexer
 from iperfModule.iperfController import IperfController
 from pingModule.pingController import PingController
-#from energyModule.energyController import EnergyController
+from energyModule.energyController import EnergyController
 from aoiModule.aoiController import AgeOfInformationController
 from shared_resources import shared_state
 
@@ -22,8 +22,8 @@ class Probe:
         self.ping_controller = PingController(self.mqtt_client,
                                               self.commands_demultiplexer.registration_handler_request)   # ENABLE LATENCY FUNCTIONALITY
         
-        #self.energy_controller = EnergyController(self.mqtt_client,
-        #                                          self.commands_demultiplexer.registration_handler_request) # ENABLE POWER CONSUMPTION FUNCTIONALITY
+        self.energy_controller = EnergyController(self.mqtt_client,
+                                                  self.commands_demultiplexer.registration_handler_request) # ENABLE POWER CONSUMPTION FUNCTIONALITY
         
         self.aoi_controller = AgeOfInformationController(self.mqtt_client, 
                                                          self.commands_demultiplexer.registration_handler_request,
