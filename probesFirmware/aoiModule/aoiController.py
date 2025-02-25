@@ -143,9 +143,12 @@ class AgeOfInformationController:
                         self.last_measurement_id = msm_id
                         socket_creation_msg = self.create_socket()
                         if socket_creation_msg == "OK":
-                            self.submit_thread_to_aoi_measure(msm_id)
-                            self.aoi_thread.start()
-                            self.send_aoi_ACK(successed_command = command, msm_id = msm_id)
+                            returned_msg = self.submit_thread_to_aoi_measure(msm_id = msm_id)
+                            if returned_msg == "OK":
+                                self.aoi_thread.start()
+                                self.send_aoi_ACK(successed_command = command, msm_id = msm_id)
+                            else:
+                                self.send_aoi_NACK(failed_command = command, error_info = returned_msg, msm_id = msm_id)
                         else:
                             self.send_aoi_NACK(failed_command=command, error_info=socket_creation_msg, msm_id=msm_id)
                     else:
@@ -175,7 +178,7 @@ class AgeOfInformationController:
             self.measure_socket.bind((shared_state.get_probe_ip(), self.last_socket_port))
             if self.last_role == "Server":
                 self.measure_socket.settimeout(8)
-            print(f"Socket aperto, IP: |{shared_state.get_probe_ip()}| , porta: |{self.last_socket_port}|")
+            print(f"AoIController: Opened socket on IP: |{shared_state.get_probe_ip()}| , port: |{self.last_socket_port}|")
             #self.measure_socket.settimeout(10)
             return "OK"
         except socket.error as e:
@@ -192,8 +195,8 @@ class AgeOfInformationController:
             self.aoi_thread = threading.Thread(target=self.run_aoi_measurement, args=(msm_id,))
             return "OK"
         except Exception as e:
-            returned_msg = (f"AoIController: exception while starting measure thread -> {str(e)}")
-            print(returned_msg)
+            returned_msg = (f"Exception while starting measure thread -> {str(e)}")
+            print(f"AoIController: {returned_msg}")
             return returned_msg
 
 
@@ -245,9 +248,8 @@ class AgeOfInformationController:
                         writer.writerow({"Timestamp": receive_time, "AoI": aoi})
                         print(f"Timestamp: |{receive_time}| , AoI: |{aoi:.6f}|")
                 except socket.timeout:
-                    print("AoIController: SOCKET TIMEOUT. The client probe is down?")
-                    self.send_aoi_NACK(failed_command="run", error_info="SOCKET TIMEOUT", msm_id=msm_id)
-                    pass
+                    receive_error = "SOCKET TIMEOUT. The client-probe is down?"
+                    print(f"AoIController: {receive_error}")
                 except Exception as e:
                     receive_error = str(e)
                 finally:
