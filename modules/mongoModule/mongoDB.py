@@ -63,6 +63,17 @@ class MongoDB:
                             {"$set": {"stop_time": stop_time,
                                       "state": COMPLETED_STATE} })
         return (update_result.modified_count > 0)
+
+
+    def set_measurement_as_failed_by_id(self, measurement_id : str) -> bool:
+        replace_result = self.measurements_collection.update_one(
+                            {"_id": ObjectId(measurement_id)},
+                            {"$set":{
+                                "_id": ObjectId(measurement_id),
+                                "state": FAILED_STATE
+                                }
+                            })
+        return (replace_result.modified_count > 0)
     
     
     def update_results_array_in_measurement(self, msm_id):
@@ -132,19 +143,18 @@ class MongoDB:
                                 }
                             })
         return replace_result.modified_count
-    
-
-    def set_measurement_as_failed_by_id(self, measurement_id : str) -> bool:
-        replace_result = self.measurements_collection.update_one(
-                            {"_id": ObjectId(measurement_id)},
-                            {"$set":{
-                                "_id": ObjectId(measurement_id),
-                                "state": FAILED_STATE
-                                }
-                            })
-        return (replace_result.modified_count > 0)
 
     # ------------------------------------------------- RESULTS COLLECTION -------------------------------------------------
+
+    def insert_result(self, result) -> str:
+        try:
+            insert_result = self.results_collection.insert_one(result.to_dict())
+            if insert_result.inserted_id:
+                print(f"MongoDB: result stored in mongo. Result ID -> |{insert_result.inserted_id}|")
+                return insert_result.inserted_id
+        except Exception as e:
+            print(f"MongoDB: Error while storing the result on mongo -> {e}")
+            return None
 
     def insert_iperf_result(self, result : IperfResultModelMongo) -> str:
         try:
