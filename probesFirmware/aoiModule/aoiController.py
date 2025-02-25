@@ -75,7 +75,8 @@ class AgeOfInformationController:
                 termination_message = self.stop_aoi_thread()
                 if termination_message == "OK":
                     self.send_aoi_ACK(successed_command=command, msm_id=msm_id)
-                    self.reset_vars()
+                    if self.last_role == "Server":
+                        self.reset_vars()
                 else:
                     self.send_aoi_NACK(failed_command=command, error_info=termination_message)
                 shared_state.set_probe_as_ready()
@@ -155,19 +156,20 @@ class AgeOfInformationController:
                         self.send_aoi_NACK(failed_command = command, error_info = enable_msg, msm_id = msm_id)
                         shared_state.set_probe_as_ready()
                 elif role == "Client":
-                    if (not shared_state.probe_is_ready()) and (self.last_measurement_id == msm_id):
+                    if self.last_measurement_id == msm_id:
                         enable_msg = self.start_ntpsec_service()
+                        self.reset_vars()
                         if enable_msg == "OK":
                             self.send_aoi_ACK(successed_command = command, msm_id = msm_id)
-                            shared_state.set_probe_as_ready()
+                            #shared_state.set_probe_as_ready()
                         else:
                             self.send_aoi_NACK(failed_command = command, error_info = enable_msg, msm_id = msm_id)
-                    elif (not shared_state.probe_is_ready()):
+                    elif self.last_measurement_id is None:
+                        self.send_aoi_NACK(failed_command=command, error_info="No AoI measurement in progress", msm_id = None)
+                    else:
                         self.send_aoi_NACK(failed_command=command, 
                                            error_info="Measure_id MISMATCH: The provided measure_id does not correspond to the ongoing measurement", 
                                            msm_id=msm_id) 
-                    else:
-                        self.send_aoi_NACK(failed_command=command, error_info="No AoI measurement in progress", msm_id = None)
                 else:
                     self.send_aoi_NACK(failed_command = command, error_info = (f"Wrong role -> {role}"), msm_id = msm_id)
                 
@@ -282,6 +284,7 @@ class AgeOfInformationController:
             stdout_stop_command = result.stdout.decode('utf-8')
             stderr_stop_command = result.stderr.decode('utf-8')
             return f"Error in stopping ntsec service. Return code: {result.returncode}. STDOUT: |{stdout_stop_command}|. STDERR: |{stderr_stop_command}|"
+        print("AoIController: ntpsec service disabled")
         return "OK"
     
     
@@ -293,6 +296,7 @@ class AgeOfInformationController:
         if result.returncode != 0:
             stderr_stop_command = result.stderr.decode('utf-8')
             return f"Error in staring ntsec service. Return code: {result.returncode}. STDOUT: |{stdout_stop_command}|. STDERR: |{stderr_stop_command}|"
+        print("AoIController: ntpsec service enabled")
         return "OK"
     
 
