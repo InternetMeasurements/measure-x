@@ -161,6 +161,10 @@ class Age_of_Information_Coordinator:
                         if msm_id in self.events_received_status_from_probe_sender:
                             self.events_received_status_from_probe_sender[msm_id][1] = reason
                             self.events_received_status_from_probe_sender[msm_id][0].set()
+                    case "run":
+                        print(f"AoI_Coordinator: received NACK for {failed_command} -> reason: {reason}")
+                        if self.mongo_db.set_measurement_as_failed_by_id(measurement_id=msm_id):
+                            print(f"AoI_Coordinator: measure |{msm_id}| setted as failed")
                     case _:
                         print(f"AoI_Coordinator: NACK received for unkonwn AoI command -> {command_executed_on_probe}")
 
