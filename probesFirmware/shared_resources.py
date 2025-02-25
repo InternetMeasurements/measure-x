@@ -25,6 +25,7 @@ class SharedState:
     def __init__(self):
         if self.probe_ip is None:
             self.get_probe_ip()
+            self.get_probe_ip_for_clock_sync()
 
     def get_probe_ip(self):
         with self.lock:
