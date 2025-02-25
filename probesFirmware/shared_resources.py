@@ -19,6 +19,7 @@ class SharedState:
             cls.instance.coordinator_ip = None
             cls.default_nic_name = None
             cls.probe_ip = None
+            cls.probe_ip_for_clock_sync = None
         return cls.instance
     
     def __init__(self):
@@ -39,6 +40,18 @@ class SharedState:
                     print(f"SharedState: exception in retrieve my ip -> {k} ")
                     self.probe_ip = "0.0.0.0"
             return self.probe_ip
+    
+    def get_probe_ip_for_clock_sync(self):
+         with self.lock:
+            if (self.probe_ip_for_clock_sync is None) or (self.probe_ip_for_clock_sync == "0.0.0.0"):
+                try:
+                    my_ip_for_sync = netifaces.ifaddresses("eth0")[netifaces.AF_INET][0]['addr']
+                    self.probe_ip_for_clock_sync = my_ip_for_sync
+                    print(f"SharedState: my ip for clock sync -> |{self.probe_ip_for_clock_sync}|")
+                except KeyError as k:
+                    print(f"SharedState: exception in retrieve my ip for sync -> {k} ")
+                    self.probe_ip_for_clock_sync = "0.0.0.0"
+            return self.probe_ip_for_clock_sync
         """
         available_interfaces = psutil.net_if_addrs().keys()
         print(f"Netcards: {available_interfaces}")
@@ -54,7 +67,6 @@ class SharedState:
             my_ip = "DA CORREGGERE"
             raise Exception(f"No network interfaces found! List -> {available_interfaces}")
         """
-        return my_ip
 
     def set_probe_as_ready(self) -> bool:
         with self.lock:
