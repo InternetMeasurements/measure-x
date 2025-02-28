@@ -14,16 +14,13 @@ VERBOSE = False
 
 class ProbeMqttClient(mqtt.Client):
 
-    def __init__(self, probe_id, msg_received_handler):
+    def __init__(self, probe_id, msg_received_handler_callback):
         self.config = None
-        self.probes_command_topic = None
-        self.probes_role_topic = None
         self.probe_id = None
         self.status_topic = None
         self.results_topic = None
-        self.role = None
         self.connected_to_broker = False
-        self.external_mqtt_msg_handler = msg_received_handler
+        self.external_mqtt_msg_handler = msg_received_handler_callback
 
         base_path = Path(__file__).parent
         yaml_path = os.path.join(base_path, probe_id + ".yaml")
@@ -31,7 +28,7 @@ class ProbeMqttClient(mqtt.Client):
             self.config = yaml.safe_load(file)
 
         self.config = self.config['mqtt_client']
-        self.probe_id = self.config['probe_id']
+        self.probe_id = probe_id
         clean_session = self.config['clean_session']
         broker_ip = self.config['broker']['host']
         broker_port = self.config['broker']['port']

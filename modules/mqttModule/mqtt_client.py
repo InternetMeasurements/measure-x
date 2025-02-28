@@ -9,7 +9,7 @@ VERBOSE = False
 
 class Mqtt_Client(mqtt.Client):
 
-    def __init__(self, external_status_handler, external_results_handler, external_errors_handler):
+    def __init__(self, status_handler_callback, results_handler_callback, errors_handler_callback):
         self.config = None
         self.probes_command_topic = None
 
@@ -23,9 +23,9 @@ class Mqtt_Client(mqtt.Client):
 
         cl = ConfigLoader(base_path= Path(__file__).parent, file_name = 'mqttConfig.yaml')
 
-        self.external_results_handler = external_results_handler
-        self.external_status_handler = external_status_handler
-        self.external_errors_handler = external_errors_handler
+        self.external_results_handler = results_handler_callback
+        self.external_status_handler = status_handler_callback
+        self.external_errors_handler = errors_handler_callback
 
         self.config = cl.mqtt_config[MQTT_KEY]
         self.client_id = self.config['client_id']
