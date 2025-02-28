@@ -331,7 +331,7 @@ class IperfController:
 
             self.mqtt_client.publish_on_result_topic(result=json.dumps(json_summary_data))
             self.last_json_result = None # reset the result about last iperf measurement
-            print(f"iperfController: measurement [{self.last_measurement_id}] result published")
+            print(f"IperfController: measurement [{self.last_measurement_id}] result published")
         except Exception as e:
             #print(f"Exception in publish_last_output_iperf -> {e} ")
             #print(f"last_json_result --> {self.last_json_result}")
