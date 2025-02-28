@@ -44,50 +44,50 @@ def main():
     measurement_collection_update_thread.daemon = True
     measurement_collection_update_thread.start()
 
-    commands_multiplexer = CommandsMultiplexer()
+    commands_multiplexer = CommandsMultiplexer(mongo_db)
     coordinator_mqtt = Mqtt_Client(
-        external_status_handler = commands_multiplexer.status_multiplexer, 
-        external_results_handler = commands_multiplexer.result_multiplexer,
-        external_errors_handler = commands_multiplexer.errors_multiplexer)
+        status_handler_callback = commands_multiplexer.status_multiplexer, 
+        results_handler_callback = commands_multiplexer.result_multiplexer,
+        errors_handler_callback = commands_multiplexer.errors_multiplexer)
     commands_multiplexer.set_mqtt_client(coordinator_mqtt)
 
-    commands_multiplexer.add_status_handler(interested_status="root_service", handler=commands_multiplexer.root_service_default_handler)
+    commands_multiplexer.add_status_callback(interested_status="root_service", handler=commands_multiplexer.root_service_default_handler)
     
     iperf_coordinator = Iperf_Coordinator(
         mqtt = coordinator_mqtt,
-        registration_handler_result = commands_multiplexer.add_result_handler,
-        registration_handler_status = commands_multiplexer.add_status_handler,
-        registration_measure_preparer = commands_multiplexer.add_probes_preparer,
-        ask_probe_ip = commands_multiplexer.ask_probe_ip,
-        registration_measurement_stopper=commands_multiplexer.add_measurement_stopper,
-        mongo_db=mongo_db)
+        registration_handler_result_callback = commands_multiplexer.add_result_callback,
+        registration_handler_status_callback = commands_multiplexer.add_status_callback,
+        registration_measure_preparer_callback = commands_multiplexer.add_probes_preparer_callback,
+        ask_probe_ip_callback = commands_multiplexer.ask_probe_ip,
+        registration_measurement_stopper_callback = commands_multiplexer.add_measure_stopper_callback,
+        mongo_db = mongo_db)
     
     ping_coordinator = Ping_Coordinator(
-        mqtt_client=coordinator_mqtt,
-        registration_handler_result = commands_multiplexer.add_result_handler, 
-        registration_handler_status = commands_multiplexer.add_status_handler,
-        registration_measure_preparer = commands_multiplexer.add_probes_preparer,
-        ask_probe_ip = commands_multiplexer.ask_probe_ip,
-        registration_measurement_stopper=commands_multiplexer.add_measurement_stopper,
-        mongo_db=mongo_db)
+        mqtt_client = coordinator_mqtt,
+        registration_handler_result_callback = commands_multiplexer.add_result_callback, 
+        registration_handler_status_callback = commands_multiplexer.add_status_callback,
+        registration_measure_preparer_callback = commands_multiplexer.add_probes_preparer_callback,
+        ask_probe_ip_callback = commands_multiplexer.ask_probe_ip,
+        registration_measurement_stopper_callback = commands_multiplexer.add_measure_stopper_callback,
+        mongo_db = mongo_db)
     
     energy_coordinator = EnergyCoordinator(
         mqtt_client=coordinator_mqtt,
-        registration_handler_status = commands_multiplexer.add_status_handler,
-        registration_handler_result = commands_multiplexer.add_result_handler,
-        registration_measure_preparer = commands_multiplexer.add_probes_preparer,
-        registration_measurement_stopper = commands_multiplexer.add_measurement_stopper,
-        mongo_db=mongo_db)
+        registration_handler_status_callback = commands_multiplexer.add_status_callback,
+        registration_handler_result_callback = commands_multiplexer.add_result_callback,
+        registration_measure_preparer_callback = commands_multiplexer.add_probes_preparer_callback,
+        registration_measurement_stopper_callback = commands_multiplexer.add_measure_stopper_callback,
+        mongo_db = mongo_db)
     
     aoi_coordinator = Age_of_Information_Coordinator(
         mqtt_client=coordinator_mqtt,
-        registration_handler_error = commands_multiplexer.add_error_handler,
-        registration_handler_status = commands_multiplexer.add_status_handler,
-        registration_handler_result = commands_multiplexer.add_result_handler,
-        registration_measure_preparer = commands_multiplexer.add_probes_preparer,
-        ask_probe_ip = commands_multiplexer.ask_probe_ip,
-        registration_measurement_stopper=commands_multiplexer.add_measurement_stopper,
-        mongo_db=mongo_db
+        registration_handler_error_callback = commands_multiplexer.add_error_callback,
+        registration_handler_status_callback = commands_multiplexer.add_status_callback,
+        registration_handler_result_callback = commands_multiplexer.add_result_callback,
+        registration_measure_preparer_callback = commands_multiplexer.add_probes_preparer_callback,
+        ask_probe_ip_callback = commands_multiplexer.ask_probe_ip,
+        registration_measurement_stopper_callback = commands_multiplexer.add_measure_stopper_callback,
+        mongo_db = mongo_db
     )
 
     #commands_multiplexer.add_status_handler('probe_state', online_status_handler)
@@ -101,64 +101,7 @@ def main():
         command = input()
         if command == "0":
             break
-        """
-        print("PRESS 1 -> start ping from probe2 to probe4")
-        print("PRESS 2 -> start ping from probe4 to probe2")
-        print("PRESS 3 -> stop ping on probe2")
-        print("PRESS 4 -> stop ping on probe4")
-        print("PRESS 9 to insert a measure ping")
-        
-        match command:
-            case "1":
-                print("PRESS 1 -> send role SERVER to probe2")
-                iperf_coordinator.send_probe_iperf_configuration(probe_id = "probe2", role = "Server")
-            case "2":
-                print("PRESS 2 -> send role CLIENT to probe2")
-                destination_probe = "probe4"
-                iperf_coordinator.send_probe_iperf_configuration(probe_id = "probe2", role = "Client", source_probe_ip = probe_ip.get("probe2"), dest_probe=destination_probe, dest_probe_ip=probe_ip.get(destination_probe, None))
-            case "3":
-                print("PRESS 3 -> send role SERVER to probe4")
-                iperf_coordinator.send_probe_iperf_configuration(probe_id = "probe4", role = "Server")
-            case "4":
-                print("PRESS 4 -> send role CLIENT to probe4")
-                destination_probe = "probe2"
-                iperf_coordinator.send_probe_iperf_configuration(probe_id = "probe4", role = "Client", source_probe_ip = probe_ip.get("probe4"), dest_probe = destination_probe, dest_probe_ip=probe_ip.get(destination_probe, None))
-            case "5":
-                print("PRESS 5 -> start throughput measurement")
-                iperf_coordinator.send_probe_iperf_start()
-            case "6":
-                print("PRESS 6 -> stop iperf SERVER on probe2")
-                iperf_coordinator.send_probe_iperf_stop("probe2")
-            case "7":
-                print("PRESS 7 -> stop iperf SERVER on probe4")
-                iperf_coordinator.send_probe_iperf_stop("probe4")
-            case "9":
-                test_misura = MeasurementModelMongo(description="Misura ping test", type="Ping", source_probe="probe_test", dest_probe="probe_test",
-                                                    source_probe_ip="192.168.1.8", dest_probe_ip="192.168.1.8")
-                mongo_db.insert_measurement(test_misura)
-            case "10":
-                delete_count = mongo_db.delete_measurements_by_id("672fb3887189c5212ab6b2be")
-                print(f"Ho eliminato {delete_count} measures")
-            case "11":
-                pcap_file = r"C:/Users/Francesco/Desktop/OnePingPacket.pcap"
-                packets = rdpcap(pcap_file)
-                for packet in packets:
-                    if IP in packet and packet[IP].dst == "192.168.43.1":
-                        sendp(packet, iface="Wi-Fi")  # Sostituisci "eth0" con la tua interfaccia di rete
-                    #time.sleep(0.1)  # Tempo tra i pacchetti (in secondi)
 
-            case "a":
-                print("Consumption test: INA2019 VS Qoitec ACE")
-                energy_coordinator.send_check_i2C_command(probe_id = "probe2")
-            case "b":
-                print("Consumption test: start measurement")
-                energy_coordinator.send_start_command(probe_id = "probe2")
-            case "c":
-                print("Consumption test: stop measurement")
-                energy_coordinator.send_stop_command(probe_id = "probe2")
-            case _:
-                break
-    """
     coordinator_mqtt.disconnect()
 
 if __name__ == "__main__":

@@ -3,15 +3,17 @@ import time
 import netifaces
 import threading
 from modules.mongoModule.models.measurement_model_mongo import MeasurementModelMongo
+from modules.mongoModule.mongoDB import MongoDB, ErrorModel, STARTED_STATE, FAILED_STATE, COMPLETED_STATE
 from modules.mqttModule.mqtt_client import Mqtt_Client
 
 class CommandsMultiplexer:
-    def __init__(self):
-        self.results_handler_list = {}
-        self.status_handler_list = {}
-        self.error_handeler_list = {}
-        self.probes_preparer_list = {}
-        self.measurement_stopper_list = {}
+    def __init__(self, mongo_db : MongoDB):
+        self.mongo_db = mongo_db
+        self.results_handler_callback = {}
+        self.status_handler_callback = {}
+        self.error_handeler_callback = {}
+        self.probes_preparer_callback = {}
+        self.measurement_stopper_callback = {}
         self.mqtt_client = None
         self.probe_ip_lock = threading.Lock()
         self.probe_ip = {}
@@ -83,79 +85,83 @@ class CommandsMultiplexer:
             self.event_ask_probe_ip_for_clock_sync.pop(probe_id, None)
         
     
-    def add_result_handler(self, interested_result, handler):
-        if interested_result not in self.results_handler_list:
-            self.results_handler_list[interested_result] = handler
+    def add_result_callback(self, interested_result, handler):
+        if interested_result not in self.results_handler_callback:
+            self.results_handler_callback[interested_result] = handler
             return "OK" #print(f"CommandsMultiplexer: Registered result handler for [{interested_result}]")
         else:
             return "There is already a registered handler for " + interested_result
 
-    def add_status_handler(self, interested_status, handler):
-        if interested_status not in self.status_handler_list:
-            self.status_handler_list[interested_status] = handler
+
+    def add_status_callback(self, interested_status, handler):
+        if interested_status not in self.status_handler_callback:
+            self.status_handler_callback[interested_status] = handler
             return "OK" #print(f"CommandsMultiplexer: Registered status handler for [{interested_status}]")
         else:
             return "There is already a registered handler for " + interested_status
         
-    def add_error_handler(self, interested_error, handler):
-        if interested_error not in self.error_handeler_list:
-            self.error_handeler_list[interested_error] = handler
+
+    def add_error_callback(self, interested_error, handler):
+        if interested_error not in self.error_handeler_callback:
+            self.error_handeler_callback[interested_error] = handler
             return "OK" #print(f"CommandsMultiplexer: Registered status handler for [{interested_status}]")
         else:
             return "There is already a registered handler for " + interested_error
         
 
-    def add_probes_preparer(self, interested_measurement_type, preparer):
+    def add_probes_preparer_callback(self, interested_measurement_type, preparer_callback):
         # Be sure that all the "preparer methods" returns a string!
-        if interested_measurement_type not in self.probes_preparer_list:
-            self.probes_preparer_list[interested_measurement_type] = preparer
-            return "OK" #print(f"CommandsMultiplexer: Registered probes preparer for [{interested_measurement_type}]")
+        if interested_measurement_type not in self.probes_preparer_callback:
+            self.probes_preparer_callback[interested_measurement_type] = preparer_callback
+            #print(f"CommandsMultiplexer: Registered probes preparer for [{interested_measurement_type}]")
+            return "OK"
         else:
             return "There is already a probes-preparer for " + interested_measurement_type
     
 
-    def add_measurement_stopper(self, interested_measurement_type, stopper_method):
-        if interested_measurement_type not in self.measurement_stopper_list:
-            self.measurement_stopper_list[interested_measurement_type] = stopper_method
-            return "OK" #print(f"CommandsMultiplexer: Registered measurement-stopper for [{interested_measurement_type}]")
+    def add_measure_stopper_callback(self, interested_measurement_type, stopper_method_callback):
+        if interested_measurement_type not in self.measurement_stopper_callback:
+            self.measurement_stopper_callback[interested_measurement_type] = stopper_method_callback
+            #print(f"CommandsMultiplexer: Registered measurement-stopper for [{interested_measurement_type}]")
+            return "OK"
         else:
             return "There is already a measurement-stopper for " + interested_measurement_type
         
 
-    def result_multiplexer(self, probe_sender: str, nested_result):  # invoked by mqtt module
+    def result_multiplexer(self, probe_sender: str, nested_result):  # invoked by MQTT module -> on_message on RESULT topic
         try:
             nested_json_result = json.loads(nested_result)
             handler = nested_json_result['handler']
             result = nested_json_result['payload']
-            if handler in self.results_handler_list:
-                self.results_handler_list[handler](probe_sender, result) # Multiplexing
+            if handler in self.results_handler_callback:
+                self.results_handler_callback[handler](probe_sender, result) # Multiplexing 
             else:
                 print(f"CommandsMultiplexer: result_multiplexer: no registered handler for |{handler}|")
         except json.JSONDecodeError as e:
             print(f"CommandsMultiplexer: result_multiplexer: json exception -> {e}")
             
 
-    def status_multiplexer(self, probe_sender, nested_status):  # invoked by mqtt module
+    def status_multiplexer(self, probe_sender, nested_status):  # invoked by MQTT module -> on_message on STATUS topic
         try:
             nested_json_status = json.loads(nested_status)
             handler = nested_json_status['handler']
             type = nested_json_status['type']  # This is the type of status message
             payload = nested_json_status['payload']
-            if handler in self.status_handler_list:
-                self.status_handler_list[handler](probe_sender, type, payload) # Multiplexing
+            if handler in self.status_handler_callback:
+                self.status_handler_callback[handler](probe_sender, type, payload) # Multiplexing
             else:
                 print(f"CommandsMultiplexer: status_multiplexer: no registered handler for |{handler}|. TYPE: {type}|\n-> PRINT: -> {payload}")
         except json.JSONDecodeError as e:
             print(f"CommandsMultiplexer: status_multiplexer: json exception -> {e}")
 
 
-    def errors_multiplexer(self, probe_sender, nested_error):  # invoked by mqtt module
+    def errors_multiplexer(self, probe_sender, nested_error):  # invoked by MQTT module -> on_message on ERROR topic
         try:
             nested_error_json = json.loads(nested_error)
             error_handler = nested_error_json['handler']
             error_payload = nested_error_json['payload']
-            if error_handler in self.error_handeler_list:
-                self.error_handeler_list[error_handler](probe_sender, error_payload)
+            if error_handler in self.error_handeler_callback:
+                self.error_handeler_callback[error_handler](probe_sender, error_payload)
             else:
                 print(f"CommandsMultiplexer: default error hanlder -> msg from |{probe_sender}| --> {nested_error}")
         except json.JSONDecodeError as e:
@@ -164,9 +170,9 @@ class CommandsMultiplexer:
 
     def prepare_probes_to_measure(self, new_measurement : MeasurementModelMongo):  # invoked by REST module
         measurement_type = new_measurement.type
-        if measurement_type in self.probes_preparer_list:
+        if measurement_type in self.probes_preparer_callback:
             # *** Ensure that all "preparer" methods return exactly three values (triad). ***
-            success_message, measurement_as_dict, error_cause = self.probes_preparer_list[measurement_type](new_measurement)
+            success_message, measurement_as_dict, error_cause = self.probes_preparer_callback[measurement_type](new_measurement)
             if success_message == "OK":
                 msm_id = measurement_as_dict["_id"]
                 msm_type = measurement_as_dict["type"]
@@ -178,15 +184,21 @@ class CommandsMultiplexer:
 
 
     def measurement_stop_by_msm_id(self, msm_id_to_stop : str):  # invoked by REST module
-        if msm_id_to_stop not in self.started_measurement:
-            return "Error", "Unknown measurement", f"Measurement id: |{msm_id_to_stop}| not in memory"    
+        measure_from_db = self.mongo_db.find_measurement_by_id(measurement_id=msm_id_to_stop)
+        if isinstance(measure_from_db, ErrorModel):
+            return "Error", measure_from_db.error_description, measure_from_db.error_cause
         
-        measurement_type = self.started_measurement[msm_id_to_stop]
-        if measurement_type in self.measurement_stopper_list:
-            return self.measurement_stopper_list[measurement_type](msm_id_to_stop)
+        if measure_from_db.state == STARTED_STATE:
+            if measure_from_db.type in self.measurement_stopper_callback:
+                return self.measurement_stopper_callback[measure_from_db.type](msm_id_to_stop)
+            return "Error", "Check the measurement type", f"Unkown measure type: {measure_from_db.type}"
+        elif measure_from_db.state == FAILED_STATE:
+            return "Error", "Measurement was failed", "Wrong id?"
+        elif measure_from_db.state == COMPLETED_STATE:
+            return "Error", "Measurement already completed", "Wrong id?"
         else:
-            return "Error", "Check the measurement type", f"Unkown measure type: {measurement_type}"    
-
+            return "Error", f"The measurement has an unknown state -> |{measure_from_db.state}|", "Unkown measure state"        
+            
 
     # Default handler for the root_service probe message reception
     def root_service_default_handler(self, probe_sender, type, payload):

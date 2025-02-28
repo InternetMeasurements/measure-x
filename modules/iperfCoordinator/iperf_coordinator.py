@@ -3,7 +3,7 @@ import json
 import yaml
 import time
 import threading
-import cbor2, base64
+import cbor2, base64, sys
 from pathlib import Path
 from modules.mqttModule.mqtt_client import Mqtt_Client
 from bson import ObjectId
@@ -14,16 +14,16 @@ from modules.mongoModule.models.iperf_result_model_mongo import IperfResultModel
 class Iperf_Coordinator:
 
     def __init__(self, mqtt : Mqtt_Client, 
-                 registration_handler_status,
-                 registration_handler_result,
-                 registration_measure_preparer,
-                 ask_probe_ip,
-                 registration_measurement_stopper,
+                 registration_handler_status_callback,
+                 registration_handler_result_callback,
+                 registration_measure_preparer_callback,
+                 ask_probe_ip_callback,
+                 registration_measurement_stopper_callback,
                  mongo_db : MongoDB):
         self.mqtt = mqtt 
         self.probes_configurations_dir = 'probes_configurations'
         self.probes_server_port = {}
-        self.ask_probe_ip = ask_probe_ip
+        self.ask_probe_ip = ask_probe_ip_callback
         self.mongo_db = mongo_db
         self.queued_measurements = {}
         self.events_received_server_ack = {}
@@ -31,7 +31,7 @@ class Iperf_Coordinator:
         self.events_stop_server_ack = {}
 
         # Requests to commands_multiplexer: handler STATUS registration
-        registration_response = registration_handler_status(
+        registration_response = registration_handler_status_callback(
             interested_status = "iperf",
             handler = self.handler_received_status)
         if registration_response == "OK" :
@@ -40,7 +40,7 @@ class Iperf_Coordinator:
             print(f"Iperf_Coordinator: registration handler failed. Reason -> {registration_response}")
 
         # Requests to commands_multiplexer: Handler RESULT registration
-        registration_response = registration_handler_result(
+        registration_response = registration_handler_result_callback(
             interested_result = "iperf",
             handler = self.handler_received_result)
         if registration_response == "OK" :
@@ -49,18 +49,18 @@ class Iperf_Coordinator:
             print(f"Iperf_Coordinator: registration handler failed. Reason -> {registration_response}")
 
         # Requests to commands_multiplexer: Probes-Preparer registration
-        registration_response = registration_measure_preparer(
+        registration_response = registration_measure_preparer_callback(
             interested_measurement_type = "iperf",
-            preparer = self.probes_preparer_to_measurements)
+            preparer_callback = self.probes_preparer_to_measurements)
         if registration_response == "OK" :
             print(f"Iperf_Coordinator: registered prepaper for measurements type -> iperf")
         else:
             print(f"Iperf_Coordinator: registration preparer failed. Reason -> {registration_response}")
         
         # Requests to commands_multiplexer: Measurement-Stopper registration
-        registration_response = registration_measurement_stopper(
+        registration_response = registration_measurement_stopper_callback(
             interested_measurement_type = "iperf",
-            stopper_method = self.iperf_measurement_stopper)
+            stopper_method_callback = self.iperf_measurement_stopper)
         if registration_response == "OK" :
             print(f"Iperf_Coordinator: registered measurement stopper for measurements type -> iperf")
         else:
@@ -69,7 +69,7 @@ class Iperf_Coordinator:
 
     def handler_received_result(self, probe_sender, result: json):
         if ((time.time() - result["start_timestamp"]) < SECONDS_OLD_MEASUREMENT):
-            self.store_measurement_result(result)
+            self.store_measurement_result(probe_sender, result)
             #self.print_summary_result(measurement_result = result)
         else: #Volendo posso anche evitare questo settaggio, perchè ci penserà il thread periodico
             #if self.mongo_db.set_measurement_as_failed_by_id(result['msm_id']):
@@ -173,19 +173,30 @@ class Iperf_Coordinator:
         }
         self.mqtt.publish_on_command_topic(probe_id = probe_id, complete_command = json.dumps(json_iperf_stop))
 
+    
+    def get_size(self, obj):
+        if isinstance(obj, dict):
+            return sys.getsizeof(obj) + sum(self.get_size(k) + self.get_size(v) for k, v in obj.items())
+        elif isinstance(obj, (list, tuple, set)):
+            return sys.getsizeof(obj) + sum(self.get_size(i) for i in obj)
+        else:
+            return sys.getsizeof(obj)
 
-    def store_measurement_result(self, result : json):
-
+    def store_measurement_result(self, probe_sender, result : json):
+        msm_id = result["msm_id"] if "msm_id" in result else None
+        if msm_id is None:
+            print(f"Iperf_Coordinator: received result from probe |{probe_sender}| -> No measure_id provided. IGNORE.")
+            return
         full_result_c_b64 = result["full_result_c_b64"] if ("full_result_c_b64" in result) else None # Full Result Compressed and 64Based
         if full_result_c_b64 is not None:
             c_full_result = base64.b64decode(full_result_c_b64)
             full_result = cbor2.loads(c_full_result)
         else:
-            print(f"Iperf_Coordnator: WARNING -> received result without full_result , measure_id -> {result['msm_id']}")
+            print(f"Iperf_Coordinator: WARNING -> received result without full_result , measure_id -> {result['msm_id']}")
             full_result = None
 
         mongo_result = IperfResultModelMongo(
-            msm_id = ObjectId(result["msm_id"]),
+            msm_id = ObjectId(msm_id),
             repetition_number = result["repetition_number"],
             start_timestamp = result["start_timestamp"],
             transport_protocol = result["transport_protocol"],
@@ -198,6 +209,34 @@ class Iperf_Coordinator:
             avg_speed = result["avg_speed"],
             full_result = full_result
         )
+
+        mongo_result_2 = IperfResultModelMongo(
+            msm_id = ObjectId(result["msm_id"]),
+            repetition_number = result["repetition_number"],
+            start_timestamp = result["start_timestamp"],
+            transport_protocol = result["transport_protocol"],
+            source_ip = result["source_ip"],
+            source_port = result["source_port"],
+            destination_ip = result["destination_ip"],
+            destination_port = result["destination_port"],
+            bytes_received = result["bytes_received"],
+            duration = result["duration"],
+            avg_speed = result["avg_speed"],
+            full_result = full_result_c_b64
+        )
+
+        dict_1 = mongo_result.to_dict()
+        dict_2 = mongo_result_2.to_dict()
+
+        size_1 = self.get_size(full_result)
+        size_2 = self.get_size(full_result_c_b64)
+
+        print(f"************************************************** Size full_result without compression: |{size_1}| byte , Size full_result with compression: |{size_2}| byte")
+        #print(f"full_result -> |{full_result}|")
+        #print("----------------------------------------------------------------")
+        #print(f"full_result_c_b64 -> |{full_result_c_b64}|")
+
+
         result_id = str(self.mongo_db.insert_iperf_result(result=mongo_result))
         if result_id is not None:
             print(f"Iperf_Coordinator: result |{result_id}| stored in db")
@@ -313,7 +352,7 @@ class Iperf_Coordinator:
         # ------------------------------- YOU MUST WAIT (AT MOST 5s) FOR AN ACK/NACK OF STOP COMMAND FROM DEST PROBE (IPERF-SERVER)
         stop_event_message = self.events_stop_server_ack[msm_id_to_stop][1]
         if stop_event_message == "OK":
-            return "OK", f"Measurement {msm_id_to_stop} STOPPED", None
+            return "OK", f"Measurement {msm_id_to_stop} stopped", None
         if stop_event_message is not None:
             return "Error", f"Probe |{measurement_to_stop.dest_probe}| says: |{stop_event_message}|", ""
         return "Error", f"Can't stop the measurement -> |{msm_id_to_stop}|", f"No response from probe server |{measurement_to_stop.dest_probe}|"

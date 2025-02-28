@@ -9,18 +9,18 @@ DEFAULT_SOCKET_PORT = 50505
 
 class Age_of_Information_Coordinator:
 
-    def __init__(self, mqtt_client : Mqtt_Client, registration_handler_error, registration_handler_status,
-                 registration_handler_result, registration_measure_preparer,
-                 ask_probe_ip, registration_measurement_stopper, mongo_db : MongoDB):
+    def __init__(self, mqtt_client : Mqtt_Client, registration_handler_error_callback, registration_handler_status_callback,
+                 registration_handler_result_callback, registration_measure_preparer_callback,
+                 ask_probe_ip_callback, registration_measurement_stopper_callback, mongo_db : MongoDB):
         self.mqtt_client = mqtt_client
-        self.ask_probe_ip = ask_probe_ip
+        self.ask_probe_ip = ask_probe_ip_callback
         self.mongo_db = mongo_db
         self.queued_measurements = {}
         self.events_received_status_from_probe_sender = {}
         self.events_stop_server_ack = {}
 
         # Requests to commands_multiplexer: handler STATUS registration
-        registration_response = registration_handler_status( interested_status = "aoi",
+        registration_response = registration_handler_status_callback( interested_status = "aoi",
                                                              handler = self.handler_received_status)
         if registration_response == "OK" :
             print(f"AoI_Coordinator: registered handler for status -> aoi")
@@ -28,7 +28,7 @@ class Age_of_Information_Coordinator:
             print(f"AoI_Coordinator: registration handler failed. Reason -> {registration_response}")
 
         # Requests to commands_multiplexer: handler RESULT registration
-        registration_response = registration_handler_result(interested_result = "aoi",
+        registration_response = registration_handler_result_callback(interested_result = "aoi",
                                                             handler = self.handler_received_result)
         if registration_response == "OK" :
             print(f"AoI_Coordinator: registered handler for result -> aoi")
@@ -36,18 +36,18 @@ class Age_of_Information_Coordinator:
             print(f"AoI_Coordinator: registration handler failed. Reason -> {registration_response}")
 
         # Requests to commands_multiplexer: Probes-Preparer registration
-        registration_response = registration_measure_preparer(
+        registration_response = registration_measure_preparer_callback(
             interested_measurement_type = "aoi",
-            preparer = self.probes_preparer_to_measurements)
+            preparer_callback = self.probes_preparer_to_measurements)
         if registration_response == "OK" :
             print(f"AoI_Coordinator: registered prepaper for measurements type -> aoi")
         else:
             print(f"AoI_Coordinator: registration preparer failed. Reason -> {registration_response}")
         
         # Requests to commands_multiplexer: Measurement-Stopper registration
-        registration_response = registration_measurement_stopper(
+        registration_response = registration_measurement_stopper_callback(
             interested_measurement_type = "aoi",
-            stopper_method = self.aoi_measurement_stopper)
+            stopper_method_callback = self.aoi_measurement_stopper)
         if registration_response == "OK" :
             print(f"AoI_Coordinator: registered measurement stopper for measurements type -> aoi")
         else:
@@ -111,7 +111,6 @@ class Age_of_Information_Coordinator:
         self.store_measurement_result(probe_sender = probe_sender, result = result)
         
     
-    
     def handler_received_status(self, probe_sender, type, payload : json):
         msm_id = payload["msm_id"] if "msm_id" in payload else None
         if msm_id is None:
@@ -165,6 +164,11 @@ class Age_of_Information_Coordinator:
                         print(f"AoI_Coordinator: received NACK for {failed_command} -> reason: {reason}")
                         if self.mongo_db.set_measurement_as_failed_by_id(measurement_id=msm_id):
                             print(f"AoI_Coordinator: measure |{msm_id}| setted as failed")
+                    case "stop":
+                        print(f"AoI_Coordinator: received NACK for {failed_command} -> reason: {reason}")
+                        if msm_id in self.events_received_status_from_probe_sender:
+                            self.events_received_status_from_probe_sender[msm_id][1] = reason
+                            self.events_received_status_from_probe_sender[msm_id][0].set()
                     case _:
                         print(f"AoI_Coordinator: NACK received for unkonwn AoI command -> {failed_command}")
 
@@ -227,7 +231,7 @@ class Age_of_Information_Coordinator:
     
     def aoi_measurement_stopper(self, msm_id_to_stop : str):
         if msm_id_to_stop not in self.queued_measurements:
-            return "Error", f"Unknown aoi measurement |{msm_id_to_stop}|", "May be not started"
+            return "Error", f"Unknown aoi measurement |{msm_id_to_stop}|", "May be failed"
         measurement_to_stop : MeasurementModelMongo = self.queued_measurements[msm_id_to_stop]
         self.events_stop_server_ack[msm_id_to_stop] = [threading.Event(), None]
         # Stop sending to the Server-AoI-Probe
@@ -250,7 +254,7 @@ class Age_of_Information_Coordinator:
         stop_client_message_error = stop_event_message if (stop_event_message != "OK") else None
 
         if (stop_server_message_error is None) and (stop_client_message_error is None):
-            return "OK", f"Measurement {msm_id_to_stop} STOPPED", None
+            return "OK", f"Measurement {msm_id_to_stop} stopped", None
 
         if stop_server_message_error is not None:
             return "Error", f"Probe |{measurement_to_stop.dest_probe}| says: |{stop_server_message_error}|", "AoI server may be is down"

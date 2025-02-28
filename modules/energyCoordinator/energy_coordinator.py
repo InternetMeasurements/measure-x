@@ -9,10 +9,10 @@ from modules.mongoModule.models.energy_result_model_mongo import EnergyResultMod
 class EnergyCoordinator:
     def __init__(self, 
                  mqtt_client : Mqtt_Client,
-                 registration_handler_status,
-                 registration_handler_result,
-                 registration_measure_preparer,
-                 registration_measurement_stopper,
+                 registration_handler_status_callback,
+                 registration_handler_result_callback,
+                 registration_measure_preparer_callback,
+                 registration_measurement_stopper_callback,
                  mongo_db : MongoDB):
         self.mqtt_client = mqtt_client
         self.mongo_db = mongo_db
@@ -21,7 +21,7 @@ class EnergyCoordinator:
         self.events_received_stop_ack = {}
 
          # Requests to CommandsDemultiplexer
-        registration_response = registration_handler_status(
+        registration_response = registration_handler_status_callback(
             interested_status = "energy",
             handler = self.handler_received_status)
         if registration_response == "OK" :
@@ -30,7 +30,7 @@ class EnergyCoordinator:
             print(f"EnergyCoordinator: registration handler failed. Reason -> {registration_response}")
 
         # Requests to CommandsDemultiplexer
-        registration_response = registration_handler_result(
+        registration_response = registration_handler_result_callback(
             interested_result = "energy",
             handler = self.handler_received_result)
         if registration_response == "OK" :
@@ -39,18 +39,18 @@ class EnergyCoordinator:
             print(f"EnergyCoordinator: registration handler failed. Reason -> {registration_response}")
 
         # Requests to commands_multiplexer: Probes-Preparer registration
-        registration_response = registration_measure_preparer(
+        registration_response = registration_measure_preparer_callback(
             interested_measurement_type = "energy",
-            preparer = self.probes_preparer_to_measurements)
+            preparer_callback = self.probes_preparer_to_measurements)
         if registration_response == "OK" :
             print(f"EnergyCoordinator: registered prepaper for measurements type -> energy")
         else:
             print(f"EnergyCoordinator: registration preparer failed. Reason -> {registration_response}")
 
         # Requests to commands_multiplexer: Measurement-Stopper registration
-        registration_response = registration_measurement_stopper(
+        registration_response = registration_measurement_stopper_callback(
             interested_measurement_type = "energy",
-            stopper_method = self.energy_measurement_stopper)
+            stopper_method_callback = self.energy_measurement_stopper)
         if registration_response == "OK" :
             print(f"EnergyCoordinator: registered measurement stopper for measurements type -> energy")
         else:
@@ -185,7 +185,7 @@ class EnergyCoordinator:
         # ------------------------------- YOU MUST WAIT (AT MOST 5s) FOR AN ACK/NACK FROM SOURCE_PROBE
         stop_event_message = self.events_received_stop_ack[msm_id_to_stop][1]
         if stop_event_message == "OK":
-            return "OK", f"Measurement {msm_id_to_stop} STOPPED", None
+            return "OK", f"Measurement {msm_id_to_stop} stopped", None
         elif stop_event_message is not None:
             print(f"Measurement stoppper: awaked from probe energy NACK -> |{stop_event_message}|")
             return "Error", f"Probe |{queued_measurement.source_probe}| says: |{stop_event_message}|", ""

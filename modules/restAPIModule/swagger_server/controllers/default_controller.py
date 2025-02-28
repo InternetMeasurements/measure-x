@@ -72,8 +72,8 @@ def get_measurement_by_id(measurement_id):  # noqa: E501
     mongo_instance : MongoDB = current_app.config.get(KEY_FOR_RETRIEVE_MONGO_INSTANCE)
     measurement_readed = mongo_instance.find_measurement_by_id(measurement_id=measurement_id)
     if isinstance(measurement_readed, ErrorModel): #"error_cause" in measurement_readed:
-        return measurement_readed, 500 # Meglio indicare come codice di errore, il 400
-    return measurement_readed, 200
+        return measurement_readed.to_dict(), 400
+    return measurement_readed.to_dict(), 200
 
 
 def get_measurement_results_by_measurement_id(measurement_id):  # noqa: E501
@@ -152,9 +152,9 @@ def stop_measurement_by_id(measurement_id):  # noqa: E501
     :rtype: None
     """
     commands_multiplexer : CommandsMultiplexer = current_app.config.get(KEY_FOR_RETIREVE_COMMANDS_MULTIPLEXER)
-    successs_message, info, error_cause = commands_multiplexer.measurement_stop_by_msm_id(measurement_id)
-    if successs_message == "OK":
+    success_message, info, error_cause = commands_multiplexer.measurement_stop_by_msm_id(measurement_id)
+    if success_message == "OK":
         return info, 200
     
-    error_msg_to_return = ErrorModel(object_ref_id='', object_ref_type="measurement", error_description=info, error_cause=error_cause).to_dict()
+    error_msg_to_return = ErrorModel(object_ref_id = measurement_id, object_ref_type="measurement", error_description=info, error_cause=error_cause).to_dict()
     return error_msg_to_return, 400

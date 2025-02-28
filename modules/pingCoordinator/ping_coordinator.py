@@ -10,19 +10,19 @@ from modules.mongoModule.models.ping_result_model_mongo import PingResultModelMo
 
 class Ping_Coordinator:
 
-    def __init__(self, mqtt_client : Mqtt_Client, registration_handler_status,
-                 registration_handler_result, registration_measure_preparer,
-                 ask_probe_ip, registration_measurement_stopper,
+    def __init__(self, mqtt_client : Mqtt_Client, registration_handler_status_callback,
+                 registration_handler_result_callback, registration_measure_preparer_callback,
+                 ask_probe_ip_callback, registration_measurement_stopper_callback,
                  mongo_db : MongoDB):
         self.mqtt_client = mqtt_client
         self.mongo_db = mongo_db
-        self.ask_probe_ip = ask_probe_ip
+        self.ask_probe_ip = ask_probe_ip_callback
         self.events_received_ack_from_probe_sender = {}
         self.events_received_stop_ack = {}
         self.queued_measurements = {}
 
         # Requests to commands_multiplexer: handler STATUS registration
-        registration_response = registration_handler_status( interested_status = "ping",
+        registration_response = registration_handler_status_callback( interested_status = "ping",
                                                              handler = self.handler_received_status)
         if registration_response == "OK" :
             print(f"Ping_Coordinator: registered handler for status -> ping")
@@ -30,7 +30,7 @@ class Ping_Coordinator:
             print(f"Ping_Coordinator: registration handler failed. Reason -> {registration_response}")
 
         # Requests to commands_multiplexer: handler RESULT registration
-        registration_response = registration_handler_result(interested_result = "ping",
+        registration_response = registration_handler_result_callback(interested_result = "ping",
                                                             handler = self.handler_received_result)
         if registration_response == "OK" :
             print(f"Ping_Coordinator: registered handler for result -> ping")
@@ -38,18 +38,18 @@ class Ping_Coordinator:
             print(f"Ping_Coordinator: registration handler failed. Reason -> {registration_response}")
 
         # Requests to commands_multiplexer: Probes-Preparer registration
-        registration_response = registration_measure_preparer(
+        registration_response = registration_measure_preparer_callback(
             interested_measurement_type = "ping",
-            preparer = self.probes_preparer_to_measurements)
+            preparer_callback = self.probes_preparer_to_measurements)
         if registration_response == "OK" :
             print(f"Ping_Coordinator: registered prepaper for measurements type -> ping")
         else:
             print(f"Ping_Coordinator: registration preparer failed. Reason -> {registration_response}")
 
         # Requests to commands_multiplexer: Measurement-Stopper registration
-        registration_response = registration_measurement_stopper(
+        registration_response = registration_measurement_stopper_callback(
             interested_measurement_type = "ping",
-            stopper_method = self.ping_measurement_stopper)
+            stopper_method_callback = self.ping_measurement_stopper)
         if registration_response == "OK" :
             print(f"Ping_Coordinator: registered measurement stopper for measurements type -> ping")
         else:
@@ -236,9 +236,11 @@ class Ping_Coordinator:
         self.send_probe_ping_stop(probe_id = measurement_to_stop.source_probe, msm_id_to_stop = msm_id_to_stop)
         self.events_received_stop_ack[msm_id_to_stop][0].wait(5)
         # ------------------------------- WAIT FOR RECEIVE AN ACK/NACK -------------------------------
+        if self.mongo_db.set_measurement_as_failed_by_id(msm_id_to_stop):
+            print(f"Ping_Coordinator: measurement |{msm_id_to_stop}| setted as failed")
         stop_event_message = self.events_received_stop_ack[msm_id_to_stop][1]
         if stop_event_message == "OK":
-            return "OK", f"Measurement {msm_id_to_stop} STOPPED", None
+            return "OK", f"Measurement {msm_id_to_stop} stopped", None
         if stop_event_message is not None:
             return "Error", f"Probe |{measurement_to_stop.source_probe}| says: |{stop_event_message}|", ""
         return "Error", f"Can't stop the measurement -> |{msm_id_to_stop}|", f"No response from probe |{measurement_to_stop.source_probe}|"
