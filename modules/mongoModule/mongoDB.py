@@ -107,15 +107,15 @@ class MongoDB:
             if find_result is None:
                 find_result = ErrorModel(object_ref_id=measurement_id, object_ref_type="measurement",
                                          error_description="Measurement not found in DB",
-                                         error_cause="Wrong measurement_id")
+                                         error_cause="Unknown measurement_id")
             else:
                 find_result = MeasurementModelMongo.cast_dict_in_MeasurementModelMongo(find_result)
         except Exception as e:
-            print(f"Motivo -> {e}")
+            print(f"MongoDB: exception in find_measurement_by_id -> {e}")
             find_result = ErrorModel(object_ref_id=measurement_id, object_ref_type="measurement", 
                                      error_description="It must be a 12-byte input or a 24-character hex string",
                                      error_cause="measurement_id NOT VALID")
-        return (find_result.to_dict())
+        return find_result
     
 
     def get_measurement_state(self, measurement_id) -> str:
