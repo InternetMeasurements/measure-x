@@ -30,7 +30,8 @@ class ProbeMqttClient(mqtt.Client):
 
         self.config = self.config['mqtt_client']
         self.probe_id = probe_id
-        self.mosquitto_certificate_path = self.config['mosquitto_certificate_path']
+        cert_path = self.config['mosquitto_certificate_path']
+        self.mosquitto_certificate_path = os.path.join(base_path, cert_path)
         clean_session = self.config['clean_session']
         broker_ip = self.config['broker']['host']
         broker_port = self.config['broker']['port']
