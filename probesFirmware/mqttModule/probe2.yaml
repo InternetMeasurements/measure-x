@@ -3,6 +3,7 @@
 mqtt_client:
   probe_id: probe2
   clean_session: True # Auto-eliminazione delle subscriptions
+  mosquitto_certificate_path: mosquitto_certificate/mosquitto.crt
 
   broker:
     host: 131.114.72.254 # 192.168.1.51

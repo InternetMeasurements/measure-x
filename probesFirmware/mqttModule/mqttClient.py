@@ -17,6 +17,7 @@ class ProbeMqttClient(mqtt.Client):
     def __init__(self, probe_id, msg_received_handler_callback):
         self.config = None
         self.probe_id = None
+        self.mosquitto_certificate_path = None
         self.status_topic = None
         self.results_topic = None
         self.connected_to_broker = False
@@ -29,6 +30,7 @@ class ProbeMqttClient(mqtt.Client):
 
         self.config = self.config['mqtt_client']
         self.probe_id = probe_id
+        self.mosquitto_certificate_path = self.config['mosquitto_certificate_path']
         clean_session = self.config['clean_session']
         broker_ip = self.config['broker']['host']
         broker_port = self.config['broker']['port']
@@ -48,6 +50,9 @@ class ProbeMqttClient(mqtt.Client):
             self.username_pw_set(
                 self.config['credentials']['username'],
                 self.config['credentials']['password'])
+        
+        self.tls_set( ca_certs = self.mosquitto_certificate_path,
+                       tls_version=mqtt.ssl.PROTOCOL_TLSv1_2)
         
         self.connect(broker_ip, broker_port, keep_alive)
         self.loop_start()
