@@ -1,8 +1,9 @@
+import os
 from pathlib import Path
 import paho.mqtt.client as mqtt
 from modules.configLoader.config_loader import ConfigLoader, MQTT_KEY
 """
-    ******************************************************* Classe FOR THE COORDINATOR *******************************************************
+    ******************************************************* Class FOR THE MQTT CLIENT COORDINATOR *******************************************************
 """
 
 VERBOSE = False
@@ -11,23 +12,24 @@ class Mqtt_Client(mqtt.Client):
 
     def __init__(self, status_handler_callback, results_handler_callback, errors_handler_callback):
         self.config = None
+        self.mosquitto_certificate_path = None
         self.probes_command_topic = None
-
-        #Inserisci l'import del ConfigLoader e scrivi il codice per implementare 
-        # il caricamento con il configLoder
 
         #base_path = Path(__file__).parent
         #yaml_dir = os.path.join(base_path, "mqttConfig.yaml")
         #with open(yaml_dir) as file:
             #self.config = yaml.safe_load(file)
-
-        cl = ConfigLoader(base_path= Path(__file__).parent, file_name = 'mqttConfig.yaml')
+        base_path = Path(__file__).parent
+        cl = ConfigLoader(base_path= base_path, file_name = 'mqttConfig.yaml')
 
         self.external_results_handler = results_handler_callback
         self.external_status_handler = status_handler_callback
         self.external_errors_handler = errors_handler_callback
 
         self.config = cl.mqtt_config[MQTT_KEY]
+        cert_path = self.config['mosquitto_certificate_path']
+        self.mosquitto_certificate_path = os.path.join(base_path, cert_path)
+
         self.client_id = self.config['client_id']
         clean_session = self.config['clean_session']
         broker_ip = self.config['broker']['host']
@@ -44,10 +46,12 @@ class Mqtt_Client(mqtt.Client):
                 self.config['credentials']['username'],
                 self.config['credentials']['password'])
         try:
+            self.tls_set( ca_certs = self.mosquitto_certificate_path,
+                       tls_version=mqtt.ssl.PROTOCOL_TLSv1_2)
             self.connect(broker_ip, broker_port, keep_alive)
             self.loop_start()
-        except:
-            print("MqttClient Exception: broker not reachable")
+        except Exception as e:
+            print(f"MqttClient Exception: not connected to the broker. Reason -> {e}")
         
     def connection_success_event_handler(self, client, userdata, flags, rc): 
         # Invoked when the connection to broker has success
