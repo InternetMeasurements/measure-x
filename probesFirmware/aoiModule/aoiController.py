@@ -212,13 +212,14 @@ class AgeOfInformationController:
                     print(f"AoIController: clock synced with {self.last_probe_ntp_server_ip}")
                     self.send_aoi_ACK(successed_command = "start", msm_id = msm_id)
                     while(not self.stop_thread_event.is_set()):
-                            time.sleep(1)
-                            print("AoI client: sending...")
-                            timestamp_message = {
-                                "timestamp": time.perf_counter()
-                            }
-                            json_timestamp = json.dumps(timestamp_message)
-                            self.measure_socket.sendto(json_timestamp.encode(), (self.last_probe_server_aoi, self.last_socket_port))
+                        time.sleep(1)
+                        timestamp_value = time.perf_counter() 
+                        timestamp_message = {
+                            "timestamp": timestamp_value
+                        }
+                        print(f"AoI client: sending... -> {timestamp_value}" )
+                        json_timestamp = json.dumps(timestamp_message)
+                        self.measure_socket.sendto(json_timestamp.encode(), (self.last_probe_server_aoi, self.last_socket_port))
                 else:
                     raise Exception(result.stderr.decode('utf-8'))
                     #print(f"AoIController: returncode -> {result.returncode}. STDOUT: {result.stdout.decode('utf-8')} , STDERR: {result.stderr.decode('utf-8')}")
@@ -248,7 +249,7 @@ class AgeOfInformationController:
                         client_timestamp = json_data.get("timestamp", None)
                         aoi = receive_time - client_timestamp
                         writer.writerow({"Timestamp": receive_time, "AoI": aoi})
-                        print(f"Timestamp: |{receive_time}| , AoI: |{aoi:.6f}|")
+                        print(f"Timestamp reception: |{receive_time}| , Client timestamp: {client_timestamp} , AoI: |{aoi:.6f}|")
                 except socket.timeout:
                     receive_error = "SOCKET TIMEOUT. The client-probe is down?"
                     print(f"AoIController: {receive_error}")
