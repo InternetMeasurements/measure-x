@@ -213,7 +213,7 @@ class AgeOfInformationController:
                     self.send_aoi_ACK(successed_command = "start", msm_id = msm_id)
                     while(not self.stop_thread_event.is_set()):
                         time.sleep(1)
-                        timestamp_value = datetime.datetime.now() .timestamp
+                        timestamp_value = datetime.datetime.now().timestamp()
                         
                         timestamp_message = {
                             "timestamp" : timestamp_value
@@ -245,7 +245,7 @@ class AgeOfInformationController:
                     #self.send_aoi_ACK(successed_command="start", msm_id=msm_id)
                     while(not self.stop_thread_event.is_set()):
                         data, addr = self.measure_socket.recvfrom(1024)
-                        reception_timestamp = datetime.datetime.now().timestamp
+                        reception_timestamp = datetime.datetime.now().timestamp()
 
                         json_timestamp = json.loads(data.decode())
                         client_timestamp = json_timestamp["timestamp"]
