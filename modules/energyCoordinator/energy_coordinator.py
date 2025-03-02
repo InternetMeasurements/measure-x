@@ -80,7 +80,7 @@ class EnergyCoordinator:
                             return
                         self.events_received_stop_ack[msm_id][1] = "OK"
                         self.events_received_stop_ack[msm_id][0].set()
-                        print(f"EnergyCoordinator: received ACK related to |stop| from |{probe_sender}| , msm_id -> |{msm_id}|\nDA memorizzare nel db la timeseries")
+                        print(f"EnergyCoordinator: received ACK related to |stop| from |{probe_sender}| , msm_id -> |{msm_id}|")
             case "NACK":
                 failed_command = payload["command"]
                 reason = payload["reason"]
