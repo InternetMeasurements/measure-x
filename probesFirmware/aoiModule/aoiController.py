@@ -1,5 +1,5 @@
 import os, csv
-import time
+import time, datetime
 import json
 import subprocess, threading, signal
 import socket
@@ -213,7 +213,7 @@ class AgeOfInformationController:
                     self.send_aoi_ACK(successed_command = "start", msm_id = msm_id)
                     while(not self.stop_thread_event.is_set()):
                         time.sleep(1)
-                        timestamp_value = time.perf_counter() 
+                        timestamp_value = datetime.datetime.now() 
                         timestamp_message = {
                             "timestamp": timestamp_value
                         }
@@ -244,7 +244,7 @@ class AgeOfInformationController:
                     #self.send_aoi_ACK(successed_command="start", msm_id=msm_id)
                     while(not self.stop_thread_event.is_set()):
                         data, addr = self.measure_socket.recvfrom(1024)
-                        receive_time = time.perf_counter()
+                        receive_time = datetime.datetime.now()
                         json_data = json.loads(data.decode())
                         client_timestamp = json_data.get("timestamp", None)
                         aoi = receive_time - client_timestamp
