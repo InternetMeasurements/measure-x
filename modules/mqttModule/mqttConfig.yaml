@@ -3,6 +3,7 @@
 mqtt_client:
   client_id: coordinator
   clean_session: True # When this option is true, the broker automatically deletes all the subscription topics when a client logout from it.
+  mosquitto_certificate_path: mosquitto_certificate/mosquitto.crt
 
   broker:
     host: 131.114.72.254 # 192.168.1.51
