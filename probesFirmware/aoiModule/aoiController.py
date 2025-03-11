@@ -275,12 +275,13 @@ class AgeOfInformationController:
                         data, addr = self.measure_socket.recvfrom(payload_size)
                         reception_timestamp = datetime.datetime.now().timestamp()
 
-                        json_timestamp = json.loads(data.decode())
-                        client_timestamp = json_timestamp["timestamp"]
-
+                        json_message = json.loads(data.decode())
+                        client_timestamp = json_message["timestamp"]
+                        dummy_payload = json_message["dummy_payload"]
+                        
                         aoi = reception_timestamp - client_timestamp
                         writer.writerow({"Timestamp": reception_timestamp, "AoI": aoi})
-                        print(f"Timestamp reception: |{reception_timestamp}| , Client timestamp: {client_timestamp} , AoI: |{aoi:.6f}|")
+                        print(f"Timestamp reception: |{reception_timestamp}| , Client timestamp: {client_timestamp} , AoI: |{aoi:.6f}| , DUMMY SIZE: |{len(dummy_payload)}| bytes")
                 except socket.timeout:
                     receive_error = "SOCKET TIMEOUT. The client-probe is down?"
                     print(f"AoIController: {receive_error}")
