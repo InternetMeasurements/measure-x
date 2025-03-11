@@ -268,28 +268,30 @@ class Iperf_Coordinator:
             json_default_config = cl.iperf_client_config[IPERF_KEY]
         elif cl.iperf_server_config is not None:
             json_default_config = cl.iperf_server_config[IPERF_KEY]
+        json_default_config['role'] = role
         return json_default_config
 
     def override_default_parameters(self, json_config, measurement_parameters, role):
         json_overrided_config = json_config
-        if role == "Client":
-            if ('transport_protocol' in measurement_parameters):
-                json_overrided_config['transport_protocol'] = measurement_parameters['transport_protocol']
-            if ('parallel_connections' in measurement_parameters):
-                json_overrided_config['parallel_connections'] = measurement_parameters['parallel_connections']
-            if ('result_measurement_filename' in measurement_parameters):
-                json_overrided_config['result_measurement_filename'] = measurement_parameters['result_measurement_filename']
-            if ('reverse' in measurement_parameters):
-                json_overrided_config['reverse'] = measurement_parameters['reverse']
-            if ('repetition' in measurement_parameters):
-                json_overrided_config['repetition'] = measurement_parameters['repetition']
-            if ('save_result_on_flash' in measurement_parameters):
-                json_overrided_config['save_result_on_flash'] = measurement_parameters['save_result_on_flash']
-            json_overrided_config['role'] = "Client"
-        elif role == "Server":
-            json_overrided_config['role'] = "Server"
-            if 'listen_port' in measurement_parameters:
-                json_overrided_config['listen_port'] = measurement_parameters['listen_port']
+        if (measurement_parameters is not None) and (isinstance(measurement_parameters, dict)):
+            if role == "Client":
+                if ('transport_protocol' in measurement_parameters):
+                    protocol = measurement_parameters['transport_protocol'].lower()
+                    if (protocol  == "udp") or (protocol == "tcp"):
+                        json_overrided_config['transport_protocol'] = measurement_parameters['transport_protocol']
+                if ('parallel_connections' in measurement_parameters):
+                    json_overrided_config['parallel_connections'] = measurement_parameters['parallel_connections']
+                if ('result_measurement_filename' in measurement_parameters):
+                    json_overrided_config['result_measurement_filename'] = measurement_parameters['result_measurement_filename']
+                if ('reverse' in measurement_parameters):
+                    json_overrided_config['reverse'] = measurement_parameters['reverse']
+                if ('repetitions' in measurement_parameters):
+                    json_overrided_config['repetitions'] = measurement_parameters['repetitions']
+                if ('save_result_on_flash' in measurement_parameters):
+                    json_overrided_config['save_result_on_flash'] = measurement_parameters['save_result_on_flash']
+            elif role == "Server":
+                if 'listen_port' in measurement_parameters:
+                    json_overrided_config['listen_port'] = measurement_parameters['listen_port']
         return json_overrided_config
 
             

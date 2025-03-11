@@ -1,8 +1,11 @@
+import os
+from pathlib import Path
 import json
 import time
 import threading
 from datetime import datetime as dt
 from modules.mqttModule.mqtt_client import Mqtt_Client
+from modules.configLoader.config_loader import ConfigLoader, PING_KEY
 from bson import ObjectId
 from modules.mongoModule.mongoDB import MongoDB, SECONDS_OLD_MEASUREMENT
 from modules.mongoModule.models.measurement_model_mongo import MeasurementModelMongo
@@ -180,10 +183,11 @@ class Ping_Coordinator:
 
 
     def probes_preparer_to_measurements(self, new_measurement : MeasurementModelMongo):
-        DEFAULT_PACKET_NUMBER = 32
-        DEFAULT_PACKET_SIZE = 32
         new_measurement.assign_id()
         measurement_id = str(new_measurement._id)
+
+        ping_parameters = self.get_default_ping_parameters()
+        ping_parameters = self.override_default_parameters(ping_parameters, new_measurement.parameters)
 
         if new_measurement.source_probe_ip is None or new_measurement.source_probe_ip == "":
             source_probe_ip = self.ask_probe_ip(new_measurement.source_probe)
@@ -201,8 +205,8 @@ class Ping_Coordinator:
         json_start_payload = {
                 "destination_ip": dest_probe_ip,
                 "msm_id": measurement_id,
-                "packets_number": DEFAULT_PACKET_NUMBER,
-                "packets_size": DEFAULT_PACKET_SIZE }
+                "packets_number": ping_parameters["packets_number"],
+                "packets_size": ping_parameters["packets_size"] }
         
         self.events_received_ack_from_probe_sender[measurement_id] = [threading.Event(), None]
         self.send_probe_ping_start(probe_sender = new_measurement.source_probe, json_payload=json_start_payload)
@@ -244,3 +248,20 @@ class Ping_Coordinator:
         if stop_event_message is not None:
             return "Error", f"Probe |{measurement_to_stop.source_probe}| says: |{stop_event_message}|", ""
         return "Error", f"Can't stop the measurement -> |{msm_id_to_stop}|", f"No response from probe |{measurement_to_stop.source_probe}|"
+    
+
+    def get_default_ping_parameters(self) -> json:
+        base_path = os.path.join(Path(__file__).parent)       
+        cl = ConfigLoader(base_path= base_path, file_name = "default_parameters.yamò")
+        json_default_config = {}
+        if cl.ping_config is not None:
+            json_default_config = cl.ping_config[PING_KEY]
+        return json_default_config
+
+    def override_default_parameters(self, json_config, measurement_parameters):
+        json_overrided_config = json_config
+        if ('packets_number' in measurement_parameters):
+            json_overrided_config['packets_number'] = measurement_parameters['packets_number']
+        if ('packets_size' in measurement_parameters):
+            json_overrided_config['packets_size'] = measurement_parameters['packets_size']
+        return json_overrided_config

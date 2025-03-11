@@ -29,7 +29,7 @@ class IperfController:
         self.output_iperf_dir = None
         self.reverse_function = None
         self.verbose_function = False # common parameter
-        self.repetition = 1
+        self.repetitions = 1
         self.save_result_on_flash = None
         self.last_json_result = None
 
@@ -73,7 +73,7 @@ class IperfController:
             print(f"IperfController: Configuration failed. Reason -> {e}")
             return str(e)
 
-    def read_client_configuration(self, payload_conf : json) -> str: # Reads the iperf yaml configuration file 
+    def read_client_configuration(self, payload_conf : json) -> str:
         print(f"IperfController: read_configuration_Client()")
         try:
             self.destination_server_ip = payload_conf['destination_server_ip']
@@ -81,10 +81,9 @@ class IperfController:
             self.transport_protocol = payload_conf['transport_protocol']
             self.parallel_connections = int(payload_conf['parallel_connections'])
             self.output_json_filename = payload_conf['result_measurement_filename']
-            #self.measurement_id = payload_conf['measurement_id'] # REMEMBER --> You will read None during the configuration phase!
             self.reverse_function = payload_conf['reverse']
             self.verbose_function = payload_conf['verbose']
-            self.repetition = int(payload_conf['repetition'])
+            self.repetitions = int(payload_conf['repetitions'])
             self.save_result_on_flash = payload_conf["save_result_on_flash"]
             self.last_measurement_id = payload_conf['msm_id']
             self.last_role = "Client"
@@ -160,13 +159,13 @@ class IperfController:
     def iperf_client_body(self): # BODY CLIENT THREAD 
         repetition_count = 0
         execution_return_code = -2
-        while (repetition_count < self.repetition):
+        while (repetition_count < self.repetitions):
             time.sleep(0.5)
             print(f"\n*************** Repetition: {repetition_count + 1} ***************")
             execution_return_code = self.run_iperf_execution()
             if execution_return_code != 0: # 0 is the correct execution code
                 break
-            self.publish_last_output_iperf(repetition = repetition_count, last_result=((repetition_count + 1) == self.repetition))
+            self.publish_last_output_iperf(repetition = repetition_count, last_result=((repetition_count + 1) == self.repetitions))
             repetition_count += 1
             time.sleep(0.5)
 
@@ -364,7 +363,7 @@ class IperfController:
         self.output_iperf_dir = None
         self.reverse_function = False
         self.verbose_function = False # common parameter
-        self.repetition = 1
+        self.repetitions = 1
         self.save_result_on_flash = None
         self.last_json_result = None
 
