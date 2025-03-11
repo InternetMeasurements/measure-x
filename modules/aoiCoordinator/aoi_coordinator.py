@@ -1,11 +1,12 @@
+import os
+from pathlib import Path
 import threading, json
 import cbor2, base64
 from bson import ObjectId
 from modules.mqttModule.mqtt_client import Mqtt_Client
+from modules.configLoader.config_loader import ConfigLoader, AOI_KEY
 from modules.mongoModule.mongoDB import MongoDB, MeasurementModelMongo
 from modules.mongoModule.models.age_of_information_model_mongo import AgeOfInformationResultModelMongo
-
-DEFAULT_SOCKET_PORT = 50505
 
 class Age_of_Information_Coordinator:
 
@@ -54,12 +55,14 @@ class Age_of_Information_Coordinator:
             print(f"AoI_Coordinator: registration measurement stopper failed. Reason -> {registration_response}")
 
 
-    def send_probe_aoi_measure_start(self, probe_sender, msm_id):
+    def send_probe_aoi_measure_start(self, probe_sender, msm_id, packets_rate, payload_size):
         json_ping_start = {
             "handler": "aoi",
             "command": "start",
             "payload": {
-                "msm_id":  msm_id
+                "msm_id":  msm_id,
+                "packets_rate": packets_rate,
+                "payload_size": payload_size
             }
         }
         self.mqtt_client.publish_on_command_topic(probe_id = probe_sender, complete_command=json.dumps(json_ping_start))
@@ -77,7 +80,7 @@ class Age_of_Information_Coordinator:
 
     
     def send_disable_ntp_service(self, probe_sender, probe_ntp_server, probe_server_aoi, msm_id, socket_port, role):
-        json_ping_start = {
+        json_disable_ntp_service = {
             "handler": "aoi",
             "command": "disable_ntp_service",
             "payload": {
@@ -87,20 +90,23 @@ class Age_of_Information_Coordinator:
                 "role": role,
                 "msm_id": msm_id }
             }
-        self.mqtt_client.publish_on_command_topic(probe_id = probe_sender, complete_command=json.dumps(json_ping_start))
+        self.mqtt_client.publish_on_command_topic(probe_id = probe_sender, complete_command=json.dumps(json_disable_ntp_service))
 
 
-    def send_enable_ntp_service(self, probe_sender, msm_id, role, socket_port = None):
-        json_ping_start = {
+    def send_enable_ntp_service(self, probe_sender, msm_id, role, payload_size = None, socket_port = None):
+        # This command, at the end of the measurement, must be sent to the client probe, to re-enable the ntp_sec service.
+        # In this case, the last two paramers are not used, so they can be None (ONLY IN THIS SPECIFIC CASE).
+        json_enable_ntp_service = {
             "handler": "aoi",
             "command": "enable_ntp_service",
             "payload": {
                 "msm_id": msm_id,
                 "role": role,
-                "socket_port": socket_port
+                "socket_port": socket_port,
+                "payload_size": payload_size
             }
         }
-        self.mqtt_client.publish_on_command_topic(probe_id = probe_sender, complete_command=json.dumps(json_ping_start))
+        self.mqtt_client.publish_on_command_topic(probe_id = probe_sender, complete_command=json.dumps(json_enable_ntp_service))
 
 
     def handler_received_result(self, probe_sender, result):
@@ -177,6 +183,9 @@ class Age_of_Information_Coordinator:
         new_measurement.assign_id()
         msm_id = str(new_measurement._id)
 
+        aoi_parameters = self.get_default_ping_parameters()
+        aoi_parameters = self.override_default_parameters(aoi_parameters, new_measurement.parameters)
+
         source_probe_ip = self.ask_probe_ip(new_measurement.source_probe)
         if source_probe_ip is None:
             return "Error", f"No response from client probe: {new_measurement.source_probe}", "Reponse Timeout"
@@ -189,7 +198,9 @@ class Age_of_Information_Coordinator:
         dest_probe_ip_for_clock_sync = self.ask_probe_ip(new_measurement.dest_probe, sync_clock_ip = True)
         
         self.events_received_status_from_probe_sender[msm_id] = [threading.Event(), None]
-        self.send_enable_ntp_service(probe_sender=new_measurement.dest_probe,msm_id=msm_id, socket_port = DEFAULT_SOCKET_PORT, role="Server")
+        self.send_enable_ntp_service(probe_sender=new_measurement.dest_probe, msm_id = msm_id,
+                                     socket_port = aoi_parameters['socket_port'], role="Server",
+                                     payload_size = aoi_parameters['payload_size'] + 50)
         self.events_received_status_from_probe_sender[msm_id][0].wait(timeout = 5)        
 
         event_enable_msg = self.events_received_status_from_probe_sender[msm_id][1]        
@@ -197,13 +208,14 @@ class Age_of_Information_Coordinator:
             self.events_received_status_from_probe_sender[msm_id] = [threading.Event(), None]
             self.send_disable_ntp_service(probe_sender = new_measurement.source_probe, probe_ntp_server = dest_probe_ip_for_clock_sync,
                                           probe_server_aoi=new_measurement.dest_probe_ip, 
-                                          msm_id = msm_id, socket_port = DEFAULT_SOCKET_PORT, role = "Client")
+                                          msm_id = msm_id, socket_port = aoi_parameters['socket_port'], role = "Client")
             self.events_received_status_from_probe_sender[msm_id][0].wait(5)
 
             event_disable_msg = self.events_received_status_from_probe_sender[msm_id][1]
             if event_disable_msg == "OK":
                 self.events_received_status_from_probe_sender[msm_id] = [threading.Event(), None]
-                self.send_probe_aoi_measure_start(probe_sender = new_measurement.source_probe, msm_id = msm_id)
+                self.send_probe_aoi_measure_start(probe_sender = new_measurement.source_probe, msm_id = msm_id, 
+                                                  packets_rate = aoi_parameters['packets_rate'], payload_size = aoi_parameters['payload_size'])
                 self.events_received_status_from_probe_sender[msm_id][0].wait(timeout = 5)
 
                 event_start_msg = self.events_received_status_from_probe_sender[msm_id][1]
@@ -309,3 +321,22 @@ class Age_of_Information_Coordinator:
             print(f"AoI_Coordinator: updated document linking in measure: |{msm_id}|")
         if self.mongo_db.set_measurement_as_completed(msm_id):
             print(f"AoI_Coordinator: measurement |{msm_id}| completed ")
+
+    
+    def get_default_ping_parameters(self) -> json:
+        base_path = os.path.join(Path(__file__).parent)       
+        cl = ConfigLoader(base_path= base_path, file_name = "default_parameters.yaml", KEY=AOI_KEY)
+        json_default_config = cl.config if (cl.config is not None) else {}
+        return json_default_config
+
+    def override_default_parameters(self, json_config, measurement_parameters):
+        json_overrided_config = json_config
+        if (measurement_parameters is not None) and (isinstance(measurement_parameters, dict)):
+            if ('socket_port' in measurement_parameters):
+                json_overrided_config['socket_port'] = measurement_parameters['socket_port']
+            if ('packets_rate' in measurement_parameters):
+                packets_rate = measurement_parameters['packets_rate']
+                json_overrided_config['packets_rate'] = packets_rate if (packets_rate != 0) else json_config['packets_rate']
+            if ('payload_size' in measurement_parameters):
+                json_overrided_config['payload_size'] = measurement_parameters['payload_size']
+        return json_overrided_config
