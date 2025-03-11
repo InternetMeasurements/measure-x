@@ -29,7 +29,7 @@ class IperfController:
         self.output_iperf_dir = None
         self.reverse_function = None
         self.verbose_function = False # common parameter
-        self.total_repetition = 1
+        self.repetition = 1
         self.save_result_on_flash = None
         self.last_json_result = None
 
@@ -84,7 +84,7 @@ class IperfController:
             #self.measurement_id = payload_conf['measurement_id'] # REMEMBER --> You will read None during the configuration phase!
             self.reverse_function = payload_conf['reverse']
             self.verbose_function = payload_conf['verbose']
-            self.total_repetition = int(payload_conf['total_repetition'])
+            self.repetition = int(payload_conf['repetition'])
             self.save_result_on_flash = payload_conf["save_result_on_flash"]
             self.last_measurement_id = payload_conf['msm_id']
             self.last_role = "Client"
@@ -160,13 +160,13 @@ class IperfController:
     def iperf_client_body(self): # BODY CLIENT THREAD 
         repetition_count = 0
         execution_return_code = -2
-        while (repetition_count < self.total_repetition):
+        while (repetition_count < self.repetition):
             time.sleep(0.5)
             print(f"\n*************** Repetition: {repetition_count + 1} ***************")
             execution_return_code = self.run_iperf_execution()
             if execution_return_code != 0: # 0 is the correct execution code
                 break
-            self.publish_last_output_iperf(repetition = repetition_count, last_result=((repetition_count + 1) == self.total_repetition))
+            self.publish_last_output_iperf(repetition = repetition_count, last_result=((repetition_count + 1) == self.repetition))
             repetition_count += 1
             time.sleep(0.5)
 
@@ -364,7 +364,7 @@ class IperfController:
         self.output_iperf_dir = None
         self.reverse_function = False
         self.verbose_function = False # common parameter
-        self.total_repetition = 1
+        self.repetition = 1
         self.save_result_on_flash = None
         self.last_json_result = None
 

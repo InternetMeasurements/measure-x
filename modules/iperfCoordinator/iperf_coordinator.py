@@ -7,7 +7,8 @@ import cbor2, base64, sys
 from pathlib import Path
 from modules.mqttModule.mqtt_client import Mqtt_Client
 from bson import ObjectId
-from modules.mongoModule.mongoDB import MongoDB, SECONDS_OLD_MEASUREMENT
+from modules.mongoModule.mongoDB import MongoDB, ErrorModel, SECONDS_OLD_MEASUREMENT
+from modules.configLoader.config_loader import ConfigLoader, IPERF_CLIENT_KEY, IPERF_SERVER_KEY
 from modules.mongoModule.models.measurement_model_mongo import MeasurementModelMongo
 from modules.mongoModule.models.iperf_result_model_mongo import IperfResultModelMongo
 
@@ -255,20 +256,43 @@ class Iperf_Coordinator:
 #            print("Iperf_Coordinator: result not last")
 
 
-    def get_json_from_probe_yaml(self, probes_configurations_path) -> json:
-        json_probe_config = {}
-        with open(probes_configurations_path, "r") as file:
-            iperf_client_config = yaml.safe_load(file)['iperf_client']
-            json_probe_config = {
-                "transport_protocol": iperf_client_config['transport_protocol'],
-                "parallel_connections": int(iperf_client_config['parallel_connections']),
-                "result_measurement_filename": iperf_client_config['result_measurement_filename'],
-                "reverse": iperf_client_config['reverse'],
-                "verbose": False, # YOU CANNOT SET VERBOSE WHEN USE JSON AS "STD-OUT"
-                "total_repetition": int(iperf_client_config['total_repetition']),
-                "save_result_on_flash": iperf_client_config['save_result_on_flash']
-            }
-        return json_probe_config
+    def get_default_iperf_parameters(self, role) -> json:
+        base_path = os.path.join(Path(__file__).parent, "probes_configurations")
+
+        config_file_name =  "configToBeClient.yaml" if (role == "Client") else "configToBeServer.yaml"
+        IPERF_KEY = IPERF_CLIENT_KEY if (role == "Client") else IPERF_SERVER_KEY
+
+        cl = ConfigLoader(base_path= base_path, file_name = config_file_name)
+        json_default_config = {}
+        if cl.iperf_client_config is not None:
+            json_default_config = cl.iperf_client_config[IPERF_KEY]
+        elif cl.iperf_server_config is not None:
+            json_default_config = cl.iperf_server_config[IPERF_KEY]
+        return json_default_config
+
+    def override_default_parameters(self, json_config, measurement_parameters, role):
+        json_overrided_config = json_config
+        if role == "Client":
+            if ('transport_protocol' in measurement_parameters):
+                json_overrided_config['transport_protocol'] = measurement_parameters['transport_protocol']
+            if ('parallel_connections' in measurement_parameters):
+                json_overrided_config['parallel_connections'] = measurement_parameters['parallel_connections']
+            if ('result_measurement_filename' in measurement_parameters):
+                json_overrided_config['result_measurement_filename'] = measurement_parameters['result_measurement_filename']
+            if ('reverse' in measurement_parameters):
+                json_overrided_config['reverse'] = measurement_parameters['reverse']
+            if ('repetition' in measurement_parameters):
+                json_overrided_config['repetition'] = measurement_parameters['repetition']
+            if ('save_result_on_flash' in measurement_parameters):
+                json_overrided_config['save_result_on_flash'] = measurement_parameters['save_result_on_flash']
+            json_overrided_config['role'] = "Client"
+        elif role == "Server":
+            json_overrided_config['role'] = "Server"
+            if 'listen_port' in measurement_parameters:
+                json_overrided_config['listen_port'] = measurement_parameters['listen_port']
+        return json_overrided_config
+
+            
 
 
     def probes_preparer_to_measurements(self, new_measurement : MeasurementModelMongo):
@@ -295,14 +319,12 @@ class Iperf_Coordinator:
         self.events_received_server_ack[measurement_id] = [threading.Event(), None]
         self.queued_measurements[str(new_measurement._id)] = new_measurement
 
-        json_config = {
-                "role": "Server",
-                "listen_port": 5201,
-                "verbose": False,
-                "msm_id": measurement_id
-            }
+        json_server_config = self.get_default_iperf_parameters(role="Server")
+        json_server_config = self.override_default_parameters(json_server_config, new_measurement.parameters, role="Server")
+        json_server_config["msm_id"] = measurement_id
+
         
-        self.send_probe_iperf_conf(probe_id = new_measurement.dest_probe, json_config = json_config) # Sending server configuration
+        self.send_probe_iperf_conf(probe_id = new_measurement.dest_probe, json_config = json_server_config) # Sending server configuration
         print("preparer iperf: sent conf server")
         self.events_received_server_ack[measurement_id][0].wait(timeout = 5) # Wait for the ACK server
         
@@ -311,30 +333,29 @@ class Iperf_Coordinator:
         server_event_message = self.events_received_server_ack[measurement_id][1]
         if server_event_message == "OK": # If the iperf-server configuration went good, then...
             print("preparer iperf: awake from server ACK ")
-            base_path = Path(__file__).parent
-            probes_configurations_path = Path(os.path.join(base_path, self.probes_configurations_dir, "configToBeClient.yaml"))
-            if probes_configurations_path.exists():                                
-                json_config = self.get_json_from_probe_yaml(probes_configurations_path)
-                json_config['role'] = "Client"
-                json_config['msm_id'] = measurement_id
-                json_config['destination_server_ip'] = dest_probe_ip
-                json_config['destination_server_port'] = self.probes_server_port[new_measurement.dest_probe]
+            
+            json_client_config = self.get_default_iperf_parameters(role="Client")
+            json_client_config = self.override_default_parameters(json_client_config, new_measurement.parameters, role = "Client")
+            json_client_config['msm_id'] = measurement_id
+            json_client_config['destination_server_ip'] = dest_probe_ip
+            json_client_config['destination_server_port'] = self.probes_server_port[new_measurement.dest_probe]
+            # The upper line code is a mechanism to automatic set the client port equal to the chosen server port.
 
-                self.send_probe_iperf_conf(probe_id = new_measurement.source_probe, json_config = json_config) # Sending client configuration
-                self.events_received_client_ack[measurement_id] = [threading.Event(), None]
-                self.events_received_client_ack[measurement_id][0].wait(timeout = 5)
-                
-                # ------------------------------- YOU MUST WAIT (AT MOST 5s) FOR AN ACK/NACK FROM SOURCE_PROBE (IPERF-CLIENT)
+            self.send_probe_iperf_conf(probe_id = new_measurement.source_probe, json_config = json_client_config) # Sending client configuration
+            self.events_received_client_ack[measurement_id] = [threading.Event(), None]
+            self.events_received_client_ack[measurement_id][0].wait(timeout = 5)
+            
+            # ------------------------------- YOU MUST WAIT (AT MOST 5s) FOR AN ACK/NACK FROM SOURCE_PROBE (IPERF-CLIENT)
 
-                client_event_message = self.events_received_client_ack[measurement_id][1]
-                if client_event_message == "OK":
-                    return self.send_probe_iperf_start(new_measurement)
-                
-                self.send_probe_iperf_stop(new_measurement.dest_probe, measurement_id)
-                if client_event_message is not None:
-                    return "Error", f"Probe |{new_measurement.source_probe}| says: {client_event_message}", "State BUSY"
-                else:
-                    return "Error", f"No response from client probe: {new_measurement.source_probe}", "Reponse Timeout"
+            client_event_message = self.events_received_client_ack[measurement_id][1]
+            if client_event_message == "OK":
+                return self.send_probe_iperf_start(new_measurement)
+            
+            self.send_probe_iperf_stop(new_measurement.dest_probe, measurement_id)
+            if client_event_message is not None:
+                return "Error", f"Probe |{new_measurement.source_probe}| says: {client_event_message}", "State BUSY"
+            else:
+                return "Error", f"No response from client probe: {new_measurement.source_probe}", "Reponse Timeout"
         elif server_event_message is not None:
             print(f"Preparer iperf: awaked from server conf NACK -> {server_event_message}")
             return "Error", f"Probe |{new_measurement.dest_probe}| says: {server_event_message}", "State BUSY"
@@ -344,7 +365,11 @@ class Iperf_Coordinator:
 
     def iperf_measurement_stopper(self, msm_id_to_stop : str):
         if msm_id_to_stop not in self.queued_measurements:
-            return "Error", f"Unknown iperf measurement |{msm_id_to_stop}|", "May be not started"
+            measure_from_db : MeasurementModelMongo = self.mongo_db.find_measurement_by_id(measurement_id=msm_id_to_stop)
+            if isinstance(measure_from_db, ErrorModel):
+                return "Error", measure_from_db.error_description, measure_from_db.error_cause
+            self.queued_measurements[msm_id_to_stop] = measure_from_db
+        
         measurement_to_stop : MeasurementModelMongo = self.queued_measurements[msm_id_to_stop]
         self.events_stop_server_ack[msm_id_to_stop] = [threading.Event(), None]
         self.send_probe_iperf_stop(probe_id=measurement_to_stop.dest_probe, msm_id=msm_id_to_stop)

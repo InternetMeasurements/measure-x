@@ -7,7 +7,7 @@ class MeasurementModelMongo:
     def __init__(self, description, type, source_probe, source_probe_ip : str, dest_probe_ip : str,
                  dest_probe = None, _id = None,
                  state = None, start_time = None, gps_source_probe = None, gps_dest_probe = None,
-                 coexisting_application = None, stop_time = None, results = None):
+                 coexisting_application = None, stop_time = None, results = None, parameters = None):
         self._id = _id
         self.description = description
         self.type = type
@@ -22,6 +22,7 @@ class MeasurementModelMongo:
         self.coexisting_application = coexisting_application #CoexistingApplicationModelMongo()
         self.stop_time = stop_time
         self.results = [] if results is None else results
+        self.parameters = parameters
 
 
     @staticmethod
@@ -32,7 +33,8 @@ class MeasurementModelMongo:
         except Exception as e:
             return None
         _id = state = dest_probe = source_probe_ip = dest_probe_ip = description = start_time = None
-        gps_source_probe = gps_dest_probe = coexisting_application = stop_time = results = None 
+        gps_source_probe = gps_dest_probe = coexisting_application = stop_time = results = None
+        parameters = None
         if ('_id' in measurement_as_dict):
             _id = measurement_as_dict['_id']
         if 'dest_probe' in measurement_as_dict:
@@ -57,10 +59,13 @@ class MeasurementModelMongo:
             stop_time = measurement_as_dict['stop_time']
         if 'results' in measurement_as_dict:
             results = measurement_as_dict['results']
+        if 'parameters' in measurement_as_dict:
+            parameters = measurement_as_dict['parameters']
         measurement_to_return = MeasurementModelMongo(description=description, type=type, source_probe=source_probe, _id=_id,
                                                       dest_probe=dest_probe, source_probe_ip=source_probe_ip, dest_probe_ip=dest_probe_ip,
                                                       state=state, start_time=start_time, gps_source_probe=gps_source_probe, gps_dest_probe=gps_dest_probe,
-                                                      coexisting_application=coexisting_application, stop_time=stop_time, results=results)
+                                                      coexisting_application=coexisting_application, stop_time=stop_time, results=results,
+                                                      parameters=parameters)
         return measurement_to_return
     
 
@@ -84,5 +89,6 @@ class MeasurementModelMongo:
             'gps_dest_probe': self.gps_dest_probe,
             'coexisting_application': self.coexisting_application,
             'stop_time': self.stop_time,
-            'results': [str(result_id) for result_id in self.results]
+            'results': [str(result_id) for result_id in self.results],
+            'parameters': self.parameters
         }
