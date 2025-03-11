@@ -252,16 +252,17 @@ class Ping_Coordinator:
 
     def get_default_ping_parameters(self) -> json:
         base_path = os.path.join(Path(__file__).parent)       
-        cl = ConfigLoader(base_path= base_path, file_name = "default_parameters.yamò")
+        cl = ConfigLoader(base_path= base_path, file_name = "default_parameters.yaml")
         json_default_config = {}
-        if cl.ping_config is not None:
-            json_default_config = cl.ping_config[PING_KEY]
+        if cl.config is not None:
+            json_default_config = cl.config
         return json_default_config
 
     def override_default_parameters(self, json_config, measurement_parameters):
         json_overrided_config = json_config
-        if ('packets_number' in measurement_parameters):
-            json_overrided_config['packets_number'] = measurement_parameters['packets_number']
-        if ('packets_size' in measurement_parameters):
-            json_overrided_config['packets_size'] = measurement_parameters['packets_size']
+        if (measurement_parameters is not None) and (isinstance(measurement_parameters, dict)):
+            if ('packets_number' in measurement_parameters):
+                json_overrided_config['packets_number'] = measurement_parameters['packets_number']
+            if ('packets_size' in measurement_parameters):
+                json_overrided_config['packets_size'] = measurement_parameters['packets_size']
         return json_overrided_config

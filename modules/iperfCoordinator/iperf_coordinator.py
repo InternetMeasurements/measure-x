@@ -262,12 +262,10 @@ class Iperf_Coordinator:
         config_file_name =  "configToBeClient.yaml" if (role == "Client") else "configToBeServer.yaml"
         IPERF_KEY = IPERF_CLIENT_KEY if (role == "Client") else IPERF_SERVER_KEY
 
-        cl = ConfigLoader(base_path= base_path, file_name = config_file_name)
+        cl = ConfigLoader(base_path= base_path, file_name = config_file_name, KEY = IPERF_KEY)
         json_default_config = {}
-        if cl.iperf_client_config is not None:
-            json_default_config = cl.iperf_client_config[IPERF_KEY]
-        elif cl.iperf_server_config is not None:
-            json_default_config = cl.iperf_server_config[IPERF_KEY]
+        if cl.config is not None:
+            json_default_config = cl.config
         json_default_config['role'] = role
         return json_default_config
 

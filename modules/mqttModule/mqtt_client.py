@@ -20,13 +20,13 @@ class Mqtt_Client(mqtt.Client):
         #with open(yaml_dir) as file:
             #self.config = yaml.safe_load(file)
         base_path = Path(__file__).parent
-        cl = ConfigLoader(base_path= base_path, file_name = 'mqttConfig.yaml')
+        cl = ConfigLoader(base_path= base_path, file_name = 'mqttConfig.yaml', KEY=MQTT_KEY)
 
         self.external_results_handler = results_handler_callback
         self.external_status_handler = status_handler_callback
         self.external_errors_handler = errors_handler_callback
 
-        self.config = cl.mqtt_config[MQTT_KEY]
+        self.config = cl.config
         cert_path = self.config['mosquitto_certificate_path']
         self.mosquitto_certificate_path = os.path.join(base_path, cert_path)
 
