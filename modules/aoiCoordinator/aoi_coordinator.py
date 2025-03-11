@@ -195,13 +195,14 @@ class Age_of_Information_Coordinator:
             return "Error", f"No response from client probe: {new_measurement.dest_probe}", "Reponse Timeout"
         new_measurement.source_probe_ip = source_probe_ip
         new_measurement.dest_probe_ip = dest_probe_ip
+        new_measurement.parameters = aoi_parameters # This setting allow to store params in measurement object even if you don't have inserted them.
 
         dest_probe_ip_for_clock_sync = self.ask_probe_ip(new_measurement.dest_probe, sync_clock_ip = True)
         
         self.events_received_status_from_probe_sender[msm_id] = [threading.Event(), None]
         self.send_enable_ntp_service(probe_sender=new_measurement.dest_probe, msm_id = msm_id,
                                      socket_port = aoi_parameters['socket_port'], role="Server",
-                                     payload_size = aoi_parameters['payload_size'] + 50,
+                                     payload_size = aoi_parameters['payload_size'] + 100,
                                      socket_timeout = aoi_parameters['socket_timeout'])
         self.events_received_status_from_probe_sender[msm_id][0].wait(timeout = 5)        
 
@@ -238,6 +239,7 @@ class Age_of_Information_Coordinator:
                     return "Error", f"No response from Probe: {new_measurement.source_probe}" , "Reponse Timeout"   
         elif event_enable_msg is not None:
             print(f"Preparer AoI: awaked from server conf NACK -> {event_enable_msg}")
+            self.send_probe_aoi_measure_stop(probe_sender=new_measurement.source_probe, msm_id=msm_id)
             return "Error", f"Probe |{new_measurement.dest_probe}| says: {event_enable_msg}", ""            
         else:
             print(f"Preparer AoI: No response from probe -> |{new_measurement.dest_probe}")
@@ -334,6 +336,8 @@ class Age_of_Information_Coordinator:
     def override_default_parameters(self, json_config, measurement_parameters):
         json_overrided_config = json_config
         if (measurement_parameters is not None) and (isinstance(measurement_parameters, dict)):
+            if ('socket_timeout' in measurement_parameters):
+                json_overrided_config['socket_timeout'] = measurement_parameters['socket_timeout']
             if ('socket_port' in measurement_parameters):
                 json_overrided_config['socket_port'] = measurement_parameters['socket_port']
             if ('packets_rate' in measurement_parameters):

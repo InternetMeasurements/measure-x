@@ -281,7 +281,7 @@ class AgeOfInformationController:
                         
                         aoi = reception_timestamp - client_timestamp
                         writer.writerow({"Timestamp": reception_timestamp, "AoI": aoi})
-                        print(f"Timestamp reception: |{reception_timestamp}| , Client timestamp: {client_timestamp} , AoI: |{aoi:.6f}| , DUMMY SIZE: |{len(dummy_payload)}| bytes")
+                        print(f"Timestamp reception: |{reception_timestamp}| , AoI: |{aoi:.6f}| , DUMMY SIZE: |{len(dummy_payload)}| bytes")
                 except socket.timeout:
                     receive_error = "SOCKET TIMEOUT. The client-probe is down?"
                     print(f"AoIController: {receive_error}")

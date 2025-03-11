@@ -188,6 +188,7 @@ class Ping_Coordinator:
 
         ping_parameters = self.get_default_ping_parameters()
         ping_parameters = self.override_default_parameters(ping_parameters, new_measurement.parameters)
+        new_measurement.parameters = ping_parameters.copy()
 
         if new_measurement.source_probe_ip is None or new_measurement.source_probe_ip == "":
             source_probe_ip = self.ask_probe_ip(new_measurement.source_probe)
@@ -252,7 +253,7 @@ class Ping_Coordinator:
 
     def get_default_ping_parameters(self) -> json:
         base_path = os.path.join(Path(__file__).parent)       
-        cl = ConfigLoader(base_path= base_path, file_name = "default_parameters.yaml")
+        cl = ConfigLoader(base_path= base_path, file_name = "default_parameters.yaml", KEY = PING_KEY)
         json_default_config = cl.config if (cl.config is not None) else {}
         return json_default_config
 

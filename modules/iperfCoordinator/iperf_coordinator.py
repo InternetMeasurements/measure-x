@@ -67,6 +67,8 @@ class Iperf_Coordinator:
         else:
             print(f"Iperf_Coordinator: registration measurement stopper failed. Reason -> {registration_response}")
 
+        self.print_average_compression_ratio()
+
 
     def handler_received_result(self, probe_sender, result: json):
         if ((time.time() - result["start_timestamp"]) < SECONDS_OLD_MEASUREMENT):
@@ -211,28 +213,14 @@ class Iperf_Coordinator:
             full_result = full_result
         )
 
-        mongo_result_2 = IperfResultModelMongo(
-            msm_id = ObjectId(result["msm_id"]),
-            repetition_number = result["repetition_number"],
-            start_timestamp = result["start_timestamp"],
-            transport_protocol = result["transport_protocol"],
-            source_ip = result["source_ip"],
-            source_port = result["source_port"],
-            destination_ip = result["destination_ip"],
-            destination_port = result["destination_port"],
-            bytes_received = result["bytes_received"],
-            duration = result["duration"],
-            avg_speed = result["avg_speed"],
-            full_result = full_result_c_b64
-        )
-
-        dict_1 = mongo_result.to_dict()
-        dict_2 = mongo_result_2.to_dict()
-
         size_1 = self.get_size(full_result)
         size_2 = self.get_size(full_result_c_b64)
 
         print(f"************************************************** Size full_result without compression: |{size_1}| byte , Size full_result with compression: |{size_2}| byte")
+
+        self.save_result_on_csv(size_1, size_2)
+
+
         #print(f"full_result -> |{full_result}|")
         #print("----------------------------------------------------------------")
         #print(f"full_result_c_b64 -> |{full_result_c_b64}|")
@@ -263,9 +251,7 @@ class Iperf_Coordinator:
         IPERF_KEY = IPERF_CLIENT_KEY if (role == "Client") else IPERF_SERVER_KEY
 
         cl = ConfigLoader(base_path= base_path, file_name = config_file_name, KEY = IPERF_KEY)
-        json_default_config = {}
-        if cl.config is not None:
-            json_default_config = cl.config
+        json_default_config = cl.config if (cl.config is not None) else {}
         json_default_config['role'] = role
         return json_default_config
 
@@ -336,6 +322,14 @@ class Iperf_Coordinator:
             
             json_client_config = self.get_default_iperf_parameters(role="Client")
             json_client_config = self.override_default_parameters(json_client_config, new_measurement.parameters, role = "Client")
+
+            # -----------------------------------------------------------------------------------------
+            parameters_to_store_in_measurement = json_client_config.copy()
+            parameters_to_store_in_measurement['listen_port'] = json_server_config['listen_port']
+            new_measurement.parameters = parameters_to_store_in_measurement
+            # This line above ensures that all parameters are included in the measurement object,
+            # even those that are not explicitly specified in measurement-subscription phase.
+
             json_client_config['msm_id'] = measurement_id
             json_client_config['destination_server_ip'] = dest_probe_ip
             json_client_config['destination_server_port'] = self.probes_server_port[new_measurement.dest_probe]
@@ -407,3 +401,42 @@ class Iperf_Coordinator:
         print(f"Velocità trasferimento {avg_speed} bits/s")
         print(f"Quantità di byte ricevuti: {bytes_received}")
         print(f"Durata risultato: {duration} secondi\n")
+
+
+    def save_result_on_csv(self, size_1, size_2):
+        import csv
+        with open("iperf_uncomp_vs_comp.csv", mode="a", newline="") as csv_file:
+            fieldnames = ["Uncompressed", "Compressed"]
+            writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+
+            if os.stat("iperf_uncomp_vs_comp.csv").st_size == 0:
+                writer.writeheader()
+
+            writer.writerow({"Uncompressed": size_1, "Compressed": size_2})
+
+    def print_average_compression_ratio(self, file_path="iperf_uncomp_vs_comp.csv"):
+        import pandas as pd
+
+        try:
+            df = pd.read_csv(file_path)
+
+            df['Compression_Percentage'] = ( 1 - (df['Compressed'] / df['Uncompressed']) ) * 100
+
+            compressed_mean = df['Compressed'].mean().__ceil__()
+            uncompressed_mean = df['Uncompressed'].mean().__ceil__()
+
+            print(f"compressed_mean: Value -> {compressed_mean} byte")
+            print(f"uncompressed_mean: Value -> {uncompressed_mean}")
+
+            compression_percentage = df['Compression_Percentage'].mean()
+            print(f"IPERF: Average compression percentage: {compression_percentage}%")
+
+        except FileNotFoundError:
+            print("File not found.")
+            return None
+        except pd.errors.EmptyDataError:
+            print("No data in file.")
+            return None
+        except KeyError:
+            print("Missing 'Uncompressed' or 'Compressed' columns in the file.")
+            return None
