@@ -244,7 +244,7 @@ class AgeOfInformationController:
                         
                         timestamp_message = {
                             "timestamp" : timestamp_value,
-                            "dummy_payload" : 'F' * payload_size # Create a dummy payload of 'payload_size' bytes
+                            "dummy_payload" : ("F" * payload_size).encode("utf-8") # Create a dummy payload of 'payload_size' bytes
                         }
                         print(f"AoI client: sending... -> {timestamp_value}" )
                         json_timestamp = json.dumps(timestamp_message)
@@ -269,7 +269,7 @@ class AgeOfInformationController:
                     fieldnames = ["Timestamp", "AoI"]
                     writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
                     writer.writeheader()
-                    print("Role server thread")
+                    print(f"Role server thread. PAYLOAD_SIZE-> {payload_size}")
                     #self.send_aoi_ACK(successed_command="start", msm_id=msm_id)
                     while(not self.stop_thread_event.is_set()):
                         data, addr = self.measure_socket.recvfrom(payload_size)
