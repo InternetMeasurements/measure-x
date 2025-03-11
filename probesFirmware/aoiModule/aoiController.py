@@ -55,7 +55,21 @@ class AgeOfInformationController:
                         if shared_state.get_coordinator_ip() is None: # Necessary check for confirm the coordinator response of coordinator_ip
                             self.send_aoi_NACK(failed_command="start", error_info = "No response from coordinator. Missing coordinator ip for root service", msm_id=msm_id)
                             return
-                    returned_msg = self.submit_thread_to_aoi_measure(msm_id = msm_id)
+
+                    payload_size = payload['payload_size'] if ('payload_size' in payload) else None
+                    if payload_size is None:
+                        self.send_aoi_NACK(failed_command=command, error_info="No payload size provided. Force PROBE_READY", msm_id=msm_id)
+                        shared_state.set_probe_as_ready()
+                        return
+                    
+                    packets_rate = payload['packets_rate'] if ('packets_rate' in payload) else None
+                    if packets_rate is None:
+                        self.send_aoi_NACK(failed_command=command, error_info="No packets rate provided. Force PROBE_READY", msm_id=msm_id)
+                        shared_state.set_probe_as_ready()
+                        return
+                    
+                    returned_msg = self.submit_thread_to_aoi_measure(msm_id = msm_id, payload_size = payload_size,
+                                                                     packets_rate = packets_rate)
                     if returned_msg == "OK":
                         self.aoi_thread.start()
                     else:
@@ -99,7 +113,7 @@ class AgeOfInformationController:
                     shared_state.set_probe_as_ready()
                     return
                 role = payload["role"] if ("role" in payload) else None
-                if socket_port is None:
+                if role is None:
                     self.send_aoi_NACK(failed_command=command, error_info="No role provided", msm_id=msm_id)
                     shared_state.set_probe_as_ready()
                     return
@@ -128,6 +142,7 @@ class AgeOfInformationController:
                 if role is None:
                     self.send_aoi_NACK(failed_command=command, error_info="No role provided", msm_id=msm_id)
                     return
+                payload_size = payload['payload_size'] if ('payload_size' in payload) else None
                 if role == "Server":
                     if not shared_state.set_probe_as_busy():
                         self.send_aoi_NACK(failed_command=command, error_info="PROBE BUSY", msm_id=msm_id)
@@ -137,6 +152,11 @@ class AgeOfInformationController:
                         self.send_aoi_NACK(failed_command=command, error_info="No socket_port provided", msm_id=msm_id)
                         shared_state.set_probe_as_ready()
                         return
+                    if payload_size is None:
+                        self.send_aoi_NACK(failed_command=command, error_info="No payload_size provided", msm_id=msm_id)
+                        shared_state.set_probe_as_ready()
+                        return
+                    
                     enable_msg = self.start_ntpsec_service()
                     if enable_msg == "OK":
                         self.last_socket_port = socket_port
@@ -144,7 +164,7 @@ class AgeOfInformationController:
                         self.last_measurement_id = msm_id
                         socket_creation_msg = self.create_socket()
                         if socket_creation_msg == "OK":
-                            returned_msg = self.submit_thread_to_aoi_measure(msm_id = msm_id)
+                            returned_msg = self.submit_thread_to_aoi_measure(msm_id = msm_id, payload_size=payload_size)
                             if returned_msg == "OK":
                                 self.aoi_thread.start()
                                 self.send_aoi_ACK(successed_command = command, msm_id = msm_id)
@@ -192,9 +212,9 @@ class AgeOfInformationController:
             return str(e)
                 
 
-    def submit_thread_to_aoi_measure(self, msm_id):
+    def submit_thread_to_aoi_measure(self, msm_id,  payload_size = None, packets_rate = None):
         try:
-            self.aoi_thread = threading.Thread(target=self.run_aoi_measurement, args=(msm_id,))
+            self.aoi_thread = threading.Thread(target=self.run_aoi_measurement, args=(msm_id,payload_size,packets_rate,))
             return "OK"
         except Exception as e:
             returned_msg = (f"Exception while starting measure thread -> {str(e)}")
@@ -202,21 +222,24 @@ class AgeOfInformationController:
             return returned_msg
 
 
-    def run_aoi_measurement(self, msm_id):
+    def run_aoi_measurement(self, msm_id, payload_size, packets_rate):
         if self.last_role == "Client":
             stderr_command = None
             try:
+                if packets_rate is None:
+                    raise Exception(f"AoIController: wrong packets_rate -> |{packets_rate}|")
                 print(f"Role client thread -> last_probe_ntp_server_ip: |{self.last_probe_ntp_server_ip}|")
                 result = subprocess.run( ['sudo', 'ntpdate', self.last_probe_ntp_server_ip], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 if result.returncode == 0:
                     print(f"AoIController: clock synced with {self.last_probe_ntp_server_ip}")
                     self.send_aoi_ACK(successed_command = "start", msm_id = msm_id)
                     while(not self.stop_thread_event.is_set()):
-                        time.sleep(1)
+                        time.sleep(1 / packets_rate) # packets_rate can't be 0. The coordinator must check it.
                         timestamp_value = datetime.datetime.now().timestamp()
                         
                         timestamp_message = {
-                            "timestamp" : timestamp_value
+                            "timestamp" : timestamp_value,
+                            "dummy_payload" : 'F' * payload_size # Create a dummy payload of 'payload_size' bytes
                         }
                         print(f"AoI client: sending... -> {timestamp_value}" )
                         json_timestamp = json.dumps(timestamp_message)
@@ -244,7 +267,7 @@ class AgeOfInformationController:
                     print("Role server thread")
                     #self.send_aoi_ACK(successed_command="start", msm_id=msm_id)
                     while(not self.stop_thread_event.is_set()):
-                        data, addr = self.measure_socket.recvfrom(1024)
+                        data, addr = self.measure_socket.recvfrom(payload_size)
                         reception_timestamp = datetime.datetime.now().timestamp()
 
                         json_timestamp = json.loads(data.decode())
