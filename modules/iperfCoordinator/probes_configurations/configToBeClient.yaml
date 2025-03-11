@@ -1,6 +1,6 @@
 #Configuration file for the IPERF module
 iperf_client:
-  total_repetition: 5
+  repetitions: 1
   output_iperf_dir: iPerfMeasurements
   result_measurement_filename: measurement_
   parallel_connections: 1
