@@ -157,12 +157,14 @@ class AgeOfInformationController:
                         shared_state.set_probe_as_ready()
                         return
                     
+                    socket_timeout = payload["socket_timeout"] if ("socket_timeout" in payload) else None
+                    
                     enable_msg = self.start_ntpsec_service()
                     if enable_msg == "OK":
                         self.last_socket_port = socket_port
                         self.last_role = role
                         self.last_measurement_id = msm_id
-                        socket_creation_msg = self.create_socket()
+                        socket_creation_msg = self.create_socket(socket_timeout)
                         if socket_creation_msg == "OK":
                             returned_msg = self.submit_thread_to_aoi_measure(msm_id = msm_id, payload_size=payload_size)
                             if returned_msg == "OK":
@@ -194,12 +196,13 @@ class AgeOfInformationController:
                     self.send_aoi_NACK(failed_command = command, error_info = (f"Wrong role -> {role}"), msm_id = msm_id)
                 
                 
-    def create_socket(self):
+    def create_socket(self, socket_timeout):
         try:
             self.measure_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             self.measure_socket.bind((shared_state.get_probe_ip(), self.last_socket_port))
             if self.last_role == "Server":
-                self.measure_socket.settimeout(8)
+                if socket_timeout > 0:
+                    self.measure_socket.settimeout(socket_timeout)
             print(f"AoIController: Opened socket on IP: |{shared_state.get_probe_ip()}| , port: |{self.last_socket_port}|")
             #self.measure_socket.settimeout(10)
             return "OK"

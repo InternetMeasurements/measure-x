@@ -1,4 +1,5 @@
 aoi:
+  socket_timeout: 0 #DEFAULT is 8. Set to 0 for DEBUG -> The server socket will have not timeout!
   socket_port: 50505
   packets_rate: 1 # number of packetevery second
   payload_size: 32 # bytes

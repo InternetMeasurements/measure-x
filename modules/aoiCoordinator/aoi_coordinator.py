@@ -93,7 +93,7 @@ class Age_of_Information_Coordinator:
         self.mqtt_client.publish_on_command_topic(probe_id = probe_sender, complete_command=json.dumps(json_disable_ntp_service))
 
 
-    def send_enable_ntp_service(self, probe_sender, msm_id, role, payload_size = None, socket_port = None):
+    def send_enable_ntp_service(self, probe_sender, msm_id, role, payload_size = None, socket_port = None, socket_timeout = None):
         # This command, at the end of the measurement, must be sent to the client probe, to re-enable the ntp_sec service.
         # In this case, the last two paramers are not used, so they can be None (ONLY IN THIS SPECIFIC CASE).
         json_enable_ntp_service = {
@@ -103,7 +103,8 @@ class Age_of_Information_Coordinator:
                 "msm_id": msm_id,
                 "role": role,
                 "socket_port": socket_port,
-                "payload_size": payload_size
+                "payload_size": payload_size,
+                "socket_timeout": socket_timeout
             }
         }
         self.mqtt_client.publish_on_command_topic(probe_id = probe_sender, complete_command=json.dumps(json_enable_ntp_service))
@@ -200,7 +201,8 @@ class Age_of_Information_Coordinator:
         self.events_received_status_from_probe_sender[msm_id] = [threading.Event(), None]
         self.send_enable_ntp_service(probe_sender=new_measurement.dest_probe, msm_id = msm_id,
                                      socket_port = aoi_parameters['socket_port'], role="Server",
-                                     payload_size = aoi_parameters['payload_size'] + 50)
+                                     payload_size = aoi_parameters['payload_size'] + 50,
+                                     socket_timeout = aoi_parameters['socket_timeout'])
         self.events_received_status_from_probe_sender[msm_id][0].wait(timeout = 5)        
 
         event_enable_msg = self.events_received_status_from_probe_sender[msm_id][1]        
