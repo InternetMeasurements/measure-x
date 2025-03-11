@@ -196,12 +196,12 @@ class AgeOfInformationController:
                     self.send_aoi_NACK(failed_command = command, error_info = (f"Wrong role -> {role}"), msm_id = msm_id)
                 
                 
-    def create_socket(self, socket_timeout):
+    def create_socket(self, socket_timeout = None):
         try:
             self.measure_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             self.measure_socket.bind((shared_state.get_probe_ip(), self.last_socket_port))
             if self.last_role == "Server":
-                if socket_timeout > 0:
+                if (socket_timeout is not None) and (socket_timeout > 0):
                     self.measure_socket.settimeout(socket_timeout)
                     print(f"AoIController: Opened socket on IP: |{shared_state.get_probe_ip()}| , port: |{self.last_socket_port}|")
                 else:
