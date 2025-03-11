@@ -253,9 +253,7 @@ class Ping_Coordinator:
     def get_default_ping_parameters(self) -> json:
         base_path = os.path.join(Path(__file__).parent)       
         cl = ConfigLoader(base_path= base_path, file_name = "default_parameters.yaml")
-        json_default_config = {}
-        if cl.config is not None:
-            json_default_config = cl.config
+        json_default_config = cl.config if (cl.config is not None) else {}
         return json_default_config
 
     def override_default_parameters(self, json_config, measurement_parameters):
