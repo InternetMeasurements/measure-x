@@ -1,0 +1,4 @@
+aoi:
+  socket_port: 50505
+  packets_rate: 1 # number of packetevery second
+  payload_size: 32 # bytes
