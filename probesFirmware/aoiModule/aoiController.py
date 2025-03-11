@@ -203,7 +203,9 @@ class AgeOfInformationController:
             if self.last_role == "Server":
                 if socket_timeout > 0:
                     self.measure_socket.settimeout(socket_timeout)
-            print(f"AoIController: Opened socket on IP: |{shared_state.get_probe_ip()}| , port: |{self.last_socket_port}|")
+                    print(f"AoIController: Opened socket on IP: |{shared_state.get_probe_ip()}| , port: |{self.last_socket_port}|")
+                else:
+                    print(f"AoIController: DEBUG -> Opened socket on IP: |{shared_state.get_probe_ip()}| , port: |{self.last_socket_port}|")
             #self.measure_socket.settimeout(10)
             return "OK"
         except socket.error as e:
