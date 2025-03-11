@@ -10,8 +10,8 @@ from shared_resources import shared_state
 
 DEFAULT_AoI_MEASUREMENT_FOLDER = "aoi_measurements"
 
-""" Class that implements the AGE OF INFORMATION measurement funcionality """
 class AgeOfInformationController:
+    """ Class that implements the AGE OF INFORMATION measurement funcionality """
     def __init__(self, mqtt_client : ProbeMqttClient, registration_handler_request_function, wait_for_set_coordinator_ip):
         
         self.mqtt_client = mqtt_client

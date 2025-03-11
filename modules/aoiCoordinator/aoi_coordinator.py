@@ -147,6 +147,7 @@ class Age_of_Information_Coordinator:
                 reason = payload['reason']
                 match failed_command:
                     case "start":
+                        print(f"AoI_Coordinator: received NACK for {failed_command} -> reason: {reason}")
                         if msm_id in self.events_received_status_from_probe_sender:
                             self.events_received_status_from_probe_sender[msm_id][1] = reason
                             self.events_received_status_from_probe_sender[msm_id][0].set()
