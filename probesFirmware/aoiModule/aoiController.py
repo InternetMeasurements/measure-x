@@ -244,7 +244,7 @@ class AgeOfInformationController:
                         
                         timestamp_message = {
                             "timestamp" : timestamp_value,
-                            "dummy_payload" : ("F" * payload_size).encode("utf-8") # Create a dummy payload of 'payload_size' bytes
+                            "dummy_payload" : str("F" * payload_size) # Create a dummy payload of 'payload_size' bytes
                         }
                         print(f"AoI client: sending... -> {timestamp_value}" )
                         json_timestamp = json.dumps(timestamp_message)
