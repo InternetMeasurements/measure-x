@@ -10,8 +10,8 @@ import psutil
 from shared_resources import shared_state
 from mqttModule.mqttClient import ProbeMqttClient
 
-""" Class that implements the THROUGHPUT measurement funcionality """
 class IperfController:
+    """ Class that implements the THROUGHPUT measurement funcionality """
     def __init__(self, mqtt_client : ProbeMqttClient, registration_handler_request_function):
 
         self.mqtt_client = mqtt_client
