@@ -2,7 +2,7 @@ import threading
 import time
 from pathlib import Path
 from datetime import datetime
-from modules.configLoader.config_loader import ConfigLoader
+from modules.configLoader.config_loader import ConfigLoader, MONGO_KEY
 from modules.mqttModule.mqtt_client import Mqtt_Client
 from modules.commandsMultiplexer.commands_multiplexer import CommandsMultiplexer
 from modules.iperfCoordinator.iperf_coordinator import Iperf_Coordinator
@@ -25,8 +25,8 @@ def update_measurements_collection_thread_body(mongo_db : MongoDB):
 
 def main():
     try:
-        cl = ConfigLoader(base_path = Path(__file__).parent, file_name="coordinatorConfig.yaml")
-        mongo_db = MongoDB(mongo_config = cl.mongo_config)
+        cl = ConfigLoader(base_path = Path(__file__).parent, file_name="coordinatorConfig.yaml", KEY = MONGO_KEY)
+        mongo_db = MongoDB(mongo_config = cl.config)
     except Exception as e:
         print(f"Coordinator: connection failed to mongo. -> Exception info: \n{e}")
         return
