@@ -47,6 +47,7 @@ class UDPPingController:
         self.last_role = None
         self.measure_socket = None
         self.udpping_thread = None
+        self.stop_thread_event = threading.Event()
 
         self.last_udpping_params = UDPPingParameters()
         self.udpping_process = None
@@ -238,8 +239,11 @@ class UDPPingController:
                 self.send_udpping_ACK(successed_command = "enable_ntp_service", msm_id = msm_id)
                 print("******************************************************** OUTPUT udpServer program ********************************************************")
                 for line in iter(self.udpping_process.stdout.readline, ''):
+                    if self.stop_thread_event.is_set():
+                        break
                     if line:
                         print(line.strip())
+                    
                 
                 self.udpping_process.stdout.close()
                 print("******************************************************** END OUTPUT udpServer program ********************************************************")
@@ -259,6 +263,7 @@ class UDPPingController:
     def stop_udpping_thread(self) -> str:
         if (self.udpping_thread is None) or (self.udpping_process is None):
             return "No udpping measure in progress"
+        self.stop_thread_event.set()
         self.udpping_thread.join()
         self.udpping_process.terminate()
         self.udpping_process.wait()
