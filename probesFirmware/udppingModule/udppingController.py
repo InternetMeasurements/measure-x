@@ -23,12 +23,12 @@ class UDPPingParameters:
     def get_udpping_command_with_parameters(self):
         command_to_execute = None
         if self.role == "Client":
-            command_to_execute = ['udpClient', '-a', self.probe_server_udpping, '-p', self.listen_port ,
+            command_to_execute = ['./udpClient', '-a', self.probe_server_udpping, '-p', self.listen_port ,
                                   '-s', self.packets_size, '-n', self.packets_number, '-i', self.packets_interval]
             if self.live_mode:
                 command_to_execute.append('-l')
         elif self.role == "Server":
-            command_to_execute = ['udpServer', '-p', self.listen_port]
+            command_to_execute = ['./udpServer', '-p', self.listen_port]
         return command_to_execute
     
 
@@ -141,7 +141,7 @@ class UDPPingController:
                         returned_msg = self.submit_thread_to_udpping_measure(msm_id = msm_id)
                         if returned_msg == "OK":
                             self.udpping_thread.start()
-                            self.send_udpping_ACK(successed_command = command, msm_id = msm_id)
+                            #self.send_udpping_ACK(successed_command = command, msm_id = msm_id)
                         else:
                             self.send_udpping_NACK(failed_command = command, error_info = returned_msg, msm_id = msm_id)
                     else:
@@ -214,7 +214,7 @@ class UDPPingController:
                     complete_file_path = os.path.join(udpping_measurement_folder_path, msm_id + ".csv")
                     with open(complete_file_path, "w") as output:
                         command = self.last_udpping_params.get_udpping_command_with_parameters()
-                        print(f"LISTA COMANDI -> |{command}|")
+                        print(f"LISTA CLIENT COMANDI -> |{command}|")
                         self.udpping_process = subprocess.Popen(command, stdout=output, stderr=subprocess.PIPE, text=True)
 
                         self.udpping_process.wait()
@@ -232,6 +232,7 @@ class UDPPingController:
                 command = self.last_udpping_params.get_udpping_command_with_parameters()
                 print(f"LISTA SERVER COMANDI -> |{command}|")
                 self.udpping_process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                self.send_udpping_ACK(successed_command = "enable_ntp_service", msm_id = msm_id)
                 print("******************************************************** OUTPUT udpServer program ********************************************************")
                 for line in iter(self.udpping_process.stdout.readline, ''):
                     if line:
