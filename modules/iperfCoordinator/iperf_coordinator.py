@@ -67,7 +67,7 @@ class Iperf_Coordinator:
         else:
             print(f"Iperf_Coordinator: registration measurement stopper failed. Reason -> {registration_response}")
 
-        self.print_average_compression_ratio()
+        #self.print_average_compression_ratio() Compression computation
 
 
     def handler_received_result(self, probe_sender, result: json):
@@ -213,18 +213,13 @@ class Iperf_Coordinator:
             full_result = full_result
         )
 
-        size_1 = self.get_size(full_result)
-        size_2 = self.get_size(full_result_c_b64)
-
-        print(f"************************************************** Size full_result without compression: |{size_1}| byte , Size full_result with compression: |{size_2}| byte")
-
-        self.save_result_on_csv(size_1, size_2)
-
-
+        #size_1 = self.get_size(full_result)
+        #size_2 = self.get_size(full_result_c_b64)
+        #print(f"************************************************** Size full_result without compression: |{size_1}| byte , Size full_result with compression: |{size_2}| byte")
+        #self.save_result_on_csv(size_1, size_2)
         #print(f"full_result -> |{full_result}|")
         #print("----------------------------------------------------------------")
         #print(f"full_result_c_b64 -> |{full_result_c_b64}|")
-
 
         result_id = str(self.mongo_db.insert_iperf_result(result=mongo_result))
         if result_id is not None:
@@ -403,6 +398,8 @@ class Iperf_Coordinator:
         print(f"Durata risultato: {duration} secondi\n")
 
 
+# **********************************  PLUS: Methods for Compression Percentage Computation **********************************
+"""
     def save_result_on_csv(self, size_1, size_2):
         import csv
         with open("iperf_uncomp_vs_comp.csv", mode="a", newline="") as csv_file:
@@ -439,4 +436,5 @@ class Iperf_Coordinator:
             return None
         except KeyError:
             print("Missing 'Uncompressed' or 'Compressed' columns in the file.")
-            return None
+            return None"
+"""

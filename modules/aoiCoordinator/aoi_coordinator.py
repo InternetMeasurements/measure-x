@@ -266,6 +266,7 @@ class Age_of_Information_Coordinator:
         self.events_stop_server_ack[msm_id_to_stop][0].wait(5)
         stop_event_message = self.events_stop_server_ack[msm_id_to_stop][1]
 
+        # Renabling the ntp_sec service on client probe
         self.send_enable_ntp_service(probe_sender=measurement_to_stop.source_probe, msm_id=msm_id_to_stop, role="Client")
 
         stop_client_message_error = stop_event_message if (stop_event_message != "OK") else None
@@ -305,8 +306,8 @@ class Age_of_Information_Coordinator:
         if c_aois_b64 is None:
             print(f"AoI_Coordinator: WARNING -> received result without AoI-timeseries , measure_id -> {result['msm_id']}")
             return
-        aois_b64 = base64.b64decode(c_aois_b64)
-        aois = cbor2.loads(aois_b64)
+        c_aois = base64.b64decode(c_aois_b64)
+        aois = cbor2.loads(c_aois)
 
         mongo_aoi_result = AgeOfInformationResultModelMongo(
             msm_id = ObjectId(msm_id),
