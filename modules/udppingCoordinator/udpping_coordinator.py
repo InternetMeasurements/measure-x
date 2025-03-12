@@ -307,6 +307,7 @@ class UDPPing_Coordinator:
             print(f"UDPPingController: updated document linking in measure: |{msm_id}|")
         if self.mongo_db.set_measurement_as_completed(msm_id):
             print(f"UDPPingController: measurement |{msm_id}| completed ")
+        self.send_probe_udpping_measure_stop(self.queued_measurements[msm_id].dest_probe, msm_id=msm_id)
 
     
     def get_default_ping_parameters(self) -> json:
