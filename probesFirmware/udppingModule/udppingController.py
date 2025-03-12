@@ -25,13 +25,13 @@ class UDPPingParameters:
         command_to_execute = None
         if self.role == "Client":
             client_executable_path = os.path.join(base_path, 'udpClient')
-            command_to_execute = [client_executable_path, '-a', self.probe_server_udpping, '-p', self.listen_port ,
-                                  '-s', self.packets_size, '-n', self.packets_number, '-i', self.packets_interval]
+            command_to_execute = [client_executable_path, '-a', self.probe_server_udpping, '-p', str(self.listen_port) ,
+                                  '-s', str(self.packets_size), '-n', str(self.packets_number), '-i', str(self.packets_interval)]
             if self.live_mode:
                 command_to_execute.append('-l')
         elif self.role == "Server":
             server_executable_path = os.path.join(base_path, 'udpServer')
-            command_to_execute = [server_executable_path, '-p', self.listen_port]
+            command_to_execute = [server_executable_path, '-p', str(self.listen_port)]
         return command_to_execute
     
 
