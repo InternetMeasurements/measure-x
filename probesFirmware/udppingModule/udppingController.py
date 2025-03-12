@@ -215,7 +215,6 @@ class UDPPingController:
                     print(f"UDPPingController: clock synced with {self.last_probe_ntp_server_ip}")
                     self.send_udpping_ACK(successed_command = "start", msm_id = msm_id)
 
-
                     if os.path.exists(udpping_measurement_folder_path) and os.path.isdir(udpping_measurement_folder_path):
                         print("La cartella esiste:", udpping_measurement_folder_path)
                     else:
@@ -330,7 +329,10 @@ class UDPPingController:
     def compress_and_publish_udpping_result(self, msm_id):
         base_path = Path(__file__).parent
         udpping_measurement_file_path = os.path.join(base_path, DEFAULT_UDPPing_MEASUREMENT_FOLDER, msm_id + ".csv")
-        df = pd.read_csv(udpping_measurement_file_path, sep=';')
+        #df = pd.read_csv(udpping_measurement_file_path, sep=';')
+        
+        column_names = ["SeqNr", "SendTime", "ServerTime", "ReceiveTime", "Client->Server", "Server->Client", "RTT (all times in ns)"]
+        df = pd.read_csv(udpping_measurement_file_path, sep=';', skiprows=9, header=None, names=column_names)
 
         udpping_output = df.to_dict(orient='records')
         compressed_udpping_output = cbor2.dumps(udpping_output)
