@@ -122,7 +122,6 @@ class UDPPingController:
                 if role is None:
                     self.send_udpping_NACK(failed_command=command, error_info="No role provided", msm_id=msm_id)
                     return
-                payload_size = payload['payload_size'] if ('payload_size' in payload) else None
                 if role == "Server":
                     if not shared_state.set_probe_as_busy():
                         self.send_udpping_NACK(failed_command=command, error_info="PROBE BUSY", msm_id=msm_id)
@@ -138,7 +137,7 @@ class UDPPingController:
                         self.last_udpping_params = UDPPingParameters(role=role, listen_port=listen_port)
                         self.last_measurement_id = msm_id
                         
-                        returned_msg = self.submit_thread_to_udpping_measure(msm_id = msm_id, payload_size=payload_size)
+                        returned_msg = self.submit_thread_to_udpping_measure(msm_id = msm_id)
                         if returned_msg == "OK":
                             self.udpping_thread.start()
                             self.send_udpping_ACK(successed_command = command, msm_id = msm_id)
