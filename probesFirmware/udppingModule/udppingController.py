@@ -21,14 +21,17 @@ class UDPPingParameters:
         self.packets_size = packets_size
 
     def get_udpping_command_with_parameters(self):
+        base_path = os.path.join(Path(__file__).parent) 
         command_to_execute = None
         if self.role == "Client":
-            command_to_execute = ['./udpClient', '-a', self.probe_server_udpping, '-p', self.listen_port ,
+            client_executable_path = os.path.join(base_path, 'udpClient')
+            command_to_execute = [client_executable_path, '-a', self.probe_server_udpping, '-p', self.listen_port ,
                                   '-s', self.packets_size, '-n', self.packets_number, '-i', self.packets_interval]
             if self.live_mode:
                 command_to_execute.append('-l')
         elif self.role == "Server":
-            command_to_execute = ['./udpServer', '-p', self.listen_port]
+            server_executable_path = os.path.join(base_path, 'udpServer')
+            command_to_execute = [server_executable_path, '-p', self.listen_port]
         return command_to_execute
     
 
