@@ -20,13 +20,10 @@ class AgeOfInformationController:
         self.last_probe_server_aoi = None
         self.last_socket_port = None
         self.last_role = None
-        self.last_update_time = None
         self.stop_thread_event = threading.Event()
         self.measure_socket = None
 
         self.aoi_thread = None
-        self.aoi_server_thread = None
-
         self.wait_for_set_coordinator_ip = wait_for_set_coordinator_ip
 
         # Requests to commands_demultiplexer
@@ -373,7 +370,7 @@ class AgeOfInformationController:
         aoi_max = df["AoI"].max()
 
         # MEASURE RESULT MESSAGE
-        json_energy_result = {
+        json_aoi_result = {
             "handler": "aoi",
             "type": "result",
             "payload": {
@@ -383,5 +380,5 @@ class AgeOfInformationController:
                 "aoi_max" : aoi_max
              }
         }
-        self.mqtt_client.publish_on_result_topic(result=json.dumps(json_energy_result))
+        self.mqtt_client.publish_on_result_topic(result=json.dumps(json_aoi_result))
         print(f"AoIController: compressed and published result of msm -> {msm_id}")
