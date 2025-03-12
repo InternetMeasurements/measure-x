@@ -46,6 +46,7 @@ class UDPPingController:
         self.udpping_thread = None
 
         self.last_udpping_params = UDPPingParameters()
+        self.udpping_process = None
 
         self.wait_for_set_coordinator_ip = wait_for_set_coordinator_ip
 
@@ -212,7 +213,9 @@ class UDPPingController:
                     Path(udpping_measurement_folder_path).mkdir(parents=True, exist_ok=True)
                     complete_file_path = os.path.join(udpping_measurement_folder_path, msm_id + ".csv")
                     with open(complete_file_path, "w") as output:
-                        self.udpping_process = subprocess.Popen(self.last_udpping_params.get_udpping_command_with_parameters(), stdout=output, stderr=subprocess.PIPE, text=True)
+                        command = self.last_udpping_params.get_udpping_command_with_parameters()
+                        print(f"LISTA COMANDI -> |{command}|")
+                        self.udpping_process = subprocess.Popen(command, stdout=output, stderr=subprocess.PIPE, text=True)
 
                         self.udpping_process.wait()
                 else:
@@ -328,6 +331,7 @@ class UDPPingController:
         self.udpping_thread = None
         self.last_probe_server_udpping = None
         self.last_udpping_params = UDPPingParameters()
+        self.udpping_process = None
 
 
     def check_all_parameters(self, payload) -> str:
