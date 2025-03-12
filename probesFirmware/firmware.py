@@ -6,6 +6,7 @@ from pingModule.pingController import PingController
 from energyModule.energyController import EnergyController
 from aoiModule.aoiController import AgeOfInformationController
 from shared_resources import shared_state
+from udppingModule.udppingController import UDPPingController
 
 
 class Probe:
@@ -28,6 +29,10 @@ class Probe:
         self.aoi_controller = AgeOfInformationController(self.mqtt_client, 
                                                          self.commands_demultiplexer.registration_handler_request,
                                                          self.commands_demultiplexer.wait_for_set_coordinator_ip)
+        
+        self.udpping_controller = UDPPingController(self.mqtt_client, 
+                                                    self.commands_demultiplexer.registration_handler_request,
+                                                    self.commands_demultiplexer.wait_for_set_coordinator_ip)
 
     
     def disconnect(self):
