@@ -222,15 +222,22 @@ class UDPPingController:
                         self.udpping_process = subprocess.Popen(command, stdout=output, stderr=subprocess.PIPE, text=True)
 
                         self.udpping_process.wait()
+                    
+                    if (self.udpping_process is not None) and (self.udpping_process.returncode != 0) and (self.udpping_process.returncode != -15): # -15 is the SIGTERM signal
+                        stderr_output = self.udpping_process.stderr.read()
+                        errore_msg = f"UDPPingController: Process finished with error. STDERR: {stderr_output}"
+                        print(errore_msg)
+                        self.send_udpping_NACK(failed_command="enable_ntp_service", error_info=errore_msg, msm_id=msm_id)
+                        return
+                    output.close()
+                    time.sleep(1)
+                    self.compress_and_publish_udpping_result(msm_id=msm_id)
                 else:
                     raise Exception(result.stderr.decode('utf-8'))                    
             except Exception as e:
                 stderr_command = str(e)
-            finally:
-                if stderr_command is not None:
-                    self.send_udpping_NACK(failed_command="start", error_info=stderr_command, msm_id=msm_id)
-                    return
-                self.compress_and_publish_udpping_result(msm_id=msm_id)
+                self.send_udpping_NACK(failed_command="start", error_info=stderr_command, msm_id=msm_id)
+                
         elif self.last_udpping_params.role == "Server":
             try:
                 command = self.last_udpping_params.get_udpping_command_with_parameters()
@@ -252,9 +259,9 @@ class UDPPingController:
                 print(f"UDPPingController: exception during udpping execution -> {e}")
                 self.send_udpping_NACK(failed_command="enable_ntp_service", error_info=str(e), msm_id=msm_id)
             finally:
-                if (self.udpping_process is not None) and (self.udpping_process.returncode != 0):
+                if (self.udpping_process is not None) and (self.udpping_process.returncode != 0) and (self.udpping_process.returncode != -15): # -15 is the SIGTERM signal
                     stderr_output = self.udpping_process.stderr.read()
-                    errore_msg = f"UDPPingController: Process finished with error. STDERR: {stderr_output.decode('utf-8')}"
+                    errore_msg = f"UDPPingController: Process finished with error. STDERR: {stderr_output}"
                     print(errore_msg)
                     self.send_udpping_NACK(failed_command="enable_ntp_service", error_info=errore_msg, msm_id=msm_id)
                 
