@@ -229,7 +229,9 @@ class UDPPingController:
                 self.compress_and_publish_udpping_result(msm_id=msm_id)
         elif self.last_udpping_params.role == "Server":
             try:
-                self.udpping_process = subprocess.Popen(self.last_udpping_params.get_udpping_command_with_parameters(), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                command = self.last_udpping_params.get_udpping_command_with_parameters()
+                print(f"LISTA SERVER COMANDI -> |{command}|")
+                self.udpping_process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
                 print("******************************************************** OUTPUT udpServer program ********************************************************")
                 for line in iter(self.udpping_process.stdout.readline, ''):
                     if line:
@@ -238,13 +240,15 @@ class UDPPingController:
                 self.udpping_process.stdout.close()
                 print("******************************************************** END OUTPUT udpServer program ********************************************************")
                 self.udpping_process.wait()
-                
+            except Exception as e:
+                print(f"UDPPingController: exception during udpping execution -> {e}")
+                self.send_udpping_NACK(failed_command="enable_ntp_service", error_info=str(e), msm_id=msm_id)
             finally:
-                if self.udpping_process.returncode != 0:
+                if (self.udpping_process is not None) and (self.udpping_process.returncode != 0):
                     stderr_output = self.udpping_process.stderr.read()
                     errore_msg = f"UDPPingController: Process finished with error. STDERR: {stderr_output.decode('utf-8')}"
                     print(errore_msg)
-                    self.send_udpping_NACK(failed_command="start", error_info=errore_msg, msm_id=msm_id)
+                    self.send_udpping_NACK(failed_command="enable_ntp_service", error_info=errore_msg, msm_id=msm_id)
                 
                 shared_state.set_probe_as_ready()
 
