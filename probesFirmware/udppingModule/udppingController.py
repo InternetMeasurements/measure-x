@@ -205,6 +205,9 @@ class UDPPingController:
     def run_udpping(self, msm_id):
         if self.last_udpping_params.role == "Client":
             stderr_command = None
+            base_path = Path(__file__).parent
+            udpping_measurement_folder_path = os.path.join(base_path, DEFAULT_UDPPing_MEASUREMENT_FOLDER)
+            Path(udpping_measurement_folder_path).mkdir(parents=True, exist_ok=True)
             try:
                 print(f"Role client thread -> last_probe_ntp_server_ip: |{self.last_probe_ntp_server_ip}|")
                 result = subprocess.run( ['sudo', 'ntpdate', self.last_probe_ntp_server_ip], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -212,9 +215,13 @@ class UDPPingController:
                     print(f"UDPPingController: clock synced with {self.last_probe_ntp_server_ip}")
                     self.send_udpping_ACK(successed_command = "start", msm_id = msm_id)
 
-                    base_path = Path(__file__).parent
-                    udpping_measurement_folder_path = os.path.join(base_path, DEFAULT_UDPPing_MEASUREMENT_FOLDER)
-                    Path(udpping_measurement_folder_path).mkdir(parents=True, exist_ok=True)
+
+                    if os.path.exists(udpping_measurement_folder_path) and os.path.isdir(udpping_measurement_folder_path):
+                        print("La cartella esiste:", udpping_measurement_folder_path)
+                    else:
+                        print("La cartella NON esiste")
+
+
                     complete_file_path = os.path.join(udpping_measurement_folder_path, msm_id + ".csv")
                     with open(complete_file_path, "w") as output:
                         command = self.last_udpping_params.get_udpping_command_with_parameters()
