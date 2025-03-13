@@ -1,4 +1,3 @@
-from modules.mongoModule.models.coexisting_application_model_mongo import CoexistingApplicationModelMongo
 from bson.objectid import ObjectId
 
 
