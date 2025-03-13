@@ -6,7 +6,7 @@ from modules.mongoModule.models.measurement_model_mongo import MeasurementModelM
 from modules.mongoModule.models.ping_result_model_mongo import PingResultModelMongo
 from modules.mongoModule.models.iperf_result_model_mongo import IperfResultModelMongo
 from modules.mongoModule.models.energy_result_model_mongo import EnergyResultModelMongo
-from modules.mongoModule.models.coexisting_application_model_mongo import CoexistingApplicationModelMongo
+from modules.mongoModule.models.coex_result_model_mongo import CoexistingApplicationModelMongo
 
 
 HOURS_OLD_MEASUREMENT = 24
@@ -156,6 +156,7 @@ class MongoDB:
             print(f"MongoDB: Error while storing the result on mongo -> {e}")
             return None
 
+    """
     def insert_iperf_result(self, result : IperfResultModelMongo) -> str:
         try:
             insert_result = self.results_collection.insert_one(result.to_dict())
@@ -165,8 +166,9 @@ class MongoDB:
         except Exception as e:
             print(f"MongoDB: Error while storing the Iperf result on mongo -> {e}")
             return None
+    """
 
-
+    """
     def insert_ping_result(self, result : PingResultModelMongo) -> str:
         try:
             insert_result = self.results_collection.insert_one(result.to_dict())
@@ -176,8 +178,9 @@ class MongoDB:
         except Exception as e:
             print(f"MongoDB: Error while storing the Ping result on mongo -> {e}")
             return None
-
+    """
     
+    """
     def insert_energy_result(self, result : EnergyResultModelMongo):
         try:
             insert_result = self.results_collection.insert_one(result.to_dict())
@@ -187,7 +190,7 @@ class MongoDB:
         except Exception as e:
             print(f"MongoDB: Error while storing the Energy result on mongo -> {e}")
             return None
-
+    """
 
     def delete_results_by_msm_id(self, msm_id) -> bool:
         delete_result = self.results_collection.delete_many(
