@@ -205,28 +205,20 @@ class UDPPingController:
     def run_udpping(self, msm_id):
         if self.last_udpping_params.role == "Client":
             stderr_command = None
-            base_path = Path(__file__).parent
-            udpping_measurement_folder_path = os.path.join(base_path, DEFAULT_UDPPing_MEASUREMENT_FOLDER)
-            Path(udpping_measurement_folder_path).mkdir(parents=True, exist_ok=True)
             try:
                 print(f"Role client thread -> last_probe_ntp_server_ip: |{self.last_probe_ntp_server_ip}|")
                 result = subprocess.run( ['sudo', 'ntpdate', self.last_probe_ntp_server_ip], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 if result.returncode == 0:
                     print(f"UDPPingController: clock synced with {self.last_probe_ntp_server_ip}")
                     self.send_udpping_ACK(successed_command = "start", msm_id = msm_id)
-
-                    if os.path.exists(udpping_measurement_folder_path) and os.path.isdir(udpping_measurement_folder_path):
-                        print("La cartella esiste:", udpping_measurement_folder_path)
-                    else:
-                        print("La cartella NON esiste")
-
-
+                    base_path = Path(__file__).parent
+                    udpping_measurement_folder_path = os.path.join(base_path, DEFAULT_UDPPing_MEASUREMENT_FOLDER)
+                    Path(udpping_measurement_folder_path).mkdir(parents=True, exist_ok=True)
                     complete_file_path = os.path.join(udpping_measurement_folder_path, msm_id + ".csv")
                     with open(complete_file_path, "w") as output:
                         command = self.last_udpping_params.get_udpping_command_with_parameters()
-                        print(f"LISTA CLIENT COMANDI -> |{command}|")
                         self.udpping_process = subprocess.Popen(command, stdout=output, stderr=subprocess.PIPE, text=True)
-
+                        print(f"UDPPingController: udpping tool started as Client")
                         self.udpping_process.wait()
                     
                     if (self.udpping_process is not None) and (self.udpping_process.returncode != 0) and (self.udpping_process.returncode != -15): # -15 is the SIGTERM signal
@@ -235,35 +227,30 @@ class UDPPingController:
                         print(errore_msg)
                         self.send_udpping_NACK(failed_command="enable_ntp_service", error_info=errore_msg, msm_id=msm_id)
                         return
+                    print(f"UDPPingController: udpping tool stopped")
                     output.close()
-                    time.sleep(1)
+                    time.sleep(1) # Waiting for closing file
                     self.compress_and_publish_udpping_result(msm_id=msm_id)
                 else:
                     raise Exception(result.stderr.decode('utf-8'))                    
             except Exception as e:
                 stderr_command = str(e)
                 self.send_udpping_NACK(failed_command="start", error_info=stderr_command, msm_id=msm_id)
-                
+            shared_state.set_probe_as_ready()
+
         elif self.last_udpping_params.role == "Server":
             try:
                 command = self.last_udpping_params.get_udpping_command_with_parameters()
                 print(f"LISTA SERVER COMANDI -> |{command}|")
                 self.udpping_process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
                 self.send_udpping_ACK(successed_command = "enable_ntp_service", msm_id = msm_id)
-                print("******************************************************** OUTPUT udpServer program ********************************************************")
-                """
-                for line in iter(self.udpping_process.stdout.readline, ''):
-                    if self.stop_thread_event.is_set():
-                        break
-                    if line:
-                        print(line.strip())
-                """ 
+                print(f"UDPPingController: udpping tool started as Server")
 
-                while(not self.stop_thread_event.is_set()):
+                while(not self.stop_thread_event.is_set()): # "Busy" wait of thread otherwise the udpping tool will be closed
                     time.sleep(2)
                 
                 self.udpping_process.stdout.close()
-                print("******************************************************** END OUTPUT udpServer program ********************************************************")
+                print(f"UDPPingController: udpping tool stopped")
                 self.udpping_process.wait()
             except Exception as e:
                 print(f"UDPPingController: exception during udpping execution -> {e}")
@@ -354,6 +341,7 @@ class UDPPingController:
              }
         }
         self.mqtt_client.publish_on_result_topic(result=json.dumps(json_udpping_result))
+
         print(f"UDPPingController: compressed and published result of msm -> {msm_id}")
 
 
