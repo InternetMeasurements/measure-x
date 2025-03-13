@@ -3,10 +3,12 @@ from bson import ObjectId
 from pymongo import MongoClient
 from modules.mongoModule.models.error_model import ErrorModel
 from modules.mongoModule.models.measurement_model_mongo import MeasurementModelMongo
+"""
 from modules.mongoModule.models.ping_result_model_mongo import PingResultModelMongo
 from modules.mongoModule.models.iperf_result_model_mongo import IperfResultModelMongo
 from modules.mongoModule.models.energy_result_model_mongo import EnergyResultModelMongo
-from modules.mongoModule.models.coex_result_model_mongo import CoexistingApplicationModelMongo
+from modules.mongoModule.models.coex_result_model_mongo import CoexResultModelMongo
+"""
 
 
 HOURS_OLD_MEASUREMENT = 24
