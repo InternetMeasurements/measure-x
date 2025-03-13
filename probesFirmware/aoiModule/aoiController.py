@@ -73,6 +73,7 @@ class AgeOfInformationController:
                         self.send_aoi_NACK(failed_command = command, error_info = returned_msg, msm_id = msm_id)
                 else:
                     self.send_aoi_NACK(failed_command = command, error_info = "No AoI measurement in progress", msm_id = msm_id)
+                    
             case "stop":
                 if shared_state.probe_is_ready():
                     self.send_aoi_NACK(failed_command = command, error_info = "No AoI measurement in progress", msm_id = msm_id)
@@ -86,14 +87,8 @@ class AgeOfInformationController:
                 termination_message = self.stop_aoi_thread()
                 if termination_message == "OK":
                     self.send_aoi_ACK(successed_command=command, msm_id=msm_id)
-                    if self.last_role == "Server":
-                        self.reset_vars()
                 else:
                     self.send_aoi_NACK(failed_command=command, error_info=termination_message)
-                shared_state.set_probe_as_ready()
-
-                    # Dovrei aver creato un file di misurazioni, tipo quello dell'energy, da leggere ed inviare con MQTT al coordinator
-                    # Ricordati di creare da entrambi i lati, server e client, i SOCKET sulla porta self.last_socker_port
                 
             case "disable_ntp_service":
                 if not shared_state.set_probe_as_busy():
@@ -175,20 +170,12 @@ class AgeOfInformationController:
                         self.send_aoi_NACK(failed_command = command, error_info = enable_msg, msm_id = msm_id)
                         shared_state.set_probe_as_ready()
                 elif role == "Client":
-                    if self.last_measurement_id == msm_id:
-                        enable_msg = self.start_ntpsec_service()
-                        self.reset_vars()
-                        if enable_msg == "OK":
-                            self.send_aoi_ACK(successed_command = command, msm_id = msm_id)
-                            #shared_state.set_probe_as_ready()
-                        else:
-                            self.send_aoi_NACK(failed_command = command, error_info = enable_msg, msm_id = msm_id)
-                    elif self.last_measurement_id is None:
-                        self.send_aoi_NACK(failed_command=command, error_info="No AoI measurement in progress", msm_id = None)
+                    enable_msg = self.start_ntpsec_service()
+                    if enable_msg == "OK":
+                        self.send_aoi_ACK(successed_command = command, msm_id = msm_id)
+                        #shared_state.set_probe_as_ready()
                     else:
-                        self.send_aoi_NACK(failed_command=command, 
-                                           error_info="Measure_id MISMATCH: The provided measure_id does not correspond to the ongoing measurement", 
-                                           msm_id=msm_id) 
+                        self.send_aoi_NACK(failed_command = command, error_info = enable_msg, msm_id = msm_id)
                 else:
                     self.send_aoi_NACK(failed_command = command, error_info = (f"Wrong role -> {role}"), msm_id = msm_id)
                 
@@ -295,7 +282,7 @@ class AgeOfInformationController:
                 print("non inviato")
             shared_state.set_probe_as_ready()
         else:
-            print(f"THREA START WITH STRANGE ROLE -> {self.last_role}")
+            print(f"THREAD START WITH STRANGE ROLE -> {self.last_role}")
 
     def stop_aoi_thread(self) -> str:
         if self.aoi_thread is None:
@@ -304,6 +291,9 @@ class AgeOfInformationController:
         self.aoi_thread.join()
         self.stop_thread_event.clear()
         self.measure_socket.close()
+        if (self.last_role is not None):
+            shared_state.set_probe_as_ready()
+            self.reset_vars()
         return "OK"
     
 
