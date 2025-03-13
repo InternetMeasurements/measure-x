@@ -340,7 +340,7 @@ class UDPPingController:
 
         new_header = ';'.join(column_names)
 
-        data_lines = df.to_csv(index = False, sedp=';', header = False)
+        data_lines = df.to_csv(index = False, sep=';', header = False)
 
         output_json = {"udpping_result": f"{new_header}\n{data_lines}"}
         print(output_json)
