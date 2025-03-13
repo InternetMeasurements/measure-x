@@ -258,6 +258,9 @@ class UDPPingController:
                     if line:
                         print(line.strip())
                 """ 
+
+                while(not self.stop_thread_event.is_set()):
+                    time.sleep(1)
                 
                 self.udpping_process.stdout.close()
                 print("******************************************************** END OUTPUT udpServer program ********************************************************")
