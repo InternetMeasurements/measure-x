@@ -251,12 +251,13 @@ class UDPPingController:
                 self.udpping_process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
                 self.send_udpping_ACK(successed_command = "enable_ntp_service", msm_id = msm_id)
                 print("******************************************************** OUTPUT udpServer program ********************************************************")
+                """
                 for line in iter(self.udpping_process.stdout.readline, ''):
                     if self.stop_thread_event.is_set():
                         break
                     if line:
                         print(line.strip())
-                    
+                """ 
                 
                 self.udpping_process.stdout.close()
                 print("******************************************************** END OUTPUT udpServer program ********************************************************")
@@ -277,8 +278,8 @@ class UDPPingController:
         if (self.udpping_thread is None) or (self.udpping_process is None):
             return "No udpping measure in progress"
         self.stop_thread_event.set()
-        self.udpping_thread.join()
         self.udpping_process.terminate()
+        self.udpping_thread.join()
         self.udpping_process.wait()
         return "OK"
     
@@ -334,8 +335,14 @@ class UDPPingController:
         column_names = ["SeqNr", "SendTime", "ServerTime", "ReceiveTime", "Client->Server", "Server->Client", "RTT (all times in ns)"]
         df = pd.read_csv(udpping_measurement_file_path, sep=';', skiprows=9, header=None, names=column_names)
 
-        udpping_output = df.to_dict(orient='records')
-        compressed_udpping_output = cbor2.dumps(udpping_output)
+        new_header = ';'.join(column_names)
+
+        data_lines = df.to_csv(index = False, sedp=';', header = False)
+
+        output_json = {"udpping_result": f"{new_header}\n{data_lines}"}
+        print(output_json)
+
+        compressed_udpping_output = cbor2.dumps(data_lines)
         c_udpping_b64 = base64.b64encode(compressed_udpping_output).decode("utf-8")
 
         # MEASURE RESULT MESSAGE
