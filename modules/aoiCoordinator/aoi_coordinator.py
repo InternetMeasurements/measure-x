@@ -326,6 +326,7 @@ class Age_of_Information_Coordinator:
             print(f"AoI_Coordinator: updated document linking in measure: |{msm_id}|")
         if self.mongo_db.set_measurement_as_completed(msm_id):
             print(f"AoI_Coordinator: measurement |{msm_id}| completed ")
+        self.send_enable_ntp_service(probe_sender=self.queued_measurements[msm_id].source_probe, msm_id=msm_id, role="Client")
 
     
     def get_default_ping_parameters(self) -> json:
