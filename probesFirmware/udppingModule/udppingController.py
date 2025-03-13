@@ -260,7 +260,7 @@ class UDPPingController:
                 """ 
 
                 while(not self.stop_thread_event.is_set()):
-                    time.sleep(1)
+                    time.sleep(2)
                 
                 self.udpping_process.stdout.close()
                 print("******************************************************** END OUTPUT udpServer program ********************************************************")
@@ -336,11 +336,11 @@ class UDPPingController:
         #df = pd.read_csv(udpping_measurement_file_path, sep=';')
         
         column_names = ["SeqNr", "SendTime", "ServerTime", "ReceiveTime", "Client->Server", "Server->Client", "RTT (all times in ns)"]
-        df = pd.read_csv(udpping_measurement_file_path, sep=';', skiprows=9, header=None, names=column_names)
+        df = pd.read_csv(udpping_measurement_file_path, sep=';', skiprows=12, header=None, names=column_names)
+        df = df.iloc[:-1] # Delete last file row
+        new_header = ','.join(column_names)
 
-        new_header = ';'.join(column_names)
-
-        data_lines = df.to_csv(index = False, sep=';', header = False)
+        data_lines = df.to_csv(index = False, sep=',', header = False)
 
         output_json = {"udpping_result": f"{new_header}\n{data_lines}"}
         print(output_json)
