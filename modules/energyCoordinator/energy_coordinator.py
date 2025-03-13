@@ -167,7 +167,6 @@ class EnergyCoordinator:
             measurement_id = self.mongo_db.insert_measurement(new_measurement)
             if (measurement_id is None):
                 return "Error", "Can't store measure in Mongo! Error while inserting measurement energy in mongo", "MongoDB Down?"
-            self.energy_measurement_stopper(msm_id_to_stop = str(measurement_id))
             return "OK", new_measurement.to_dict(), None # By returning these arguments, it's possible to see them in the HTTP response
         elif probe_event_message is not None:
             print(f"Preparer energy: awaked from probe energy NACK -> {probe_event_message}")
