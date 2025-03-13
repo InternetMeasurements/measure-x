@@ -9,6 +9,7 @@ IPERF_CLIENT_KEY = 'iperf_client'
 PING_KEY = 'ping'
 AOI_KEY = 'aoi'
 UDPPING_KEY = 'udpping'
+COEX_KEY = "coex"
 
 class ConfigLoader:
     def __init__(self, base_path, file_name, KEY):
