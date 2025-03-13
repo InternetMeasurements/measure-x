@@ -333,19 +333,15 @@ class UDPPingController:
     def compress_and_publish_udpping_result(self, msm_id):
         base_path = Path(__file__).parent
         udpping_measurement_file_path = os.path.join(base_path, DEFAULT_UDPPing_MEASUREMENT_FOLDER, msm_id + ".csv")
-        #df = pd.read_csv(udpping_measurement_file_path, sep=';')
         
-        column_names = ["SeqNr", "SendTime", "ServerTime", "ReceiveTime", "Client->Server", "Server->Client", "RTT (all times in ns)"]
-        df = pd.read_csv(udpping_measurement_file_path, sep=';', skiprows=12, header=None, names=column_names)
-        df = df.iloc[:-1] # Delete last file row
-        new_header = ','.join(column_names)
+        columns_udpping_tool = ["SeqNr", "SendTime", "ServerTime", "ReceiveTime", "Client->Server", "Server->Client", "RTT (all times in ns)"]
+        df = pd.read_csv(udpping_measurement_file_path, sep=';', skiprows=12, header=None, names=columns_udpping_tool) # Skipping the first 12 rows, redundant info.
+        df = df.iloc[:-1] # Delete last file row, redundant info.
+        data_lines = df.to_csv(index = False, sep=',', header = False) # Change the separator to the ',' intead of ';'
+        new_header = ','.join(columns_udpping_tool)
+        udpping_result = (f"{new_header}\n{data_lines}")
 
-        data_lines = df.to_csv(index = False, sep=',', header = False)
-
-        output_json = {"udpping_result": f"{new_header}\n{data_lines}"}
-        print(output_json)
-
-        compressed_udpping_output = cbor2.dumps(data_lines)
+        compressed_udpping_output = cbor2.dumps(udpping_result)
         c_udpping_b64 = base64.b64encode(compressed_udpping_output).decode("utf-8")
 
         # MEASURE RESULT MESSAGE
