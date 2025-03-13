@@ -246,7 +246,6 @@ class UDPPingController:
                 while(not self.stop_thread_event.is_set()): # "Busy" wait of thread otherwise the udpping tool will be closed
                     time.sleep(2)
                 
-                self.udpping_process.stdout.close()
                 print(f"UDPPingController: udpping tool stopped")
                 self.udpping_process.wait()
             except Exception as e:
@@ -260,6 +259,7 @@ class UDPPingController:
                     print(errore_msg)
                     self.send_udpping_NACK(failed_command="enable_ntp_service", error_info=errore_msg, msm_id=msm_id)
                 
+                self.udpping_process.stdout.close()
                 shared_state.set_probe_as_ready()
 
     def stop_udpping_thread(self) -> str:
