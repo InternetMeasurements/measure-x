@@ -35,7 +35,6 @@ class UDPPingParameters:
         return command_to_execute
     
 
-
 class UDPPingController:
     """ Class that implements the UDP-PING measurement funcionality """
     def __init__(self, mqtt_client : ProbeMqttClient, registration_handler_request_function, wait_for_set_coordinator_ip):
@@ -166,29 +165,7 @@ class UDPPingController:
                                             msm_id=msm_id) 
                 else:
                     self.send_udpping_NACK(failed_command = command, error_info = (f"Wrong role -> {role}"), msm_id = msm_id)
-                
-    """                NON SERVE PER UDPPING
-    def create_socket(self, socket_timeout = None):
-        try:
-            self.measure_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            self.measure_socket.bind((shared_state.get_probe_ip(), self.last_listen_port))
-            if self.last_role == "Server":
-                if (socket_timeout is not None) and (socket_timeout > 0):
-                    self.measure_socket.settimeout(socket_timeout)
-                    print(f"UDPPingController: Opened socket on IP: |{shared_state.get_probe_ip()}| , port: |{self.last_listen_port}|")
-                else:
-                    print(f"UDPPingController: DEBUG -> Opened socket on IP: |{shared_state.get_probe_ip()}| , port: |{self.last_listen_port}|")
-            #self.measure_socket.settimeout(10)
-            return "OK"
-        except socket.error as e:
-            print(f"UDPPingController: Socket error while creating socket -> {str(e)}")
-            return f"Socket error: {str(e)}"
-        except Exception as e:
-            print(f"UDPPingController: Exception while creating socket -> {str(e)}")
-            self.measure_socket.close()
-            return str(e)
-    """
-
+            
 
     def submit_thread_to_udpping_measure(self, msm_id):
         try:
