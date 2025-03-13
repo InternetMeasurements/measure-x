@@ -44,8 +44,6 @@ class UDPPingController:
         self.last_measurement_id = None
         self.last_probe_ntp_server_ip = None
         
-        self.last_role = None
-        self.measure_socket = None
         self.udpping_thread = None
         self.stop_thread_event = threading.Event()
 
@@ -115,7 +113,7 @@ class UDPPingController:
                 termination_message = self.stop_udpping_thread()
                 if termination_message == "OK":
                     self.send_udpping_ACK(successed_command=command, msm_id=msm_id)
-                    if self.last_role == "Server":
+                    if self.last_udpping_params.role == "Server":
                         self.reset_vars()
                 else:
                     self.send_udpping_NACK(failed_command=command, error_info=termination_message)
@@ -241,7 +239,6 @@ class UDPPingController:
         elif self.last_udpping_params.role == "Server":
             try:
                 command = self.last_udpping_params.get_udpping_command_with_parameters()
-                print(f"LISTA SERVER COMANDI -> |{command}|")
                 self.udpping_process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
                 self.send_udpping_ACK(successed_command = "enable_ntp_service", msm_id = msm_id)
                 print(f"UDPPingController: udpping tool started as Server")
@@ -258,7 +255,8 @@ class UDPPingController:
             finally:
                 if (self.udpping_process is not None) and (self.udpping_process.returncode != 0) and (self.udpping_process.returncode != -15): # -15 is the SIGTERM signal
                     stderr_output = self.udpping_process.stderr.read()
-                    errore_msg = f"UDPPingController: Process finished with error. STDERR: {stderr_output}"
+                    stdout_output = self.udpping_process.stdout.read()
+                    errore_msg = f"UDPPingController: Process finished with error. STDERR: |{stderr_output}| , STDOUT: |{stdout_output}|"
                     print(errore_msg)
                     self.send_udpping_NACK(failed_command="enable_ntp_service", error_info=errore_msg, msm_id=msm_id)
                 
@@ -350,7 +348,6 @@ class UDPPingController:
         self.last_measurement_id = None
         self.last_probe_ntp_server_ip = None
         self.last_listen_port = None
-        self.last_role = None
         self.udpping_thread = None
         self.last_probe_server_udpping = None
         self.last_udpping_params = UDPPingParameters()
