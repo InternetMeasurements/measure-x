@@ -11,6 +11,7 @@ from modules.mongoModule.mongoDB import MongoDB, SECONDS_OLD_MEASUREMENT
 from modules.energyCoordinator.energy_coordinator import EnergyCoordinator
 from modules.aoiCoordinator.aoi_coordinator import Age_of_Information_Coordinator
 from modules.udppingCoordinator.udpping_coordinator import UDPPing_Coordinator
+from modules.coexCoordinator.coex_coordinator import Coex_Coordinator
 
 from modules.restAPIModule.swagger_server.rest_server import RestServer
 
@@ -101,6 +102,15 @@ def main():
         registration_measurement_stopper_callback = commands_multiplexer.add_measure_stopper_callback,
         mongo_db = mongo_db
     )
+
+    coex_coordinator = Coex_Coordinator(
+        mqtt_client = coordinator_mqtt,
+        registration_handler_result_callback = commands_multiplexer.add_result_callback, 
+        registration_handler_status_callback = commands_multiplexer.add_status_callback,
+        registration_measure_preparer_callback = commands_multiplexer.add_probes_preparer_callback,
+        ask_probe_ip_callback = commands_multiplexer.ask_probe_ip,
+        registration_measurement_stopper_callback = commands_multiplexer.add_measure_stopper_callback,
+        mongo_db = mongo_db)
     
 
     #commands_multiplexer.add_status_handler('probe_state', online_status_handler)
