@@ -126,7 +126,7 @@ class EnergyCoordinator:
         #self.save_result_on_csv(size_1, size_2)
         
 
-        energy_result_id = self.mongo_db.insert_energy_result(result = energy_result)
+        energy_result_id = self.mongo_db.insert_result(result = energy_result)
         if energy_result_id is not None:
             if self.mongo_db.update_results_array_in_measurement(msm_id = msm_id):
                 print(f"EnergyCoordinator: updated document linking in measure: |{msm_id}|")

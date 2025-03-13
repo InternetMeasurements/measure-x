@@ -221,7 +221,7 @@ class Iperf_Coordinator:
         #print("----------------------------------------------------------------")
         #print(f"full_result_c_b64 -> |{full_result_c_b64}|")
 
-        result_id = str(self.mongo_db.insert_iperf_result(result=mongo_result))
+        result_id = str(self.mongo_db.insert_result(result=mongo_result))
         if result_id is not None:
             print(f"Iperf_Coordinator: result |{result_id}| stored in db")
         else:

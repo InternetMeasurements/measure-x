@@ -137,7 +137,7 @@ class Ping_Coordinator:
             packets_loss_rate = result["packet_loss_rate"],
             icmp_replies = result["icmp_replies"]
         )
-        result_id = str(self.mongo_db.insert_ping_result(result = ping_result))
+        result_id = str(self.mongo_db.insert_result(result = ping_result))
         if result_id is not None:
             msm_id = result["msm_id"]
             print(f"Ping_Coordinator: result |{result_id}| stored in db")
