@@ -230,6 +230,7 @@ class UDPPing_Coordinator:
                     return "OK", new_measurement.to_dict(), None
                 
                 self.send_probe_udpping_measure_stop(probe_sender=new_measurement.dest_probe, msm_id=msm_id)
+                self.send_probe_udpping_measure_stop(probe_sender=new_measurement.source_probe, msm_id=msm_id)
                 if event_start_msg is not None:
                     print(f"Preparer UDPPING: awaked from server conf NACK -> {event_start_msg}")
                     return "Error", f"Probe |{new_measurement.source_probe}| says: {event_start_msg}", ""
@@ -308,6 +309,7 @@ class UDPPing_Coordinator:
         if self.mongo_db.set_measurement_as_completed(msm_id):
             print(f"UDPPingController: measurement |{msm_id}| completed ")
         self.send_probe_udpping_measure_stop(self.queued_measurements[msm_id].dest_probe, msm_id=msm_id)
+        self.send_enable_ntp_service(self.queued_measurements[msm_id].source_probe, msm_id=msm_id, role="Client")
 
     
     def get_default_ping_parameters(self) -> json:
