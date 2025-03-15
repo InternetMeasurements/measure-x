@@ -83,7 +83,7 @@ class CoexController:
 
         nuovo_ip_sorgente = shared_state.get_probe_ip()
         base_path = os.path.join(Path(__file__).parent)
-        pcap_file_path = os.path.join(base_path, "pcap", "probe3_iliad.pcap")
+        pcap_file_path = os.path.join(base_path, "pcap", "probe3_cella1_iliad.pcap")
         
         packets = rdpcap(pcap_file_path)
 
