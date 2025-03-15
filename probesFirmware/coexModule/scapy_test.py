@@ -1,17 +1,48 @@
-from scapy.all import Ether, IP, UDP, Raw, sendpfast
+from scapy.all import *
 
-# Parametri MAC e IP
-src_mac = "02:50:f4:00:00:03"  # MAC della probe3
-dst_mac = "02:50:f3:00:00:00"  # MAC della base station 5G
-src_ip = "10.0.0.3"  # IP sorgente della probe3
-dst_ip = "10.0.0.2"  # IP destinazione (probe2 o il server)
+# Impostiamo gli IP e i MAC (sostituisci con i tuoi valori)
+client_ip = "10.13.150.215"
+server_ip = "81.57.14.202"
+client_mac = "02:50:f4:00:00:01"
+server_mac = "02:50:f3:00:00:00"
 
-# Esempio di traffico (modifica a seconda dei dati catturati)
-pkt = Ether(src=src_mac, dst=dst_mac) / IP(src=src_ip, dst=dst_ip) / UDP(sport=30000, dport=5001) / Raw(RandString(size=50))
+# Definisci la porta di destinazione
+server_port = 50505
+client_port = 42846
 
-# Parametri di invio
-rate = 100  # Velocità di invio in Mbps (personalizza in base alle tue necessità)
-n_pkts = 10  # Numero di pacchetti (usa quello che ti serve)
+# Creiamo il pacchetto SYN (inizio connessione)
+syn = IP(src=client_ip, dst=server_ip)/TCP(sport=client_port, dport=server_port, flags="S", seq=199767285, window=33120, options=[('MSS', 1380), ('SACKOK', b'')])
 
-# Invio del traffico
-sendpfast(pkt, mbps=rate, loop=n_pkts)
+# Invia il pacchetto SYN e cattura la risposta (SYN-ACK)
+synack = sr1(syn)
+
+# Creiamo il pacchetto ACK per completare l'handshake TCP
+ack = IP(src=client_ip, dst=server_ip)/TCP(sport=client_port, dport=server_port, flags="A", seq=synack.ack, ack=synack.seq + 1)
+
+# Invio del pacchetto ACK
+send(ack)
+
+# Pacchetto di dati che simula la GET (esempio di dati, cambia a seconda di ciò che vuoi inviare)
+# Questo dovrebbe essere un pacchetto "PUSH" (con la flag P)
+data = "GET / HTTP/1.1\r\nHost: moisturemonitor.ddns.net\r\n\r\n"  # Cambia questa parte in base alla GET che vuoi replicare
+payload = IP(src=client_ip, dst=server_ip)/TCP(sport=client_port, dport=server_port, flags="PA", seq=synack.ack + 1, ack=synack.seq + 1)/Raw(load=data)
+
+# Invia il pacchetto di dati
+send(payload)
+
+# Invia pacchetto ACK per confermare la ricezione del dato
+ack_data = IP(src=client_ip, dst=server_ip)/TCP(sport=client_port, dport=server_port, flags="A", seq=synack.ack + len(data), ack=synack.seq + 1)
+send(ack_data)
+
+# Chiudiamo la connessione con il pacchetto FIN
+fin = IP(src=client_ip, dst=server_ip)/TCP(sport=client_port, dport=server_port, flags="F", seq=synack.ack + len(data), ack=synack.seq + 1)
+send(fin)
+
+# Riceviamo il pacchetto ACK finale per confermare la chiusura della connessione
+finack = sr1(fin)
+
+# Concludiamo la chiusura della connessione
+ack_fin = IP(src=client_ip, dst=server_ip)/TCP(sport=client_port, dport=server_port, flags="A", seq=finack.ack, ack=finack.seq + 1)
+send(ack_fin)
+
+print("Connessione replicata con successo!")
