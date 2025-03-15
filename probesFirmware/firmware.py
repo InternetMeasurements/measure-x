@@ -7,6 +7,7 @@ from energyModule.energyController import EnergyController
 from aoiModule.aoiController import AgeOfInformationController
 from shared_resources import shared_state
 from udppingModule.udppingController import UDPPingController
+from coexModule.coexController import CoexController
 
 
 class Probe:
@@ -28,13 +29,16 @@ class Probe:
         
         self.aoi_controller = AgeOfInformationController(self.mqtt_client, 
                                                          self.commands_demultiplexer.registration_handler_request,
-                                                         self.commands_demultiplexer.wait_for_set_coordinator_ip)
+                                                         self.commands_demultiplexer.wait_for_set_coordinator_ip) # ENABLE AGE OF INFORMATION FUNCTIONALITY
         
         self.udpping_controller = UDPPingController(self.mqtt_client, 
                                                     self.commands_demultiplexer.registration_handler_request,
-                                                    self.commands_demultiplexer.wait_for_set_coordinator_ip)
+                                                    self.commands_demultiplexer.wait_for_set_coordinator_ip) # ENABLE UDP-PING based FUNCTIONALITY
+        
+        self.coex_controller = CoexController(self.mqtt_client,
+                                              self.commands_demultiplexer.registration_handler_request)   # ENABLE COEXISTING APPLICATION FUNCTIONALITY
+        
 
-    
     def disconnect(self):
         self.mqtt_client.disconnect()
 
