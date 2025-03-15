@@ -96,18 +96,16 @@ class CoexController:
             return
 
         ip_originale = ip_comune[0][0]
-        print(f"🔍 IP sorgente originale identificato: {ip_originale}")
+        print(f"IP sorgente originale identificato: {ip_originale} , sostituito con {shared_state.get_probe_ip()}")
 
-        return
-        # Replica i pacchetti sostituendo solo l'IP sorgente
         for pkt in packets:
-            if IP in pkt and pkt[IP].src == ip_originale:
+            if (IP in pkt) and (pkt[IP].src == ip_originale):
                 pkt_mod = pkt.copy()
                 pkt_mod[IP].src = nuovo_ip_sorgente
-                del pkt_mod[IP].chksum  # Ricalcola il checksum
+                del pkt_mod[IP].chksum
                 if TCP in pkt_mod:
                     del pkt_mod[TCP].chksum
-                
-                send(pkt_mod)  # Invia il pacchetto
 
-        print("✅ Traccia replicata con IP modificato!")
+        d = sendpfast(packets, realtime=True, file_cache=True, parse_results=True)
+
+        print(f"OUTPUT -> {d}")
