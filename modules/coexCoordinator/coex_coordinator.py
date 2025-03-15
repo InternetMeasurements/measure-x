@@ -65,8 +65,9 @@ class Coex_Coordinator:
         match type:
             case "ACK":
                 if command == "start":
-                    self.events_received_ack_from_probe_sender[msm_id][1] = "OK"
-                    self.events_received_ack_from_probe_sender[msm_id][0].set()
+                    if msm_id in self.events_received_ack_from_probe_sender:
+                        self.events_received_ack_from_probe_sender[msm_id][1] = "OK"
+                        self.events_received_ack_from_probe_sender[msm_id][0].set()
                 elif command == "stop":
                     if msm_id is None:
                         print(f"Coex_Coordinator: received |stop| ACK from probe |{probe_sender}| wihout measure_id")
@@ -159,7 +160,7 @@ class Coex_Coordinator:
         json_start_payload = {
                 "destination_ip": dest_probe_ip,
                 "msm_id": measurement_id
-                }
+            }
         
         self.events_received_ack_from_probe_sender[measurement_id] = [threading.Event(), None]
         self.send_probe_coex_start(probe_sender = new_measurement.source_probe, json_payload=json_start_payload)
@@ -183,7 +184,7 @@ class Coex_Coordinator:
         else:
             print(f"Preparer coex: No response from probe -> |{new_measurement.source_probe}")
             return "Error", f"No response from Probe: {new_measurement.source_probe}" , "Response Timeout"
-        
+
 
     def coex_measurement_stopper(self, msm_id_to_stop : str):
         if msm_id_to_stop not in self.queued_measurements:
