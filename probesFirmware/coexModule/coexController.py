@@ -1,6 +1,11 @@
+import sys
+import os
+from pathlib import Path
 import json
 from mqttModule.mqttClient import ProbeMqttClient
 from shared_resources import shared_state
+
+from scapy.all import *
 
 """ Class that implements the COEXISTING APPLICATIONS measurement funcionality """
 class CoexController:
@@ -69,3 +74,40 @@ class CoexController:
         }
         self.mqtt_client.publish_on_result_topic(result=json.dumps(json_command_result))
         print(f"CoexController: sent ping result -> {json_coex_result}")
+
+
+    def scapy_test(self):
+        from collections import Counter
+
+        print("scapy test()")
+
+        nuovo_ip_sorgente = shared_state.get_probe_ip()
+        base_path = os.path.join(Path(__file__).parent)
+        pcap_file_path = os.path.join(base_path, "probe3_iliad.pcap")
+        
+        packets = rdpcap(pcap_file_path)
+
+        # Conta gli IP sorgenti nei pacchetti con flag SYN (probabili client)
+        ip_sorgenti = [pkt[IP].src for pkt in packets if IP in pkt and TCP in pkt and pkt[TCP].flags & 2]
+        ip_comune = Counter(ip_sorgenti).most_common(1)
+
+        if not ip_comune:
+            print(" Nessun IP sorgente identificato automaticamente!")
+            return
+
+        ip_originale = ip_comune[0][0]
+        print(f"🔍 IP sorgente originale identificato: {ip_originale}")
+
+        return
+        # Replica i pacchetti sostituendo solo l'IP sorgente
+        for pkt in packets:
+            if IP in pkt and pkt[IP].src == ip_originale:
+                pkt_mod = pkt.copy()
+                pkt_mod[IP].src = nuovo_ip_sorgente
+                del pkt_mod[IP].chksum  # Ricalcola il checksum
+                if TCP in pkt_mod:
+                    del pkt_mod[TCP].chksum
+                
+                send(pkt_mod)  # Invia il pacchetto
+
+        print("✅ Traccia replicata con IP modificato!")
