@@ -98,13 +98,14 @@ class CoexController:
         ip_originale = ip_comune[0][0]
         print(f"IP sorgente originale identificato: {ip_originale} , sostituito con {shared_state.get_probe_ip()}")
 
-        for pkt in packets:
+        for i, pkt in enumerate(packets):
             if (IP in pkt) and (pkt[IP].src == ip_originale):
                 pkt_mod = pkt.copy()
                 pkt_mod[IP].src = nuovo_ip_sorgente
                 del pkt_mod[IP].chksum
                 if TCP in pkt_mod:
                     del pkt_mod[TCP].chksum
+                packets[i] = pkt_mod
 
         d = sendpfast(packets, realtime=True, file_cache=True, parse_results=True)
 
