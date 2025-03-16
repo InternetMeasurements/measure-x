@@ -1,3 +1,5 @@
 coex:
-  packets_number: 4
-  packets_size: 32 # bytes
+  packets_number: 30
+  packets_size: 100 # bytes
+  packets_rate: 800 # 800bps, that is 100byte/s
+  socket_port: 60606
