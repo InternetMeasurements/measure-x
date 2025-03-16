@@ -104,13 +104,34 @@ class Coex_Coordinator:
             print(f"Coex_Coordinator: ignored result. Reason: expired measurement -> {measure_id}")
 
 
-    def send_probe_coex_start(self, probe_sender, json_payload):
+    def send_probe_coex_conf(self, probe_sender, msm_id, role, parameters):
+        json_conf_payload = {
+            "msm_id": msm_id,
+            "role": role,
+            "packets_size": parameters["packets_size"],
+            "packets_number": parameters["packets_number"],
+            "packets_rate" : parameters["packets_rate"],
+            "socket_port" : parameters["socket_port"]
+        }
+        
+        json_coex_conf = {
+            "handler": "coex",
+            "command": "conf",
+            "payload": json_conf_payload
+        }
+        self.mqtt_client.publish_on_command_topic(probe_id = probe_sender, complete_command=json.dumps(json_coex_conf))
+
+
+    def send_probe_coex_start(self, probe_id, msm_id):
         json_coex_start = {
             "handler": "coex",
             "command": "start",
-            "payload": json_payload
+            "payload": {
+                "msm_id": msm_id
+            }
         }
-        self.mqtt_client.publish_on_command_topic(probe_id = probe_sender, complete_command=json.dumps(json_coex_start))
+        self.mqtt_client.publish_on_command_topic(probe_id=probe_id, complete_command=json.dumps(json_coex_start))
+
 
     def send_probe_coex_stop(self, probe_id, msm_id_to_stop):
         json_coex_stop = {
@@ -144,7 +165,6 @@ class Coex_Coordinator:
 
         coex_parameters = self.get_default_coex_parameters()
         coex_parameters = self.override_default_parameters(coex_parameters, new_measurement.parameters)
-        new_measurement.parameters = coex_parameters.copy()
 
         source_probe_ip = self.ask_probe_ip(new_measurement.source_probe)
         if source_probe_ip is None:
