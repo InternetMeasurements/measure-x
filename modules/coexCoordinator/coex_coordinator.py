@@ -146,44 +146,69 @@ class Coex_Coordinator:
         coex_parameters = self.override_default_parameters(coex_parameters, new_measurement.parameters)
         new_measurement.parameters = coex_parameters.copy()
 
-        if new_measurement.source_probe_ip is None or new_measurement.source_probe_ip == "":
-            source_probe_ip = self.ask_probe_ip(new_measurement.source_probe)
-            if source_probe_ip is None:
-                return "Error", f"No response from probe: {new_measurement.source_probe}", "Reponse Timeout"
-        
-        dest_probe_ip = None
-        if (new_measurement.dest_probe != None) and (new_measurement.dest_probe != ""):
-            dest_probe_ip = self.ask_probe_ip(new_measurement.dest_probe)
-            if dest_probe_ip is None:
-                return "Error", f"No response from probe: {new_measurement.dest_probe}", "Reponse Timeout"
-        
-        json_start_payload = {
-                "destination_ip": dest_probe_ip,
-                "msm_id": measurement_id
-            }
+        source_probe_ip = self.ask_probe_ip(new_measurement.source_probe)
+        if source_probe_ip is None:
+            return "Error", f"No response from client probe: {new_measurement.source_probe}", "Reponse Timeout"
+        dest_probe_ip = self.ask_probe_ip(new_measurement.dest_probe)
+        if dest_probe_ip is None:
+            return "Error", f"No response from client probe: {new_measurement.dest_probe}", "Reponse Timeout"
+        new_measurement.source_probe_ip = source_probe_ip
+        new_measurement.dest_probe_ip = dest_probe_ip
+        new_measurement.parameters = coex_parameters.copy()
         
         self.events_received_ack_from_probe_sender[measurement_id] = [threading.Event(), None]
-        self.send_probe_coex_start(probe_sender = new_measurement.source_probe, json_payload=json_start_payload)
+        self.send_probe_coex_conf(probe_sender = new_measurement.dest_probe, msm_id = measurement_id, role="Server", parameters=new_measurement.parameters)
 
         self.events_received_ack_from_probe_sender[measurement_id][0].wait(timeout = 5)
-        # ------------------------------- YOU MUST WAIT (AT MOST 5s) FOR AN ACK/NACK FROM SENDER_PROBE (COEX INITIATOR)
+        # ------------------------------- YOU MUST WAIT (AT MOST 5s) FOR AN ACK/NACK FROM DEST_PROBE (COEX INITIATOR)
 
-        probe_sender_event_message = self.events_received_ack_from_probe_sender[measurement_id][1]
-        if probe_sender_event_message == "OK":
-            new_measurement.source_probe_ip = source_probe_ip
-            new_measurement.dest_probe_ip = dest_probe_ip
-            inserted_measurement_id = self.mongo_db.insert_measurement(measure = new_measurement)
-            if inserted_measurement_id is None:
-                print(f"Coex_Coordinator: can't start coex. Error while storing coex measurement on Mongo")
-                return "Error", "Can't send start! Error while inserting measurement coex in mongo", "MongoDB Down?"
-            self.queued_measurements[measurement_id] = new_measurement
-            return "OK", new_measurement.to_dict(), None
-        elif probe_sender_event_message is not None:
-            print(f"Preparer coex: awaked from server conf NACK -> {probe_sender_event_message}")
-            return "Error", f"Probe |{new_measurement.source_probe}| says: {probe_sender_event_message}", "State BUSY"            
+        probe_server_conf_message = self.events_received_ack_from_probe_sender[measurement_id][1]
+        if probe_server_conf_message == "OK":
+            self.events_received_ack_from_probe_sender[measurement_id] = [threading.Event(), None]
+            self.send_probe_coex_conf(probe_sender = new_measurement.source_probe, msm_id = measurement_id, role="Client", parameters=new_measurement.parameters)
+            self.events_received_ack_from_probe_sender[measurement_id][0].wait(timeout = 5)
+            # ------------------------------- YOU MUST WAIT (AT MOST 5s) FOR AN ACK/NACK FROM SOURCE_PROBE (COEX INITIATOR)
+            probe_client_conf_message = self.events_received_ack_from_probe_sender[measurement_id][1]
+            if probe_client_conf_message == "OK":
+                self.events_received_ack_from_probe_sender[measurement_id] = [threading.Event(), None]
+                self.send_probe_coex_start(probe_id=new_measurement.source_probe, msm_id=measurement_id)
+                self.events_received_ack_from_probe_sender[measurement_id][0].wait(timeout = 5)
+                # ------------------------------- YOU MUST WAIT (AT MOST 5s) FOR AN ACK/NACK START FROM SOURCE_PROBE (COEX INITIATOR)
+                probe_client_start_message = self.events_received_ack_from_probe_sender[measurement_id][1]
+                if probe_client_start_message == "OK":
+                    inserted_measurement_id = self.mongo_db.insert_measurement(measure = new_measurement)
+                    if inserted_measurement_id is None:
+                        print(f"Coex_Coordinator: can't start coex. Error while storing coex measurement on Mongo")
+                        return "Error", "Can't send start! Error while inserting measurement coex in mongo", "MongoDB Down?"
+                    self.queued_measurements[measurement_id] = new_measurement
+                    return "OK", new_measurement.to_dict(), None
+                
+                # Sending stop to the server probe, otherwise it will remain BUSY
+                self.send_probe_coex_stop(probe_id=new_measurement.dest_probe, msm_id_to_stop=measurement_id) 
+                if probe_client_start_message is not None:
+                    print(f"Preparer coex: awaked from client start NACK -> {probe_client_start_message}")
+                    return "Error", f"Probe |{new_measurement.source_probe}| says: {probe_server_conf_message}", ""      
+                else:
+                    print(f"Preparer coex: No response from probe -> |{new_measurement.source_probe}")
+                    return "Error", f"No response from Probe: {new_measurement.source_probe}" , "Response Timeout"
+            
+            # Sending stop to the server probe, otherwise it will remain BUSY
+            self.send_probe_coex_stop(probe_id=new_measurement.dest_probe, msm_id_to_stop=measurement_id)
+            if probe_client_conf_message is not None:
+                print(f"Preparer coex: awaked from client conf NACK -> {probe_client_conf_message}")
+                
+                return "Error", f"Probe |{new_measurement.source_probe}| says: {probe_server_conf_message}", ""      
+            else:
+                print(f"Preparer coex: No response from probe -> |{new_measurement.source_probe}")
+                # Sending stop to the server probe, otherwise it will remain BUSY
+                self.send_probe_coex_stop(probe_id=new_measurement.dest_probe, msm_id_to_stop=measurement_id) 
+                return "Error", f"No response from Probe: {new_measurement.source_probe}" , "Response Timeout"
+        elif probe_server_conf_message is not None:
+            print(f"Preparer coex: awaked from server conf NACK -> {probe_server_conf_message}")
+            return "Error", f"Probe |{new_measurement.dest_probe}| says: {probe_server_conf_message}", ""            
         else:
-            print(f"Preparer coex: No response from probe -> |{new_measurement.source_probe}")
-            return "Error", f"No response from Probe: {new_measurement.source_probe}" , "Response Timeout"
+            print(f"Preparer coex: No response from probe -> |{new_measurement.dest_probe}")
+            return "Error", f"No response from Probe: {new_measurement.dest_probe}" , "Response Timeout"
 
 
     def coex_measurement_stopper(self, msm_id_to_stop : str):
@@ -217,4 +242,6 @@ class Coex_Coordinator:
                 json_overrided_config['packets_number'] = measurement_parameters['packets_number']
             if ('packets_size' in measurement_parameters):
                 json_overrided_config['packets_size'] = measurement_parameters['packets_size']
+            if ('packets_rate' in measurement_parameters):
+                json_overrided_config['packets_rate'] = measurement_parameters['packets_rate']
         return json_overrided_config
