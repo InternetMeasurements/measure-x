@@ -207,7 +207,7 @@ class Age_of_Information_Coordinator:
         self.events_received_status_from_probe_sender[msm_id][0].wait(timeout = 5)        
 
         event_enable_msg = self.events_received_status_from_probe_sender[msm_id][1]        
-        if event_enable_msg == "OK":            
+        if event_enable_msg == "OK":     
             self.events_received_status_from_probe_sender[msm_id] = [threading.Event(), None]
             self.send_disable_ntp_service(probe_sender = new_measurement.source_probe, probe_ntp_server = dest_probe_ip_for_clock_sync,
                                           probe_server_aoi=new_measurement.dest_probe_ip, 
