@@ -74,11 +74,12 @@ class CoexController:
                     return
                 silent_mode = payload["silent"] if ("silent" in payload) else None
                 termination_message = self.stop_worker_socket_thread(silent_mode)
-                if termination_message != "OK":
-                    self.send_coex_NACK(failed_command=command, error_info=termination_message, measurement_related_conf = msm_id)
-                else:
-                    self.send_coex_ACK(successed_command="stop", measurement_related_conf=msm_id)
-                    #self.last_msm_id = None
+                if silent_mode is None:
+                    if termination_message != "OK":
+                        self.send_coex_NACK(failed_command=command, error_info=termination_message, measurement_related_conf = msm_id)
+                    else:
+                        self.send_coex_ACK(successed_command="stop", measurement_related_conf=msm_id)
+                        #self.last_msm_id = None
             case _:
                 self.send_coex_NACK(failed_command = command, error_info = "Command not handled", measurement_related_conf = msm_id)
         
@@ -173,11 +174,11 @@ class CoexController:
         try:
             if (silent_mode is not None) and (silent_mode == True):
                 proc = subprocess.run(["pgrep", "-f", DEFAULT_THREAD_NAME], capture_output=True, text=True)
-                print(f"SILENT: pgrep stdout -> {proc.stdout}")
+                print(f"CoexController: SILENT MODE -> killing coex traffic thread")
                 if proc.stdout:
                     pid = int(proc.stdout.strip())
                     os.kill(pid, signal.SIGKILL)
-                    print("UCCISO")
+                    print("\t KILLED")
                 shared_state.set_probe_as_ready()
                 self.reset_vars()
                 return "OK"
