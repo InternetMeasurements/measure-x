@@ -58,6 +58,7 @@ class CoexController:
                     shared_state.set_probe_as_ready()
                     return
                 # Se va a buon fine la creazione del threas Server (per adesso), manda lui l'ACK
+                print(f"PARAMS: {self.last_coex_parameters}")
                 if self.last_coex_parameters.role == "Server":
                     self.thread_worker_on_socket.start()
                 else:
@@ -77,6 +78,10 @@ class CoexController:
 
 
             case 'stop':
+                if shared_state.probe_is_ready():
+                    self.send_coex_NACK(failed_command = command, error_info = "No coex measure in progress", measurement_related_conf = msm_id)
+                    return
+                
                 if (self.last_msm_id is not None) and (msm_id != self.last_msm_id):
                     self.send_coex_NACK(failed_command=command, 
                                         error_info="Measure_ID Mismatch: The provided measure_id does not correspond to the ongoing measurement",
