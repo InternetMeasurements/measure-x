@@ -151,7 +151,7 @@ class CoexController:
                     self.measure_socket.recv(self.last_coex_parameters.packets_size)
                 print("Awaked from recv")
             elif self.last_coex_parameters.role == "Client":                
-                dst_hwaddr = src_hwaddr = "02:50:f4:00:00:01" 
+                dst_hwaddr = src_hwaddr = "02:50:f4:00:00:01"
                 src_ip = shared_state.get_probe_ip()
                 dst_ip = self.last_coex_parameters.server_probe_ip
                 rate = self.last_coex_parameters.packets_rate
@@ -186,7 +186,7 @@ class CoexController:
             if self.last_coex_parameters.role == "Server":
                 self.stop_thread_event.set()
                 print(f"Sending |{self.last_coex_parameters.packets_size}| byte to myself:{self.last_coex_parameters.socker_port}")
-                self.measure_socket.sendto( str("F" * self.last_coex_parameters.packets_size) , ("127.0.0.1", self.last_coex_parameters.socker_port))
+                self.measure_socket.sendto( str("F" * self.last_coex_parameters.packets_size).encode() , ("127.0.0.1", self.last_coex_parameters.socker_port))
                 self.thread_worker_on_socket.join()
                 self.stop_thread_event.clear()
                 self.measure_socket.close()
