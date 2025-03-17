@@ -286,11 +286,11 @@ class Iperf_Coordinator:
         if new_measurement.dest_probe is None:
             return "Error", f"No destination probe id provided", "Missing dest_probe parameter"
 
-        source_probe_ip = self.ask_probe_ip(new_measurement.source_probe)
+        source_probe_ip, _ = self.ask_probe_ip_mac(new_measurement.source_probe)
         if source_probe_ip is None:
             return "Error", f"No response from client probe: {new_measurement.source_probe}", "Reponse Timeout"
 
-        dest_probe_ip = self.ask_probe_ip(new_measurement.dest_probe)
+        dest_probe_ip, _ = self.ask_probe_ip_mac(new_measurement.dest_probe)
         if dest_probe_ip is None:
             return "Error", f"No response from client probe: {new_measurement.dest_probe}", "Reponse Timeout"
 
