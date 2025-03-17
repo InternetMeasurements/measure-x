@@ -243,7 +243,7 @@ class IperfController:
             if iperf_process_pid == None:
                 return "Process " + process_name + "-" + self.last_role + " not in Execution"
             if msm_id != self.last_measurement_id:
-                    return "Measure_id MISMATCH: The provided measure_id does not correspond to the ongoing measurement"
+                    return f"Measure_id mismatch: The provided measure_id does not correspond to the ongoing measurement {self.last_measurement_id}"
                     """
                     self.send_iperf_NACK(failed_command="stop", 
                                          error_info="",

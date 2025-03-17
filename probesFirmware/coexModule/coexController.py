@@ -64,10 +64,17 @@ class CoexController:
                     self.send_coex_ACK(successed_command = "conf", measurement_related_conf = self.last_msm_id)
 
             case 'start':
-                if not shared_state.set_probe_as_busy():
-                    self.send_coex_NACK(failed_command = command, error_info = "PROBE BUSY", measurement_related_conf = msm_id)
+                if shared_state.probe_is_ready():
+                    self.send_coex_NACK(failed_command = command, error_info = "No coex measure in progress", measurement_related_conf = msm_id)
                     return
+                if msm_id != self.last_msm_id:
+                    self.send_coex_NACK(failed_command = command, 
+                                        error_info = f"Measure_id mismatch: The provided measure_id does not correspond to the ongoing measurement |{self.last_msm_id}|", 
+                                        measurement_related_conf = msm_id)
+                    return
+                
                 self.send_coex_ACK(successed_command = "start", measurement_related_conf = msm_id)
+
 
             case 'stop':
                 if (self.last_msm_id is not None) and (msm_id != self.last_msm_id):

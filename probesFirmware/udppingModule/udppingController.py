@@ -104,7 +104,7 @@ class UDPPingController:
                     return
                 if self.last_measurement_id != msm_id:
                     self.send_udpping_NACK(failed_command=command, 
-                                            error_info="Measure_id MISMATCH: The provided measure_id does not correspond to the ongoing measurement", 
+                                            error_info = f"Measure_id mismatch: The provided measure_id does not correspond to the ongoing measurement |{self.last_measurement_id}|", 
                                             msm_id=msm_id)
                     return
                 print("stopping...")
@@ -160,7 +160,7 @@ class UDPPingController:
                         self.send_udpping_NACK(failed_command=command, error_info="No UDP-PING measurement in progress", msm_id = None)
                     else:
                         self.send_udpping_NACK(failed_command=command, 
-                                            error_info="Measure_id MISMATCH: The provided measure_id does not correspond to the ongoing measurement", 
+                                            error_info = f"Measure_id mismatch: The provided measure_id does not correspond to the ongoing measurement |{self.last_measurement_id}|", 
                                             msm_id=msm_id) 
                 else:
                     self.send_udpping_NACK(failed_command = command, error_info = (f"Wrong role -> {role}"), msm_id = msm_id)

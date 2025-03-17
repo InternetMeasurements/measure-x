@@ -80,7 +80,7 @@ class AgeOfInformationController:
                     return
                 if self.last_measurement_id != msm_id:
                     self.send_aoi_NACK(failed_command=command, 
-                                           error_info="Measure_id MISMATCH: The provided measure_id does not correspond to the ongoing measurement", 
+                                           error_info = f"Measure_id mismatch: The provided measure_id does not correspond to the ongoing measurement |{self.last_measurement_id}|", 
                                            msm_id=msm_id)
                     return
                 print("stopping...")
