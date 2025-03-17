@@ -129,11 +129,10 @@ class CoexController:
                 #measure_socket.settimeout(socket_timeout)
                 self.send_coex_ACK(successed_command = "conf", measurement_related_conf = self.last_msm_id)
                 print(f"CoexController: Opened socket on IP: |{shared_state.get_probe_ip()}| , port: |{self.last_coex_parameters.socker_port}|")
-                print(f"Listening for {self.last_coex_parameters.packets_size / 8} byte")
+                print(f"Listening for {self.last_coex_parameters.packets_size} byte, in while (true)")
                 while(True):
-                    self.measure_socket.recv(self.last_coex_parameters.packets_size / 8)
-            elif self.last_coex_parameters.role == "Client":
-                
+                    self.measure_socket.recv(self.last_coex_parameters.packets_size)
+            elif self.last_coex_parameters.role == "Client":                
                 dst_hwaddr = src_hwaddr = "02:50:f4:00:00:01" 
                 src_ip = shared_state.get_probe_ip()
                 dst_ip = self.last_coex_parameters.server_probe_ip
@@ -147,7 +146,7 @@ class CoexController:
                 d = sendpfast(pkt, mbps=rate, loop=n_pkts, parse_results=True)
                 
         except socket.error as e:
-                print(f"CoexController: Socket error -> {str(e)}")
+                print(f"CoexController: Role: {self.last_coex_parameters.role} , Socket error -> {str(e)}")
 
     def stop_worker_socket_thread(self):
         try:
