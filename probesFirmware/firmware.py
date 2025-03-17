@@ -38,7 +38,7 @@ class Probe:
         self.coex_controller = CoexController(self.mqtt_client,
                                               self.commands_demultiplexer.registration_handler_request)   # ENABLE COEXISTING APPLICATION FUNCTIONALITY
         
-        self.coex_controller.scapy_test()
+        #self.coex_controller.scapy_test()
         
     def disconnect(self):
         self.mqtt_client.disconnect()

@@ -2,7 +2,6 @@ import os, csv
 import time, datetime
 import json
 import subprocess, threading, signal
-import socket
 import base64, cbor2, pandas as pd
 from pathlib import Path
 from mqttModule.mqttClient import ProbeMqttClient
