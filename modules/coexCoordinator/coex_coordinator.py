@@ -7,7 +7,7 @@ from datetime import datetime as dt
 from modules.mqttModule.mqtt_client import Mqtt_Client
 from modules.configLoader.config_loader import ConfigLoader, COEX_KEY
 from bson import ObjectId
-from modules.mongoModule.mongoDB import MongoDB, SECONDS_OLD_MEASUREMENT
+from modules.mongoModule.mongoDB import MongoDB, SECONDS_OLD_MEASUREMENT, ErrorModel
 from modules.mongoModule.models.measurement_model_mongo import MeasurementModelMongo
 from modules.mongoModule.models.coex_result_model_mongo import CoexResultModelMongo
 
@@ -277,20 +277,35 @@ class Coex_Coordinator:
 
     def coex_measurement_stopper(self, msm_id_to_stop : str):
         if msm_id_to_stop not in self.queued_measurements:
-            return "Error", f"Unknown coex measurement |{msm_id_to_stop}|", "May be not started"
+            measure_from_db : MeasurementModelMongo = self.mongo_db.find_measurement_by_id(measurement_id=msm_id_to_stop)
+            if isinstance(measure_from_db, ErrorModel):
+                return "Error", measure_from_db.error_description, measure_from_db.error_cause
+            self.queued_measurements[msm_id_to_stop] = measure_from_db
+
         measurement_to_stop : MeasurementModelMongo = self.queued_measurements[msm_id_to_stop]
         self.events_received_stop_ack[msm_id_to_stop] = [threading.Event(), None]
-        self.send_probe_coex_stop(probe_id = measurement_to_stop.source_probe, msm_id_to_stop = msm_id_to_stop)
+        self.send_probe_coex_stop(probe_id = measurement_to_stop.dest_probe, msm_id_to_stop = msm_id_to_stop)
         self.events_received_stop_ack[msm_id_to_stop][0].wait(5)
         # ------------------------------- WAIT FOR RECEIVE AN ACK/NACK -------------------------------
-        if self.mongo_db.set_measurement_as_failed_by_id(msm_id_to_stop):
-            print(f"Coex_Coordinator: measurement |{msm_id_to_stop}| setted as failed")
         stop_event_message = self.events_received_stop_ack[msm_id_to_stop][1]
         if stop_event_message == "OK":
-            return "OK", f"Measurement {msm_id_to_stop} stopped", None
+            self.events_received_stop_ack[msm_id_to_stop] = [threading.Event(), None]
+            self.send_probe_coex_stop(probe_id = measurement_to_stop.source_probe, msm_id_to_stop = msm_id_to_stop)
+            self.events_received_stop_ack[msm_id_to_stop][0].wait(5)
+            stop_event_message = self.events_received_stop_ack[msm_id_to_stop][1]
+            if stop_event_message == "OK":
+                return "OK", f"Measurement {msm_id_to_stop} stopped", None
+            if stop_event_message is not None:
+                return "Error", f"Probe |{measurement_to_stop.source_probe}| says: |{stop_event_message}|", ""
+            return "Error", f"Can't stop the measurement -> |{msm_id_to_stop}|", f"No response from probe |{measurement_to_stop.source_probe}|"
+        
+        self.send_probe_coex_stop(probe_id = measurement_to_stop.source_probe, msm_id_to_stop = msm_id_to_stop)
+        if self.mongo_db.set_measurement_as_failed_by_id(msm_id_to_stop):
+            print(f"Coex_Coordinator: measurement |{msm_id_to_stop}| setted as failed")
+        
         if stop_event_message is not None:
-            return "Error", f"Probe |{measurement_to_stop.source_probe}| says: |{stop_event_message}|", ""
-        return "Error", f"Can't stop the measurement -> |{msm_id_to_stop}|", f"No response from probe |{measurement_to_stop.source_probe}|"
+            return "Error", f"Probe |{measurement_to_stop.dest_probe}| says: |{stop_event_message}|", ""
+        return "Error", f"Can't stop the measurement -> |{msm_id_to_stop}|", f"No response from probe |{measurement_to_stop.dest_probe}|"
     
 
     def get_default_coex_parameters(self) -> json:
