@@ -141,9 +141,9 @@ class CoexController:
         try:
             if self.last_coex_parameters.role == "Server":
                 self.measure_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                self.measure_socket.settimeout(5)
                 self.measure_socket.bind((shared_state.get_probe_ip(), self.last_coex_parameters.socker_port))
-                self.measure_socket.settimeout(self.last_coex_parameters.socket_timeout)
+                if self.last_coex_parameters.socket_timeout != 0:
+                    self.measure_socket.settimeout(self.last_coex_parameters.socket_timeout)
                 self.send_coex_ACK(successed_command = "conf", measurement_related_conf = self.last_msm_id)
                 print(f"CoexController: Opened socket on IP: |{shared_state.get_probe_ip()}| , port: |{self.last_coex_parameters.socker_port}|")
                 print(f"Listening for {self.last_coex_parameters.packets_size} byte, in while (true)")
