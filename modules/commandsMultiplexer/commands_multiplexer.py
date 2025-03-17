@@ -16,7 +16,7 @@ class CommandsMultiplexer:
         self.measurement_stopper_callback = {}
         self.mqtt_client = None
         self.probe_ip_lock = threading.Lock()
-        self.probe_ip = {}
+        self.probe_ip_mac = {}
         self.probe_ip_for_clock_sync = {}
         self.event_ask_probe_ip = {}
         self.event_ask_probe_ip_for_clock_sync = {}
@@ -39,15 +39,15 @@ class CommandsMultiplexer:
 
     def get_probe_ip_mac_if_present(self, probe_id):
         with self.probe_ip_lock:
-            return self.probe_ip[probe_id] if (probe_id in self.probe_ip) else None
+            return self.probe_ip_mac[probe_id] if (probe_id in self.probe_ip_mac) else (None, None)
     
     def set_probe_ip_mac(self, probe_id, probe_ip, probe_mac):
         with self.probe_ip_lock:
-            self.probe_ip[probe_id] = (probe_ip, probe_mac)
+            self.probe_ip_mac[probe_id] = (probe_ip, probe_mac)
 
     def pop_probe_ip(self, probe_id):
         with self.probe_ip_lock:
-            self.probe_ip.pop(probe_id, None)
+            self.probe_ip_mac.pop(probe_id, None)
 
     def get_probe_ip_for_clock_sync_if_present(self, probe_id):
         with self.probe_ip_lock:
@@ -212,23 +212,28 @@ class CommandsMultiplexer:
             if (probe_ip is None) and (state_info != "OFFLINE"):
                 print(f"CommandsMultiplexer: root_service -> received state -> |{state_info}| from probe |{probe_sender}| without ip")
                 return
+            probe_mac = payload["mac"] if ("mac" in payload) else None
+            if (probe_mac is None) and (state_info != "OFFLINE"):
+                print(f"CommandsMultiplexer: root_service -> received state -> |{state_info}| from probe |{probe_sender}| without mac")
+                return
             probe_ip_for_clock_sync = payload["clock_sync_ip"] if ("clock_sync_ip" in payload) else None
             if (probe_ip_for_clock_sync is None) and (state_info != "OFFLINE"):
                 print(f"CommandsMultiplexer: root_service -> received state -> |{state_info}| from probe |{probe_sender}| without ip for clock sync")
                 return
+            
             match state_info:
                 case "ONLINE":
-                    self.set_probe_ip_mac(probe_id = probe_sender, probe_ip = probe_ip)
+                    self.set_probe_ip_mac(probe_id = probe_sender, probe_ip = probe_ip, probe_mac=probe_mac)
                     self.set_probe_ip_for_clock_sync(probe_id = probe_sender, probe_ip_for_clock_sync = probe_ip_for_clock_sync)
-                    if probe_ip in self.event_ask_probe_ip: # if this message is triggered by an "ask_probe_ip", then signal it
+                    if probe_ip in self.event_ask_probe_ip: # if this message is triggered by an "ask_probe_ip", then signal it (MAY BE THERE IS "SOMEONE" WAITING)
                         self.event_ask_probe_ip[probe_ip].set()
                     json_set_coordinator_ip = {"coordinator_ip": self.coordinator_ip}
                     self.root_service_send_command(probe_sender, "set_coordinator_ip", json_set_coordinator_ip)
-                    print(f"CommandsMultiplexer: root_service -> [{probe_sender}] -> state [{payload['state']}] -> IP |{self.probe_ip[probe_sender]}|")
+                    print(f"CommandsMultiplexer: root_service -> |{probe_sender}| -> state [{payload['state']}] -> IP, MAC : |{self.get_probe_ip_mac_if_present(probe_sender)}|")
                 case "UPDATE":
-                    self.set_probe_ip_mac(probe_id = probe_sender, probe_ip = probe_ip)
+                    self.set_probe_ip_mac(probe_id = probe_sender, probe_ip = probe_ip, probe_mac=probe_mac)
                     self.set_probe_ip_for_clock_sync(probe_id = probe_sender, probe_ip_for_clock_sync = probe_ip_for_clock_sync)
-                    if probe_ip in self.event_ask_probe_ip: # if this message is triggered by an "ask_probe_ip", then signal it
+                    if probe_ip in self.event_ask_probe_ip: # if this message is triggered by an "ask_probe_ip", then signal it (MAY BE THERE IS "SOMEONE" WAITING)
                         self.event_ask_probe_ip[probe_ip].set()
                 case "OFFLINE":
                     self.pop_probe_ip(probe_id=probe_sender)
