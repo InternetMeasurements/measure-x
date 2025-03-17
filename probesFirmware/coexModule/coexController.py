@@ -1,5 +1,4 @@
-import sys
-import os
+import os, signal
 from pathlib import Path
 import json
 from mqttModule.mqttClient import ProbeMqttClient
@@ -24,6 +23,7 @@ class CoexController:
     def __init__(self, mqtt_client : ProbeMqttClient, registration_handler_request_function):
         self.mqtt_client = mqtt_client        
         self.last_msm_id = None
+        self.last_coex_parameters = CoexParamaters()
 
         # Requests to commands_demultiplexer
         registration_response = registration_handler_request_function(
@@ -39,6 +39,25 @@ class CoexController:
             self.send_coex_NACK(failed_command = command, error_info = "No measurement_id provided", measurement_related_conf = msm_id)
             return
         match command:
+            case 'conf':
+                if not shared_state.set_probe_as_busy():
+                    self.send_coex_NACK(failed_command = command, error_info = "PROBE BUSY", measurement_related_conf = msm_id)
+                    return
+                check_parameters_msg = self.check_all_parameters()
+                if check_parameters_msg != "OK":
+                    self.send_coex_NACK(failed_command = command, error_info = check_parameters_msg, measurement_related_conf = msm_id)
+                    shared_state.set_probe_as_ready()
+                    return
+                
+                thread_creation_msg = self.submit_thread_for_coex_traffic()
+                if thread_creation_msg != "OK":
+                    self.send_coex_NACK(failed_command = command, error_info = "PROBE BUSY", measurement_related_conf = msm_id)
+                    shared_state.set_probe_as_ready()
+                    return
+
+                # Se va a buon fine la creazione del threas Server (per adesso), manda lui l'ACK
+
+
             case 'start':
                 if not shared_state.set_probe_as_busy():
                     self.send_coex_NACK(failed_command = command, error_info = "PROBE BUSY", measurement_related_conf = msm_id)
@@ -51,12 +70,12 @@ class CoexController:
                                         error_info="Measure_ID Mismatch: The provided measure_id does not correspond to the ongoing measurement",
                                         measurement_related_conf = msm_id)
                     return
-                termination_message = "DA IMPLEMENTARE"
+                termination_message = self.stop_worker_socket_thread()
                 if termination_message != "OK":
                     self.send_coex_NACK(failed_command=command, error_info=termination_message, measurement_related_conf = msm_id)
                 else:
                     self.send_coex_ACK(successed_command="stop", measurement_related_conf=msm_id)
-                    self.last_msm_id = None
+                    #self.last_msm_id = None
             case _:
                 self.send_coex_NACK(failed_command = command, error_info = "Command not handled", measurement_related_conf = msm_id)
         
@@ -88,7 +107,67 @@ class CoexController:
         print(f"CoexController: sent ping result -> {json_coex_result}")
 
 
+    def submit_thread_for_coex_traffic(self):
+        try:
+            self.thread_worker_on_socket = threading.Thread(target=self.thread_worker_for_coex_traffic, name = DEFAULT_THREAD_NAME , args=())    
+            return "OK"
+        except socket.error as e:
+            print(f"CoexController: Socket error -> {str(e)}")
+            return f"Socket error: {str(e)}"
+        except Exception as e:
+            print(f"CoexController: Exception while creating socket -> {str(e)}")
+            return str(e)
+
+
+            
+    def thread_worker_for_coex_traffic(self):
+        self.measure_socket = None
+        try:
+            if self.last_coex_parameters.role == "Server":
+                self.measure_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                self.measure_socket.bind((shared_state.get_probe_ip(), self.last_coex_parameters.socker_port))
+                #measure_socket.settimeout(socket_timeout)
+                self.send_coex_ACK(successed_command = "conf", measurement_related_conf = self.last_msm_id)
+                print(f"CoexController: Opened socket on IP: |{shared_state.get_probe_ip()}| , port: |{self.last_coex_parameters.socker_port}|")
+                print(f"Listening for {self.last_coex_parameters.packets_size / 8} byte")
+                while(True):
+                    self.measure_socket.recv(self.last_coex_parameters.packets_size / 8)
+            elif self.last_coex_parameters.role == "Client":
+                
+                dst_hwaddr = src_hwaddr = "02:50:f4:00:00:01" 
+                src_ip = shared_state.get_probe_ip()
+                dst_ip = self.last_coex_parameters.server_probe_ip
+                rate = self.last_coex_parameters.packets_rate
+                n_pkts = self.last_coex_parameters.packets_number
+                size = self.last_coex_parameters.packets_size
+                dport = self.last_coex_parameters.socker_port
+
+                pkt = Ether(src=src_hwaddr, dst=dst_hwaddr) / IP(src=src_ip, dst=dst_ip) / UDP(sport=30000, dport=dport) / Raw(RandString(size=size))
+
+                d = sendpfast(pkt, mbps=rate, loop=n_pkts, parse_results=True)
+                
+        except socket.error as e:
+                print(f"CoexController: Socket error -> {str(e)}")
+
+    def stop_worker_socket_thread(self):
+        try:
+            if self.last_coex_parameters.role == "Server":
+                self.measure_socket.close()
+            elif self.last_coex_parameters.role == "Client":
+                proc = subprocess.run(["pgrep", "-f", DEFAULT_THREAD_NAME], capture_output=True, text=True)
+                if proc.stdout:
+                    pid = int(proc.stdout.strip())
+                    os.kill(pid, signal.SIGKILL)
+                    print("UCCISO")
+            return "OK"
+        except Exception as e:
+            print(f"CoexController: exception while closing socket -> {e}")
+            return str(e)
+
+    
+            
     def scapy_test(self):
+        # DEBUG METHOD -> NO MORE INVOKED
         from collections import Counter
         print("scapy test()")
         nuovo_ip_sorgente = shared_state.get_probe_ip()
@@ -123,3 +202,44 @@ class CoexController:
         d = sendpfast(modified_packets, realtime=True, file_cache=True, parse_results=True)
 
         print(f"OUTPUT -> {d}")
+
+
+    def reset_vars(self):
+        print("CoexgController: variables reset")
+        self.last_msm_id = None
+        self.last_udpping_params = CoexParamaters()
+
+    def check_all_parameters(self, payload) -> str:        
+        packets_size = payload["packets_size"] if ("packets_size" in payload) else None
+        if packets_size is None:
+            return "No packets size provided"
+        
+        packets_rate = payload["packets_rate"] if ("packets_rate" in payload) else None
+        if packets_rate is None:
+            return "No packets rate provided"
+        
+        packets_number = payload["packets_number"] if ("packets_number" in payload) else None
+        if packets_number is None:
+            return "No packets number provided"
+        
+        socket_port = payload["socket_port"] if ("socket_port" in payload) else None
+        if socket_port is None:
+            return "No socket port provided"
+        
+        server_probe_ip = None
+        role = payload["role"] if ("role" in payload) else None
+        if role is None:
+            return "No role provided"
+        elif role == "Client":
+            server_probe_ip = payload["server_probe_ip"] if ("server_probe_ip" in payload) else None
+            if server_probe_ip is None:
+                return "No server probe ip provided"
+            
+        msm_id = payload["msm_id"] if ("msm_id" in payload) else None
+        if msm_id is None:
+            return "No measurement ID provided"
+        
+        self.last_msm_id = msm_id
+        self.last_coex_parameters = CoexParamaters(role = role, packets_size = packets_size, packets_number = packets_number,
+                                                   packets_rate = packets_rate, socker_port = socket_port, server_probe_ip=server_probe_ip)
+        return "OK"
