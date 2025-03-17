@@ -7,6 +7,18 @@ from shared_resources import shared_state
 
 from scapy.all import *
 
+DEFAULT_THREAD_NAME = "coex_traffic_worker"
+
+class CoexParamaters:
+    def __init__(self, role = None, packets_size = None, packets_number = None, packets_rate = None, socker_port = None, server_probe_ip = None):
+        self.role = role
+        self.packets_size = packets_size
+        self.packets_number = packets_number
+        self.packets_rate = packets_rate
+        self.socker_port = socker_port
+        self.server_probe_ip = server_probe_ip
+
+
 """ Class that implements the COEXISTING APPLICATIONS measurement funcionality """
 class CoexController:
     def __init__(self, mqtt_client : ProbeMqttClient, registration_handler_request_function):
