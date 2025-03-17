@@ -80,12 +80,12 @@ class CoexController:
                 self.send_coex_NACK(failed_command = command, error_info = "Command not handled", measurement_related_conf = msm_id)
         
 
-    def send_coex_ACK(self, successed_command, measurement_related_conf): # Incapsulating from the ping client
+    def send_coex_ACK(self, successed_command, measurement_related_conf): # Incapsulating from the coex client
         json_ack = {
             "command": successed_command,
             "msm_id" : measurement_related_conf
             }
-        self.mqtt_client.publish_command_ACK(handler='ping', payload = json_ack)
+        self.mqtt_client.publish_command_ACK(handler='coex', payload = json_ack)
         print(f"CoexController: sent ACK -> {successed_command} for measure -> |{measurement_related_conf}|")
 
     def send_coex_NACK(self, failed_command, error_info, measurement_related_conf = None):
@@ -94,17 +94,17 @@ class CoexController:
             "reason" : error_info,
             "msm_id" : measurement_related_conf
             }
-        self.mqtt_client.publish_command_NACK(handler='ping', payload = json_nack)
+        self.mqtt_client.publish_command_NACK(handler='coex', payload = json_nack)
         print(f"CoexController: sent NACK, reason-> {error_info} for measure -> |{measurement_related_conf}|")
 
     def send_coex_result(self, json_coex_result : json):
         json_command_result = {
-            "handler": "ping",
+            "handler": "coex",
             "type": "result",
             "payload": json_coex_result
         }
         self.mqtt_client.publish_on_result_topic(result=json.dumps(json_command_result))
-        print(f"CoexController: sent ping result -> {json_coex_result}")
+        print(f"CoexController: sent coex result -> {json_coex_result}")
 
 
     def submit_thread_for_coex_traffic(self):
@@ -206,7 +206,7 @@ class CoexController:
     def reset_vars(self):
         print("CoexgController: variables reset")
         self.last_msm_id = None
-        self.last_udpping_params = CoexParamaters()
+        self.last_coex_parameters = CoexParamaters()
         self.thread_worker_on_socket = None
 
     def check_all_parameters(self, payload) -> str:        
