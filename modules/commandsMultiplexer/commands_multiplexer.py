@@ -11,7 +11,7 @@ class CommandsMultiplexer:
         self.mongo_db = mongo_db
         self.results_handler_callback = {}
         self.status_handler_callback = {}
-        self.error_handeler_callback = {}
+        self.error_handler_callback = {}
         self.probes_preparer_callback = {}
         self.measurement_stopper_callback = {}
         self.mqtt_client = None
@@ -102,8 +102,8 @@ class CommandsMultiplexer:
         
 
     def add_error_callback(self, interested_error, handler):
-        if interested_error not in self.error_handeler_callback:
-            self.error_handeler_callback[interested_error] = handler
+        if interested_error not in self.error_handler_callback:
+            self.error_handler_callback[interested_error] = handler
             return "OK" #print(f"CommandsMultiplexer: Registered status handler for [{interested_status}]")
         else:
             return "There is already a registered handler for " + interested_error
@@ -159,9 +159,10 @@ class CommandsMultiplexer:
         try:
             nested_error_json = json.loads(nested_error)
             error_handler = nested_error_json['handler']
+            error_command = nested_error_json['command']
             error_payload = nested_error_json['payload']
-            if error_handler in self.error_handeler_callback:
-                self.error_handeler_callback[error_handler](probe_sender, error_payload)
+            if error_handler in self.error_handler_callback:
+                self.error_handler_callback[error_handler](probe_sender, error_command, error_payload)
             else:
                 print(f"CommandsMultiplexer: default error hanlder -> msg from |{probe_sender}| --> {nested_error}")
         except json.JSONDecodeError as e:
