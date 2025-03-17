@@ -52,6 +52,7 @@ class SharedState:
                     default_iface = gateways['default'][netifaces.AF_INET][1]
                     self.default_nic_name = default_iface
                     my_mac = netifaces.ifaddresses(default_iface)[netifaces.AF_LINK][0]['addr']
+                    print(f"SharedState: default nic -> |{default_iface}| , my_mac -> |{my_mac}| ")
                     self.probe_mac = my_mac
                 except KeyError as k:
                     print(f"SharedState: exception in retrieve my mac -> {k}")
