@@ -186,7 +186,7 @@ class CoexController:
             if self.last_coex_parameters.role == "Server":
                 self.stop_thread_event.set()
                 print(f"Sending |{self.last_coex_parameters.packets_size}| byte to myself:{self.last_coex_parameters.socker_port}")
-                self.measure_socket.sendto( str("FAA" * self.last_coex_parameters.packets_size).encode() , ("127.0.0.1", self.last_coex_parameters.socker_port))
+                self.measure_socket.sendto( str("F" * self.last_coex_parameters.packets_size).encode() , (shared_state.get_probe_ip(), self.last_coex_parameters.socker_port))
                 self.thread_worker_on_socket.join()
                 self.stop_thread_event.clear()
                 self.measure_socket.close()
