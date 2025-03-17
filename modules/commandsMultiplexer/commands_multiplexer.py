@@ -37,13 +37,13 @@ class CommandsMultiplexer:
             my_ip = "0.0.0.0"
         return my_ip
 
-    def get_probe_ip_if_present(self, probe_id):
+    def get_probe_ip_mac_if_present(self, probe_id):
         with self.probe_ip_lock:
             return self.probe_ip[probe_id] if (probe_id in self.probe_ip) else None
     
-    def set_probe_ip(self, probe_id, probe_ip):
+    def set_probe_ip_mac(self, probe_id, probe_ip, probe_mac):
         with self.probe_ip_lock:
-            self.probe_ip[probe_id] = probe_ip
+            self.probe_ip[probe_id] = (probe_ip, probe_mac)
 
     def pop_probe_ip(self, probe_id):
         with self.probe_ip_lock:
@@ -61,18 +61,18 @@ class CommandsMultiplexer:
         with self.probe_ip_lock:
             self.probe_ip_for_clock_sync.pop(probe_id, None)
 
-    def ask_probe_ip(self, probe_id, sync_clock_ip = None):
+    def ask_probe_ip_mac(self, probe_id, sync_clock_ip = None):
         if sync_clock_ip is None:
-            probe_ip = self.get_probe_ip_if_present(probe_id = probe_id)
-            if probe_ip is not None:
-                return probe_ip
+            probe_ip, probe_mac = self.get_probe_ip_mac_if_present(probe_id = probe_id)
+            if (probe_ip is not None) and (probe_mac is not None):
+                return probe_ip, probe_mac
             self.event_ask_probe_ip[probe_id] = threading.Event()
-            print(f"CommandsMultiplexer: Unknown probe |{probe_id}| IP. Asking...")
+            print(f"CommandsMultiplexer: Unknown probe |{probe_id}| IP - MAC. Asking...")
             self.root_service_send_command(probe_id, "get_probe_ip", {"coordinator_ip": self.coordinator_ip} )
             self.event_ask_probe_ip[probe_id].wait(timeout = 5)
             # ------------------------------- WAITING FOR PROBE IP RESPONSE -------------------------------
             self.event_ask_probe_ip.pop(probe_id, None)
-            return self.get_probe_ip_if_present(probe_id = probe_id)
+            return self.get_probe_ip_mac_if_present(probe_id = probe_id)
         else:
             probe_ip_for_clock_sync = self.get_probe_ip_for_clock_sync_if_present(probe_id=probe_id)
             if probe_ip_for_clock_sync is not None:
@@ -218,7 +218,7 @@ class CommandsMultiplexer:
                 return
             match state_info:
                 case "ONLINE":
-                    self.set_probe_ip(probe_id = probe_sender, probe_ip = probe_ip)
+                    self.set_probe_ip_mac(probe_id = probe_sender, probe_ip = probe_ip)
                     self.set_probe_ip_for_clock_sync(probe_id = probe_sender, probe_ip_for_clock_sync = probe_ip_for_clock_sync)
                     if probe_ip in self.event_ask_probe_ip: # if this message is triggered by an "ask_probe_ip", then signal it
                         self.event_ask_probe_ip[probe_ip].set()
@@ -226,7 +226,7 @@ class CommandsMultiplexer:
                     self.root_service_send_command(probe_sender, "set_coordinator_ip", json_set_coordinator_ip)
                     print(f"CommandsMultiplexer: root_service -> [{probe_sender}] -> state [{payload['state']}] -> IP |{self.probe_ip[probe_sender]}|")
                 case "UPDATE":
-                    self.set_probe_ip(probe_id = probe_sender, probe_ip = probe_ip)
+                    self.set_probe_ip_mac(probe_id = probe_sender, probe_ip = probe_ip)
                     self.set_probe_ip_for_clock_sync(probe_id = probe_sender, probe_ip_for_clock_sync = probe_ip_for_clock_sync)
                     if probe_ip in self.event_ask_probe_ip: # if this message is triggered by an "ask_probe_ip", then signal it
                         self.event_ask_probe_ip[probe_ip].set()
