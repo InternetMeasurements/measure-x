@@ -163,7 +163,8 @@ class CoexController:
                 print(f"CoexController: Opened socket on IP: |{shared_state.get_probe_ip()}| , port: |{self.last_coex_parameters.socker_port}|")
                 print(f"Listening for {self.last_coex_parameters.packets_size} byte, in while (true)")
                 while(not self.stop_thread_event.is_set()):
-                    self.measure_socket.recv(self.last_coex_parameters.packets_size)
+                    data, addr = self.measure_socket.recv(self.last_coex_parameters.packets_size)
+                    print(f"Thread_Coex: Received data from |{addr}|. Data size: {len(data)} byte")
                 print("Awaked from recv")
             elif self.last_coex_parameters.role == "Client":                
                 dst_hwaddr = src_hwaddr = "02:50:f4:00:00:01"
