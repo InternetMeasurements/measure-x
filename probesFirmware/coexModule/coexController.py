@@ -266,7 +266,7 @@ class CoexController:
         if socket_port is None:
             return "No socket port provided"
         
-        server_probe_ip = None
+        socket_timeout = server_probe_ip = None
         role = payload["role"] if ("role" in payload) else None
         if role is None:
             return "No role provided"
