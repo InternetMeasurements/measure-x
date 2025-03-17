@@ -12,9 +12,9 @@ class UDPPing_Coordinator:
     # This class implement the UDP-PING module to orchestrate the probes to make udp-ping measurements
     def __init__(self, mqtt_client : Mqtt_Client, registration_handler_error_callback, registration_handler_status_callback,
                  registration_handler_result_callback, registration_measure_preparer_callback,
-                 ask_probe_ip_callback, registration_measurement_stopper_callback, mongo_db : MongoDB):
+                 ask_probe_ip_mac_callback, registration_measurement_stopper_callback, mongo_db : MongoDB):
         self.mqtt_client = mqtt_client
-        self.ask_probe_ip = ask_probe_ip_callback
+        self.ask_probe_ip_mac = ask_probe_ip_mac_callback
         self.mongo_db = mongo_db
         self.queued_measurements = {}
         self.events_received_status_from_probe_sender = {}
@@ -188,17 +188,17 @@ class UDPPing_Coordinator:
         udpping_parameters = self.get_default_ping_parameters()
         udpping_parameters = self.override_default_parameters(udpping_parameters, new_measurement.parameters)
 
-        source_probe_ip = self.ask_probe_ip(new_measurement.source_probe)
+        source_probe_ip, _ = self.ask_probe_ip_mac(new_measurement.source_probe)
         if source_probe_ip is None:
             return "Error", f"No response from client probe: {new_measurement.source_probe}", "Reponse Timeout"
-        dest_probe_ip = self.ask_probe_ip(new_measurement.dest_probe)
+        dest_probe_ip, _ = self.ask_probe_ip_mac(new_measurement.dest_probe)
         if dest_probe_ip is None:
             return "Error", f"No response from client probe: {new_measurement.dest_probe}", "Reponse Timeout"
         new_measurement.source_probe_ip = source_probe_ip
         new_measurement.dest_probe_ip = dest_probe_ip
         new_measurement.parameters = udpping_parameters # This setting allow to store params in measurement object even if you don't have inserted them.
 
-        dest_probe_ip_for_clock_sync = self.ask_probe_ip(new_measurement.dest_probe, sync_clock_ip = True)
+        dest_probe_ip_for_clock_sync = self.ask_probe_ip_mac(new_measurement.dest_probe, sync_clock_ip = True)
         
         self.events_received_status_from_probe_sender[msm_id] = [threading.Event(), None]
         self.send_enable_ntp_service(probe_sender=new_measurement.dest_probe, msm_id = msm_id,

@@ -16,11 +16,11 @@ class Coex_Coordinator:
     def __init__(self, mqtt_client : Mqtt_Client, 
                  registration_handler_error_callback, registration_handler_status_callback,
                  registration_handler_result_callback, registration_measure_preparer_callback,
-                 ask_probe_ip_callback, registration_measurement_stopper_callback,
+                 ask_probe_ip_mac_callback, registration_measurement_stopper_callback,
                  mongo_db : MongoDB):
         self.mqtt_client = mqtt_client
         self.mongo_db = mongo_db
-        self.ask_probe_ip = ask_probe_ip_callback
+        self.ask_probe_ip_mac = ask_probe_ip_mac_callback
         self.events_received_ack_from_probe_sender = {}
         self.events_received_stop_ack = {}
         self.queued_measurements = {}
@@ -142,7 +142,7 @@ class Coex_Coordinator:
         else:
             print(f"Coex_Coordinator: error unknown command -> {error_command}")
 
-    def send_probe_coex_conf(self, probe_sender, msm_id, role, parameters, server_probe_ip = None):
+    def send_probe_coex_conf(self, probe_sender, msm_id, role, parameters, counterpart_probe_mac, server_probe_ip = None):
         json_conf_payload = {
             "msm_id": msm_id,
             "role": role,
@@ -151,7 +151,8 @@ class Coex_Coordinator:
             "packets_rate" : parameters["packets_rate"],
             "socket_port" : parameters["socket_port"],
             "socket_timeout": parameters["socket_timeout"],
-            "server_probe_ip": server_probe_ip
+            "server_probe_ip": server_probe_ip,
+            "counterpart_probe_mac": counterpart_probe_mac
         }
         
         json_coex_conf = {
@@ -208,19 +209,21 @@ class Coex_Coordinator:
         coex_parameters = self.get_default_coex_parameters()
         coex_parameters = self.override_default_parameters(coex_parameters, new_measurement.parameters)
 
-        source_probe_ip = self.ask_probe_ip(new_measurement.source_probe)
+        source_probe_ip, source_probe_mac = self.ask_probe_ip_mac(new_measurement.source_probe)
         if source_probe_ip is None:
             return "Error", f"No response from client probe: {new_measurement.source_probe}", "Reponse Timeout"
-        dest_probe_ip = self.ask_probe_ip(new_measurement.dest_probe)
+        dest_probe_ip, dest_probe_mac = self.ask_probe_ip_mac(new_measurement.dest_probe)
         if dest_probe_ip is None:
             return "Error", f"No response from client probe: {new_measurement.dest_probe}", "Reponse Timeout"
+        
         new_measurement.source_probe_ip = source_probe_ip
         new_measurement.dest_probe_ip = dest_probe_ip
         new_measurement.parameters = coex_parameters.copy()
         self.queued_measurements[measurement_id] = new_measurement
         
         self.events_received_ack_from_probe_sender[measurement_id] = [threading.Event(), None]
-        self.send_probe_coex_conf(probe_sender = new_measurement.dest_probe, msm_id = measurement_id, role="Server", parameters=new_measurement.parameters)
+        self.send_probe_coex_conf(probe_sender = new_measurement.dest_probe, msm_id = measurement_id, role="Server", parameters=new_measurement.parameters,
+                                  counterpart_mac = source_probe_mac)
 
         self.events_received_ack_from_probe_sender[measurement_id][0].wait(timeout = 5)
         # ------------------------------- YOU MUST WAIT (AT MOST 5s) FOR AN ACK/NACK FROM DEST_PROBE (COEX INITIATOR)
@@ -229,7 +232,8 @@ class Coex_Coordinator:
         if probe_server_conf_message == "OK":
             self.events_received_ack_from_probe_sender[measurement_id] = [threading.Event(), None]
             self.send_probe_coex_conf(probe_sender = new_measurement.source_probe, msm_id = measurement_id, role="Client",
-                                      parameters=new_measurement.parameters, server_probe_ip=new_measurement.dest_probe_ip)
+                                      parameters=new_measurement.parameters, server_probe_ip=new_measurement.dest_probe_ip,
+                                      counterpart_probe_mac = dest_probe_mac)
             self.events_received_ack_from_probe_sender[measurement_id][0].wait(timeout = 5)
             # ------------------------------- YOU MUST WAIT (AT MOST 5s) FOR AN ACK/NACK FROM SOURCE_PROBE (COEX INITIATOR)
             probe_client_conf_message = self.events_received_ack_from_probe_sender[measurement_id][1]

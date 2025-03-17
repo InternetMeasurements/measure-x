@@ -15,11 +15,11 @@ class Ping_Coordinator:
 
     def __init__(self, mqtt_client : Mqtt_Client, registration_handler_status_callback,
                  registration_handler_result_callback, registration_measure_preparer_callback,
-                 ask_probe_ip_callback, registration_measurement_stopper_callback,
+                 ask_probe_ip_mac_callback, registration_measurement_stopper_callback,
                  mongo_db : MongoDB):
         self.mqtt_client = mqtt_client
         self.mongo_db = mongo_db
-        self.ask_probe_ip = ask_probe_ip_callback
+        self.ask_probe_ip_mac = ask_probe_ip_mac_callback
         self.events_received_ack_from_probe_sender = {}
         self.events_received_stop_ack = {}
         self.queued_measurements = {}
@@ -191,13 +191,13 @@ class Ping_Coordinator:
         new_measurement.parameters = ping_parameters.copy()
 
         if new_measurement.source_probe_ip is None or new_measurement.source_probe_ip == "":
-            source_probe_ip = self.ask_probe_ip(new_measurement.source_probe)
+            source_probe_ip, _ = self.ask_probe_ip_mac(new_measurement.source_probe)
             if source_probe_ip is None:
                 return "Error", f"No response from probe: {new_measurement.source_probe}", "Reponse Timeout"
         
         dest_probe_ip = None # This IP is that of the "machine" that receive the ping message, not the ping initiator!
         if (new_measurement.dest_probe != None) and (new_measurement.dest_probe != ""): # If those are both false, then the ping dest is another probe
-            dest_probe_ip = self.ask_probe_ip(new_measurement.dest_probe)
+            dest_probe_ip, _ = self.ask_probe_ip_mac(new_measurement.dest_probe)
         else:
             dest_probe_ip = new_measurement.dest_probe_ip
         if dest_probe_ip is None:

@@ -18,13 +18,13 @@ class Iperf_Coordinator:
                  registration_handler_status_callback,
                  registration_handler_result_callback,
                  registration_measure_preparer_callback,
-                 ask_probe_ip_callback,
+                 ask_probe_ip_mac_callback,
                  registration_measurement_stopper_callback,
                  mongo_db : MongoDB):
         self.mqtt = mqtt 
         self.probes_configurations_dir = 'probes_configurations'
         self.probes_server_port = {}
-        self.ask_probe_ip = ask_probe_ip_callback
+        self.ask_probe_ip_mac = ask_probe_ip_mac_callback
         self.mongo_db = mongo_db
         self.queued_measurements = {}
         self.events_received_server_ack = {}
