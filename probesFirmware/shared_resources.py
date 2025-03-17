@@ -19,12 +19,14 @@ class SharedState:
             cls.instance.coordinator_ip = None
             cls.default_nic_name = None
             cls.probe_ip = None
+            cls.probe_mac = None
             cls.probe_ip_for_clock_sync = None
         return cls.instance
     
     def __init__(self):
         if self.probe_ip is None:
             self.get_probe_ip()
+            self.get_probe_mac()
             self.get_probe_ip_for_clock_sync()
 
     def get_probe_ip(self):
@@ -42,8 +44,21 @@ class SharedState:
                     self.probe_ip = "0.0.0.0"
             return self.probe_ip
     
+    def get_probe_mac(self):
+        with self.lock:
+            if self.probe_mac is None:
+                try:
+                    gateways = netifaces.gateways()
+                    default_iface = gateways['default'][netifaces.AF_INET][1]
+                    self.default_nic_name = default_iface
+                    my_mac = netifaces.ifaddresses(default_iface)[netifaces.AF_LINK][0]['addr']
+                    self.probe_mac = my_mac
+                except KeyError as k:
+                    print(f"SharedState: exception in retrieve my mac -> {k}")
+                    self.probe_mac = "ff:ff:ff:ff:ff:ff"
+            return self.probe_mac
+
     def get_probe_ip_for_clock_sync(self):
-        
         with self.lock:
             if (self.probe_ip_for_clock_sync is None) or (self.probe_ip_for_clock_sync == "0.0.0.0"):
                 try:
