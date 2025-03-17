@@ -88,7 +88,9 @@ class CoexController:
                                         measurement_related_conf = msm_id)
                     return
                 
-                self.send_coex_ACK(successed_command = "start", measurement_related_conf = msm_id)
+                if self.last_coex_parameters.role == "Client":
+                    self.thread_worker_on_socket.start()
+                    self.send_coex_ACK(successed_command = "start", measurement_related_conf = msm_id)
 
 
             case 'stop':
