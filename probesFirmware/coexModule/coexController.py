@@ -9,7 +9,8 @@ from scapy.all import *
 DEFAULT_THREAD_NAME = "coex_traffic_worker"
 
 class CoexParamaters:
-    def __init__(self, role = None, packets_size = None, packets_number = None, packets_rate = None, socker_port = None, socket_timeout = None, server_probe_ip = None):
+    def __init__(self, role = None, packets_size = None, packets_number = None, packets_rate = None,
+                 socker_port = None, socket_timeout = None, server_probe_ip = None, counterpart_probe_mac = None):
         self.role = role
         self.packets_size = packets_size
         self.packets_number = packets_number
@@ -17,6 +18,7 @@ class CoexParamaters:
         self.socker_port = socker_port
         self.socket_timeout = socket_timeout # Server parameter
         self.server_probe_ip = server_probe_ip # Client paramter
+        self.counterpart_probe_mac = counterpart_probe_mac
     
     def to_dict(self):
         return {
@@ -26,7 +28,8 @@ class CoexParamaters:
             "packets_rate": self.packets_rate,
             "socker_port": self.socker_port,
             "socket_timeout": self.socket_timeout,
-            "server_probe_ip": self.server_probe_ip
+            "server_probe_ip": self.server_probe_ip,
+            "counterpart_probe_mac" : self.counterpart_probe_mac
         }
 
 
@@ -177,16 +180,20 @@ class CoexController:
                     data, addr = self.measure_socket.recvfrom(self.last_coex_parameters.packets_size)
                     print(f"Thread_Coex: Received data from |{addr}|. Data size: {len(data)} byte")
                 print("Awaked from recv")
-            elif self.last_coex_parameters.role == "Client":                
-                dst_hwaddr = src_hwaddr = "02:50:f4:00:00:01"
+            elif self.last_coex_parameters.role == "Client":        
+                # dst_hwaddr = src_hwaddr = "02:50:f4:00:00:01"
+                src_mac = shared_state.get_probe_mac()
+                dest_mac = self.last_coex_parameters.counterpart_probe_mac
+
                 src_ip = shared_state.get_probe_ip()
                 dst_ip = self.last_coex_parameters.server_probe_ip
+
                 rate = self.last_coex_parameters.packets_rate
                 n_pkts = self.last_coex_parameters.packets_number
                 size = self.last_coex_parameters.packets_size
                 dport = self.last_coex_parameters.socker_port
 
-                pkt = Ether(src=src_hwaddr, dst=dst_hwaddr) / IP(src=src_ip, dst=dst_ip) / UDP(sport=30000, dport=dport) / Raw(RandString(size=size))
+                pkt = Ether(src=src_mac, dst=dest_mac) / IP(src=src_ip, dst=dst_ip) / UDP(sport=30000, dport=dport) / Raw(RandString(size=size))
 
                 d = sendpfast(pkt, mbps=rate, loop=n_pkts, parse_results=True)
                 
@@ -297,6 +304,10 @@ class CoexController:
         socket_port = payload["socket_port"] if ("socket_port" in payload) else None
         if socket_port is None:
             return "No socket port provided"
+
+        counterpart_probe_mac = payload["counterpart_probe_mac"] if ("counterpart_probe_mac" in payload) else None
+        if counterpart_probe_mac is None:
+            return "No counterpart probe mac provided"
         
         socket_timeout = server_probe_ip = None
         role = payload["role"] if ("role" in payload) else None
@@ -317,6 +328,6 @@ class CoexController:
         
         self.last_msm_id = msm_id
         self.last_coex_parameters = CoexParamaters(role = role, packets_size = packets_size, packets_number = packets_number,
-                                                   packets_rate = packets_rate, socker_port = socket_port,
-                                                   socket_timeout = socket_timeout, server_probe_ip=server_probe_ip)
+                                                   packets_rate = packets_rate, socker_port = socket_port, socket_timeout = socket_timeout,
+                                                   server_probe_ip=server_probe_ip, counterpart_probe_mac=counterpart_probe_mac)
         return "OK"
