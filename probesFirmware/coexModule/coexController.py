@@ -17,6 +17,17 @@ class CoexParamaters:
         self.socker_port = socker_port
         self.socket_timeout = socket_timeout # Server parameter
         self.server_probe_ip = server_probe_ip # Client paramter
+    
+    def to_dict(self):
+        return {
+            "role": self.role,
+            "packets_size" : self.packets_size,
+            "packets_number": self.packets_number,
+            "packets_rate": self.packets_rate,
+            "socker_port": self.socker_port,
+            "socket_timeout": self.socket_timeout,
+            "server_probe_ip": self.server_probe_ip
+        }
 
 
 """ Class that implements the COEXISTING APPLICATIONS measurement funcionality """
@@ -58,7 +69,7 @@ class CoexController:
                     shared_state.set_probe_as_ready()
                     return
                 # Se va a buon fine la creazione del threas Server (per adesso), manda lui l'ACK
-                print(f"PARAMS: {self.last_coex_parameters}")
+                print(f"PARAMS: {self.last_coex_parameters.to_dict()}")
                 if self.last_coex_parameters.role == "Server":
                     self.thread_worker_on_socket.start()
                 else:
@@ -163,7 +174,7 @@ class CoexController:
                 print(f"CoexController: Opened socket on IP: |{shared_state.get_probe_ip()}| , port: |{self.last_coex_parameters.socker_port}|")
                 print(f"Listening for {self.last_coex_parameters.packets_size} byte, in while (true)")
                 while(not self.stop_thread_event.is_set()):
-                    data, addr = self.measure_socket.recv(self.last_coex_parameters.packets_size)
+                    data, addr = self.measure_socket.recvfrom(self.last_coex_parameters.packets_size)
                     print(f"Thread_Coex: Received data from |{addr}|. Data size: {len(data)} byte")
                 print("Awaked from recv")
             elif self.last_coex_parameters.role == "Client":                
