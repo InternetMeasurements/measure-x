@@ -58,7 +58,10 @@ class CoexController:
                     shared_state.set_probe_as_ready()
                     return
                 # Se va a buon fine la creazione del threas Server (per adesso), manda lui l'ACK
-                self.thread_worker_on_socket.start()
+                if self.last_coex_parameters.role == "Server":
+                    self.thread_worker_on_socket.start()
+                else:
+                    self.send_coex_ACK(successed_command = "conf", measurement_related_conf = self.last_msm_id)
 
             case 'start':
                 if not shared_state.set_probe_as_busy():
@@ -173,6 +176,7 @@ class CoexController:
 
     def stop_worker_socket_thread(self, silent_mode = None):
         try:
+            # VERIFICA SE SERVE DAVVERO QUESTA SILENT_MODE VISTO CHE ADESSO HO CAPITO COME SVEGLIARE IL THREAD DALLA recv
             if (silent_mode is not None) and (silent_mode == True):
                 proc = subprocess.run(["pgrep", "-f", DEFAULT_THREAD_NAME], capture_output=True, text=True)
                 print(f"CoexController: SILENT MODE -> killing coex traffic thread")
@@ -186,6 +190,7 @@ class CoexController:
             if self.last_coex_parameters.role == "Server":
                 self.stop_thread_event.set()
                 print(f"Sending |{self.last_coex_parameters.packets_size}| byte to myself:{self.last_coex_parameters.socker_port}")
+                # Sending self.last_coex_parameters.packets_size BYTE to myself to wakeUp the thread blocked in recv. I won't use the SOCKET_TIMEOUT.
                 self.measure_socket.sendto( str("F" * self.last_coex_parameters.packets_size).encode() , (shared_state.get_probe_ip(), self.last_coex_parameters.socker_port))
                 self.thread_worker_on_socket.join()
                 self.stop_thread_event.clear()
