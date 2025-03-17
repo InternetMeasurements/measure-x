@@ -43,7 +43,7 @@ class CoexController:
                 if not shared_state.set_probe_as_busy():
                     self.send_coex_NACK(failed_command = command, error_info = "PROBE BUSY", measurement_related_conf = msm_id)
                     return
-                check_parameters_msg = self.check_all_parameters()
+                check_parameters_msg = self.check_all_parameters(payload=payload)
                 if check_parameters_msg != "OK":
                     self.send_coex_NACK(failed_command = command, error_info = check_parameters_msg, measurement_related_conf = msm_id)
                     shared_state.set_probe_as_ready()
