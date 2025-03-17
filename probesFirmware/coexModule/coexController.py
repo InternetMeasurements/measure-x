@@ -72,7 +72,8 @@ class CoexController:
                                         error_info="Measure_ID Mismatch: The provided measure_id does not correspond to the ongoing measurement",
                                         measurement_related_conf = msm_id)
                     return
-                termination_message = self.stop_worker_socket_thread()
+                silent_mode = payload["silent"] if ("silent" in payload) else None
+                termination_message = self.stop_worker_socket_thread(silent_mode)
                 if termination_message != "OK":
                     self.send_coex_NACK(failed_command=command, error_info=termination_message, measurement_related_conf = msm_id)
                 else:
@@ -168,8 +169,18 @@ class CoexController:
                 self.reset_vars()
             
 
-    def stop_worker_socket_thread(self):
+    def stop_worker_socket_thread(self, silent_mode = None):
         try:
+            if (silent_mode is not None) and (silent_mode == True):
+                proc = subprocess.run(["pgrep", "-f", DEFAULT_THREAD_NAME], capture_output=True, text=True)
+                print(f"SILENT: pgrep stdout -> {proc.stdout}")
+                if proc.stdout:
+                    pid = int(proc.stdout.strip())
+                    os.kill(pid, signal.SIGKILL)
+                    print("UCCISO")
+                shared_state.set_probe_as_ready()
+                self.reset_vars()
+                return "OK"
             if self.last_coex_parameters.role == "Server":
                 self.stop_thread_event.set()
                 self.aoi_thread.join()
@@ -182,7 +193,7 @@ class CoexController:
                     pid = int(proc.stdout.strip())
                     os.kill(pid, signal.SIGKILL)
                     print("UCCISO")
-            if (self.last_role is not None):
+            if (self.last_coex_parameters.role is not None):
                 shared_state.set_probe_as_ready()
                 self.reset_vars()
             return "OK"

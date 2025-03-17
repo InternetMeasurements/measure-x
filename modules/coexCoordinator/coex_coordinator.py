@@ -126,15 +126,18 @@ class Coex_Coordinator:
                 return
             reason = error_payload['reason'] if ('reason' in error_payload) else None
             print(f"\t error in measure {msm_id}, reason: {reason}")
-            referred_measure = self.mongo_db.find_measurement_by_id(measurement_id=msm_id)
-            if referred_measure is None:
-                print(f"Coex_Coordinator: relative measure not found -> |{msm_id}|")
-                return
-            if referred_measure.state == "started":
+            if msm_id not in self.queued_measurements:
+                referred_measure = self.mongo_db.find_measurement_by_id(measurement_id=msm_id)
+                if not isinstance(referred_measure, MeasurementModelMongo):
+                    print(f"Coex_Coordinator: relative measure not found -> |{msm_id}|")
+                    return
+            else:
+                referred_measure = self.queued_measurements[msm_id]
+            if (referred_measure.state != "failed") and (referred_measure.state != "completed"):
                 error_probe_is_server = (probe_sender == referred_measure.dest_probe)
                 if error_probe_is_server:
-                    self.send_probe_coex_stop(probe_id=referred_measure.source_probe, msm_id_to_stop=msm_id)
-                    self.events_received_ack_from_probe_sender[msm_id][1] = ""
+                    self.send_probe_coex_stop(probe_id=referred_measure.source_probe, msm_id_to_stop=msm_id, silent=True)
+                    self.events_received_ack_from_probe_sender[msm_id][1] = reason
                     print(f"Coex_Coordinator: stopped probe |{referred_measure.source_probe}| involved in error relative measure -> |{msm_id}|")
         else:
             print(f"Coex_Coordinator: error unknown command -> {error_command}")
@@ -169,7 +172,7 @@ class Coex_Coordinator:
         self.mqtt_client.publish_on_command_topic(probe_id=probe_id, complete_command=json.dumps(json_coex_start))
 
 
-    def send_probe_coex_stop(self, probe_id, msm_id_to_stop):
+    def send_probe_coex_stop(self, probe_id, msm_id_to_stop, silent = False):
         json_coex_stop = {
             "handler": "coex",
             "command": "stop",
@@ -177,6 +180,8 @@ class Coex_Coordinator:
                 "msm_id": msm_id_to_stop
             }
         }
+        if silent:
+            json_coex_stop["payload"]["silent"] = silent
         self.mqtt_client.publish_on_command_topic(probe_id = probe_id, complete_command=json.dumps(json_coex_stop))
 
     
@@ -211,6 +216,7 @@ class Coex_Coordinator:
         new_measurement.source_probe_ip = source_probe_ip
         new_measurement.dest_probe_ip = dest_probe_ip
         new_measurement.parameters = coex_parameters.copy()
+        self.queued_measurements[measurement_id] = new_measurement
         
         self.events_received_ack_from_probe_sender[measurement_id] = [threading.Event(), None]
         self.send_probe_coex_conf(probe_sender = new_measurement.dest_probe, msm_id = measurement_id, role="Server", parameters=new_measurement.parameters)
