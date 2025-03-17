@@ -13,7 +13,8 @@ from modules.mongoModule.models.coex_result_model_mongo import CoexResultModelMo
 
 class Coex_Coordinator:
 
-    def __init__(self, mqtt_client : Mqtt_Client, registration_handler_status_callback,
+    def __init__(self, mqtt_client : Mqtt_Client, 
+                 registration_handler_error_callback, registration_handler_status_callback,
                  registration_handler_result_callback, registration_measure_preparer_callback,
                  ask_probe_ip_callback, registration_measurement_stopper_callback,
                  mongo_db : MongoDB):
@@ -23,6 +24,13 @@ class Coex_Coordinator:
         self.events_received_ack_from_probe_sender = {}
         self.events_received_stop_ack = {}
         self.queued_measurements = {}
+
+        registration_response = registration_handler_error_callback( interested_error = "coex",
+                                                             handler = self.handler_received_error)
+        if registration_response == "OK" :
+            print(f"Coex_Coordinator: registered handler for error -> coex")
+        else:
+            print(f"Coex_Coordinator: registration handler failed. Reason -> {registration_response}")
 
         # Requests to commands_multiplexer: handler STATUS registration
         registration_response = registration_handler_status_callback( interested_status = "coex",
@@ -97,7 +105,6 @@ class Coex_Coordinator:
             case _:
                 print(f"Coex_Coordinator: received unkown type message -> |{type}|")
 
-
     def handler_received_result(self, probe_sender, result: json):
         measure_id = result['msm_id'] if ('msm_id' in result) else None
         if measure_id is None:
@@ -110,6 +117,27 @@ class Coex_Coordinator:
         else:
             print(f"Coex_Coordinator: ignored result. Reason: expired measurement -> {measure_id}")
 
+    def handler_received_error(self, probe_sender, error_command, error_payload : json):
+        print(f"Coex_Coordinator: error from {probe_sender} , command |{error_command}| payload: {error_payload}")
+        if error_command == "socket":
+            msm_id = error_payload['msm_id'] if ('msm_id' in error_payload) else None
+            if msm_id == None:
+                print(f"Coex_Coordinator: None error relative measure")
+                return
+            reason = error_payload['reason'] if ('reason' in error_payload) else None
+            print(f"\t error in measure {msm_id}, reason: {reason}")
+            referred_measure = self.mongo_db.find_measurement_by_id(measurement_id=msm_id)
+            if referred_measure is None:
+                print(f"Coex_Coordinator: relative measure not found -> |{msm_id}|")
+                return
+            if referred_measure.state == "started":
+                error_probe_is_server = (probe_sender == referred_measure.dest_probe)
+                if error_probe_is_server:
+                    self.send_probe_coex_stop(probe_id=referred_measure.source_probe, msm_id_to_stop=msm_id)
+                    self.events_received_ack_from_probe_sender[msm_id][1] = ""
+                    print(f"Coex_Coordinator: stopped probe |{referred_measure.source_probe}| involved in error relative measure -> |{msm_id}|")
+        else:
+            print(f"Coex_Coordinator: error unknown command -> {error_command}")
 
     def send_probe_coex_conf(self, probe_sender, msm_id, role, parameters):
         json_conf_payload = {

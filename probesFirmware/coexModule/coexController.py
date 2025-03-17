@@ -108,6 +108,18 @@ class CoexController:
         self.mqtt_client.publish_on_result_topic(result=json.dumps(json_command_result))
         print(f"CoexController: sent coex result -> {json_coex_result}")
 
+    def send_coex_error(self, command_error, msm_id, reason):
+        json_error_payload = {
+            "msm_id": msm_id,
+            "reason": reason
+        }
+
+        json_command_error = {
+            "handler": "coex",
+            "command": command_error,
+            "payload": json_error_payload
+        }
+        self.mqtt_client.publish_on_error_topic(error_msg=json.dumps(json_command_error))
 
     def submit_thread_for_coex_traffic(self):
         try:
@@ -149,12 +161,12 @@ class CoexController:
                 d = sendpfast(pkt, mbps=rate, loop=n_pkts, parse_results=True)
                 
         except socket.error as e:
-                print(f"CoexController: Role: {self.last_coex_parameters.role} , Socket error -> {str(e)}")
-                if self.last_coex_parameters.role == "Server":
-                    if str(e) == "timed out":
-                        shared_state.set_probe_as_ready()
-                        self.reset_vars()
-                
+            print(f"CoexController: Role: {self.last_coex_parameters.role} , Socket error -> {str(e)}")
+            if (self.last_coex_parameters.role == "Server") and (not self.stop_thread_event.is_set()):
+                self.send_coex_error(command_error = "socket", msm_id = self.last_msm_id, reason = str(e))
+                shared_state.set_probe_as_ready()
+                self.reset_vars()
+            
 
     def stop_worker_socket_thread(self):
         try:
@@ -165,6 +177,7 @@ class CoexController:
                 self.measure_socket.close()
             elif self.last_coex_parameters.role == "Client":
                 proc = subprocess.run(["pgrep", "-f", DEFAULT_THREAD_NAME], capture_output=True, text=True)
+                print(f"pgrep stdout -> {proc.stdout}")
                 if proc.stdout:
                     pid = int(proc.stdout.strip())
                     os.kill(pid, signal.SIGKILL)
