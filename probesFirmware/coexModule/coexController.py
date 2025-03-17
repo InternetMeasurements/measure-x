@@ -24,6 +24,7 @@ class CoexController:
         self.mqtt_client = mqtt_client        
         self.last_msm_id = None
         self.last_coex_parameters = CoexParamaters()
+        self.thread_worker_on_socket = None
 
         # Requests to commands_demultiplexer
         registration_response = registration_handler_request_function(
@@ -54,9 +55,8 @@ class CoexController:
                     self.send_coex_NACK(failed_command = command, error_info = "PROBE BUSY", measurement_related_conf = msm_id)
                     shared_state.set_probe_as_ready()
                     return
-
                 # Se va a buon fine la creazione del threas Server (per adesso), manda lui l'ACK
-
+                self.thread_worker_on_socket.start()
 
             case 'start':
                 if not shared_state.set_probe_as_busy():
@@ -109,7 +109,7 @@ class CoexController:
 
     def submit_thread_for_coex_traffic(self):
         try:
-            self.thread_worker_on_socket = threading.Thread(target=self.thread_worker_for_coex_traffic, name = DEFAULT_THREAD_NAME , args=())    
+            self.thread_worker_on_socket = threading.Thread(target=self.body_worker_for_coex_traffic, name = DEFAULT_THREAD_NAME , args=())    
             return "OK"
         except socket.error as e:
             print(f"CoexController: Socket error -> {str(e)}")
@@ -120,7 +120,7 @@ class CoexController:
 
 
             
-    def thread_worker_for_coex_traffic(self):
+    def body_worker_for_coex_traffic(self):
         self.measure_socket = None
         try:
             if self.last_coex_parameters.role == "Server":
@@ -208,6 +208,7 @@ class CoexController:
         print("CoexgController: variables reset")
         self.last_msm_id = None
         self.last_udpping_params = CoexParamaters()
+        self.thread_worker_on_socket = None
 
     def check_all_parameters(self, payload) -> str:        
         packets_size = payload["packets_size"] if ("packets_size" in payload) else None
