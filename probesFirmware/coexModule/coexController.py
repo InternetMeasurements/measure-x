@@ -184,7 +184,7 @@ class CoexController:
                 return "OK"
             if self.last_coex_parameters.role == "Server":
                 self.stop_thread_event.set()
-                self.aoi_thread.join()
+                self.thread_worker_on_socket.join()
                 self.stop_thread_event.clear()
                 self.measure_socket.close()
             elif self.last_coex_parameters.role == "Client":
