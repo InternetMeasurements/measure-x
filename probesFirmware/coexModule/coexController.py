@@ -197,7 +197,7 @@ class CoexController:
 
                 pkt = Ether(src=src_mac, dst=dest_mac) / IP(src=src_ip, dst=dst_ip) / UDP(sport=30000, dport=dport) / Raw(RandString(size=size))
 
-                d = sendpfast(pkt, mbps=rate, loop=n_pkts, parse_results=True)
+                d = sendpfast(pkt, mbps=rate, count=n_pkts, parse_results=True)
                 
         except socket.error as e:
             print(f"CoexController: Role: {self.last_coex_parameters.role} , Socket error -> {str(e)}")
