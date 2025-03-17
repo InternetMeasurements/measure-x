@@ -9,13 +9,14 @@ from scapy.all import *
 DEFAULT_THREAD_NAME = "coex_traffic_worker"
 
 class CoexParamaters:
-    def __init__(self, role = None, packets_size = None, packets_number = None, packets_rate = None, socker_port = None, server_probe_ip = None):
+    def __init__(self, role = None, packets_size = None, packets_number = None, packets_rate = None, socker_port = None, socket_timeout = None, server_probe_ip = None):
         self.role = role
         self.packets_size = packets_size
         self.packets_number = packets_number
         self.packets_rate = packets_rate
         self.socker_port = socker_port
-        self.server_probe_ip = server_probe_ip
+        self.socket_timeout = socket_timeout # Server parameter
+        self.server_probe_ip = server_probe_ip # Client paramter
 
 
 """ Class that implements the COEXISTING APPLICATIONS measurement funcionality """
@@ -24,6 +25,7 @@ class CoexController:
         self.mqtt_client = mqtt_client        
         self.last_msm_id = None
         self.last_coex_parameters = CoexParamaters()
+        self.stop_thread_event = threading.Event()
         self.thread_worker_on_socket = None
 
         # Requests to commands_demultiplexer
@@ -125,12 +127,13 @@ class CoexController:
         try:
             if self.last_coex_parameters.role == "Server":
                 self.measure_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                self.measure_socket.settimeout(5)
                 self.measure_socket.bind((shared_state.get_probe_ip(), self.last_coex_parameters.socker_port))
-                #measure_socket.settimeout(socket_timeout)
+                self.measure_socket.settimeout(self.last_coex_parameters.socket_timeout)
                 self.send_coex_ACK(successed_command = "conf", measurement_related_conf = self.last_msm_id)
                 print(f"CoexController: Opened socket on IP: |{shared_state.get_probe_ip()}| , port: |{self.last_coex_parameters.socker_port}|")
                 print(f"Listening for {self.last_coex_parameters.packets_size} byte, in while (true)")
-                while(True):
+                while(not self.stop_thread_event.is_set()):
                     self.measure_socket.recv(self.last_coex_parameters.packets_size)
             elif self.last_coex_parameters.role == "Client":                
                 dst_hwaddr = src_hwaddr = "02:50:f4:00:00:01" 
@@ -151,6 +154,9 @@ class CoexController:
     def stop_worker_socket_thread(self):
         try:
             if self.last_coex_parameters.role == "Server":
+                self.stop_thread_event.set()
+                self.aoi_thread.join()
+                self.stop_thread_event.clear()
                 self.measure_socket.close()
             elif self.last_coex_parameters.role == "Client":
                 proc = subprocess.run(["pgrep", "-f", DEFAULT_THREAD_NAME], capture_output=True, text=True)
@@ -158,9 +164,12 @@ class CoexController:
                     pid = int(proc.stdout.strip())
                     os.kill(pid, signal.SIGKILL)
                     print("UCCISO")
+            if (self.last_role is not None):
+                shared_state.set_probe_as_ready()
+                self.reset_vars()
             return "OK"
         except Exception as e:
-            print(f"CoexController: exception while closing socket -> {e}")
+            print(f"CoexController: Role -> {self.last_coex_parameters.role} , exception while stoppping socket -> {e}")
             return str(e)
 
     
@@ -208,6 +217,7 @@ class CoexController:
         self.last_msm_id = None
         self.last_coex_parameters = CoexParamaters()
         self.thread_worker_on_socket = None
+        self.stop_thread_event.clear()
 
     def check_all_parameters(self, payload) -> str:        
         packets_size = payload["packets_size"] if ("packets_size" in payload) else None
@@ -234,6 +244,10 @@ class CoexController:
             server_probe_ip = payload["server_probe_ip"] if ("server_probe_ip" in payload) else None
             if server_probe_ip is None:
                 return "No server probe ip provided"
+        elif role == "Server":
+            socket_timeout = payload["socket_timeout"] if ("socket_timeout" in payload) else None
+            if socket_timeout is None:
+                return "No socket timeout provided"
             
         msm_id = payload["msm_id"] if ("msm_id" in payload) else None
         if msm_id is None:
@@ -241,5 +255,6 @@ class CoexController:
         
         self.last_msm_id = msm_id
         self.last_coex_parameters = CoexParamaters(role = role, packets_size = packets_size, packets_number = packets_number,
-                                                   packets_rate = packets_rate, socker_port = socket_port, server_probe_ip=server_probe_ip)
+                                                   packets_rate = packets_rate, socker_port = socket_port,
+                                                   socket_timeout = socket_timeout, server_probe_ip=server_probe_ip)
         return "OK"
