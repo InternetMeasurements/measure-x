@@ -210,7 +210,7 @@ class Coex_Coordinator:
         coex_parameters = self.override_default_parameters(coex_parameters, new_measurement.parameters)
 
         source_probe_ip, source_probe_mac = self.ask_probe_ip_mac(new_measurement.source_probe)
-        if source_probe_ip is None:
+        if (source_probe_ip is None):
             return "Error", f"No response from client probe: {new_measurement.source_probe}", "Reponse Timeout"
         dest_probe_ip, dest_probe_mac = self.ask_probe_ip_mac(new_measurement.dest_probe)
         if dest_probe_ip is None:
@@ -223,7 +223,7 @@ class Coex_Coordinator:
         
         self.events_received_ack_from_probe_sender[measurement_id] = [threading.Event(), None]
         self.send_probe_coex_conf(probe_sender = new_measurement.dest_probe, msm_id = measurement_id, role="Server", parameters=new_measurement.parameters,
-                                  counterpart_mac = source_probe_mac)
+                                  counterpart_probe_mac = source_probe_mac)
 
         self.events_received_ack_from_probe_sender[measurement_id][0].wait(timeout = 5)
         # ------------------------------- YOU MUST WAIT (AT MOST 5s) FOR AN ACK/NACK FROM DEST_PROBE (COEX INITIATOR)
