@@ -63,8 +63,8 @@ class Coex_Coordinator:
         msm_id = payload["msm_id"] if ("msm_id" in payload) else None
         command = payload["command"] if ("command" in payload) else None
         match type:
-            case "ACK":
-                if command == "start":
+            case "ACK":                
+                if (command == "conf") or (command == "start"):
                     if msm_id in self.events_received_ack_from_probe_sender:
                         self.events_received_ack_from_probe_sender[msm_id][1] = "OK"
                         self.events_received_ack_from_probe_sender[msm_id][0].set()
@@ -75,10 +75,17 @@ class Coex_Coordinator:
                     if msm_id in self.events_received_stop_ack:
                         self.events_received_stop_ack[msm_id][1] = "OK"
                         self.events_received_stop_ack[msm_id][0].set()
+                else:
+                    print(f"Coex_Coordinator: received ACK from probe |{probe_sender}| , UNKNOWN COMMAND -> |{command}|")
+                    return
                 print(f"Coex_Coordinator: received ACK from probe |{probe_sender}| , command -> |{command}|")
             case "NACK":
                 reason = payload['reason']
-                if command == "start":
+                if command == "conf":
+                    if msm_id in self.events_received_ack_from_probe_sender:
+                        self.events_received_ack_from_probe_sender[msm_id][1] = reason
+                        self.events_received_ack_from_probe_sender[msm_id][0].set()
+                elif command == "start":
                     if msm_id in self.events_received_ack_from_probe_sender:
                         self.events_received_ack_from_probe_sender[msm_id][1] = reason
                         self.events_received_ack_from_probe_sender[msm_id][0].set()
@@ -111,7 +118,8 @@ class Coex_Coordinator:
             "packets_size": parameters["packets_size"],
             "packets_number": parameters["packets_number"],
             "packets_rate" : parameters["packets_rate"],
-            "socket_port" : parameters["socket_port"]
+            "socket_port" : parameters["socket_port"],
+            "socket_timeout": parameters["socket_timeout"]
         }
         
         json_coex_conf = {
@@ -264,4 +272,9 @@ class Coex_Coordinator:
                 json_overrided_config['packets_size'] = measurement_parameters['packets_size']
             if ('packets_rate' in measurement_parameters):
                 json_overrided_config['packets_rate'] = measurement_parameters['packets_rate']
+            if ('socket_timeout' in measurement_parameters):
+                json_overrided_config['socket_timeout'] = measurement_parameters['socket_timeout']
+            if ('socket_port' in measurement_parameters):
+                json_overrided_config['socket_port'] = measurement_parameters['socket_port']
+                
         return json_overrided_config
