@@ -150,6 +150,11 @@ class CoexController:
                 
         except socket.error as e:
                 print(f"CoexController: Role: {self.last_coex_parameters.role} , Socket error -> {str(e)}")
+                if self.last_coex_parameters.role == "Server":
+                    if str(e) == "timed out":
+                        shared_state.set_probe_as_ready()
+                        self.reset_vars()
+                
 
     def stop_worker_socket_thread(self):
         try:
