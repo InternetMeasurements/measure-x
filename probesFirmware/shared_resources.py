@@ -1,6 +1,7 @@
 import threading
 import socket
 import netifaces
+import scapy.all as scapy
 
 BUSY = "BUSY"
 READY = "READY"
@@ -48,6 +49,23 @@ class SharedState:
         with self.lock:
             if self.probe_mac is None:
                 try:
+                    """
+                    gateways = netifaces.gateways()
+                    gateway_ip = gateways['default'][netifaces.AF_INET][0]
+                    print(f"GATEWAY IP -> {gateway_ip}") # DBG FOR FINDING GATWAY MAC
+
+                    default_iface = gateways['default'][netifaces.AF_INET][1]
+                    self.default_nic_name = default_iface
+                    my_mac = netifaces.ifaddresses(default_iface)[netifaces.AF_LINK][0]['addr']
+
+                    arp_res = scapy.arping(gateway_ip, verbose=False)[0]
+                    gateway_mac = arp_res[0][1].hwsrc if arp_res else None # Per adesso lascio stare. Comunque le probe devono informare il coordinator del MAC del loro gateway. Leggi tesi se ti dimentichi perchè!
+
+                    print(f"GATEWAY MAC -> {gateway_mac}")
+
+                    print(f"SharedState: default nic -> |{default_iface}| , my_mac -> |{my_mac}| ")
+                    self.probe_mac = my_mac
+                    """
                     gateways = netifaces.gateways()
                     default_iface = gateways['default'][netifaces.AF_INET][1]
                     self.default_nic_name = default_iface
@@ -63,7 +81,8 @@ class SharedState:
         with self.lock:
             if (self.probe_ip_for_clock_sync is None) or (self.probe_ip_for_clock_sync == "0.0.0.0"):
                 try:
-                    my_ip_for_sync = netifaces.ifaddresses("eth0")[netifaces.AF_INET][0]['addr']
+                    #my_ip_for_sync = netifaces.ifaddresses("eth0")[netifaces.AF_INET][0]['addr'] # SCOMMENTA QUANDO ESEGUI SU PROBE -> 18/03/2025
+                    my_ip_for_sync = "DEBUG"
                     self.probe_ip_for_clock_sync = my_ip_for_sync
                     print(f"SharedState: my ip for clock sync -> |{self.probe_ip_for_clock_sync}|")
                 except KeyError as k:
