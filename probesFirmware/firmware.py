@@ -62,13 +62,13 @@ class Probe:
         
     def waiting_for_5G_connection(self):
         interfaces = psutil.net_if_addrs()
-        net_if_stats = psutil.net_if_stats()
         count_retry = 0
         MAX_RETRY = 5
         iface_found = False
         if (HAT_IFACE not in interfaces):
             return False
         while count_retry < MAX_RETRY:
+            net_if_stats = psutil.net_if_stats()
             time.sleep(2)
             if (not net_if_stats[HAT_IFACE].isup): # If the HAT_IFACE is down...
                 count_retry += 1
