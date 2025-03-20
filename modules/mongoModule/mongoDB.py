@@ -169,7 +169,7 @@ class MongoDB:
         plt.figure(figsize=(10, 6))
         plt.plot(timestamps, aoi_values, marker='o', linestyle='-', color='b', label="AoI")
         plt.xlabel("Timestamp (s)", fontsize=16)
-        plt.ylabel("AoI", fontsize=16)
+        plt.ylabel("AoI (s)", fontsize=16)
         plt.axvspan(xmin=5, xmax=15, color='red', alpha=0.3, label="Iperf measurement")
         plt.rcParams['font.size'] = 14
         plt.xticks(fontsize=16)
