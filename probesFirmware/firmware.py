@@ -1,5 +1,5 @@
 import os
-import subprocess
+import subprocess, threading
 import signal
 import argparse
 from mqttModule.mqttClient import ProbeMqttClient
@@ -18,7 +18,9 @@ class Probe:
         self.id = probe_id
         self.process = None
         if not dbg_mode:
-            self.start_waveshare_cm()
+            self.waveshare_cm_thread = threading.Thread(target=self.start_waveshare_cm)
+            self.waveshare_cm_thread.daemon = True
+            self.waveshare_cm_thread.start()
         self.commands_demultiplexer = CommandsDemultiplexer()
         self.mqtt_client = ProbeMqttClient(probe_id,
                                            self.commands_demultiplexer.decode_command) # The Decode Handler is triggered internally
@@ -49,13 +51,25 @@ class Probe:
     def disconnect(self):
         self.mqtt_client.disconnect()
     
-    def start_waveshare_cm(self):
-        self.process = subprocess.Popen(
-            ['sudo', 'waveshare-CM'],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            preexec_fn=os.setsid
-        )
+    def start_waveshare_cm():
+        try:
+            # Esegui il comando con cattura dell'output (senza timeout)
+            result = subprocess.run(
+                ['sudo', 'waveshare-CM'],
+                capture_output=True,  # Cattura stdout e stderr
+                text=True,  # Restituisce output come stringa (non byte)
+                check=True  # Genera un'eccezione se il comando restituisce un codice di errore
+            )
+            
+            # Se il comando è stato eseguito correttamente
+            print(f"Comando eseguito correttamente, output:\n{result.stdout}")
+            
+        except subprocess.CalledProcessError as e:
+            print(f"Errore durante l'esecuzione del processo: {e.stderr}")
+        except FileNotFoundError as e:
+            print(f"Errore: il comando non è stato trovato: {e}")
+        except Exception as e:
+            print(f"Si è verificato un errore imprevisto: {e}")
 
 
 def main():
@@ -75,8 +89,9 @@ def main():
                 break
             case _:
                 continue
-    
-    os.killpg(os.getpgid(probe1.process.pid), signal.SIGINT)
+    if probe1.waveshare_cm_thread is not None:
+        print("Probe1: killing waveshare-CM thread")
+        os.killpg(os.getpgid(probe1.waveshare_cm_thread.ident), signal.SIGTERM)
     return
 
 if __name__ == "__main__":
