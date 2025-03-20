@@ -1,4 +1,5 @@
 import os
+import time, psutil
 import subprocess, threading
 import signal
 import argparse
@@ -16,11 +17,19 @@ from coexModule.coexController import CoexController
 class Probe:
     def __init__(self, probe_id, dbg_mode):
         self.id = probe_id
-        self.process = None
+        self.commands_demultiplexer = None
         if not dbg_mode:
+            print(f"{probe_id}: 5G mode enabled. Establishing mobile connection...")
             self.waveshare_cm_thread = threading.Thread(target=self.start_waveshare_cm)
             self.waveshare_cm_thread.daemon = True
             self.waveshare_cm_thread.start()
+            can_continue = self.waiting_for_5G_connection()
+            if not can_continue:
+                print(f"{probe_id}: CAN'T ESTABLISH 5G CONNECTIVITY")
+                return
+        else:
+            print(f"{probe_id}: DBG mode enabled. Using WiFi...")
+
         self.commands_demultiplexer = CommandsDemultiplexer()
         self.mqtt_client = ProbeMqttClient(probe_id,
                                            self.commands_demultiplexer.decode_command) # The Decode Handler is triggered internally
@@ -48,6 +57,22 @@ class Probe:
         
         #self.coex_controller.scapy_test()
         
+    def waiting_for_5G_connection(self):
+        interfaces = psutil.net_if_addrs()
+        count_retry = 0
+        MAX_RETRY = 5
+        iface_found = False
+        while count_retry < MAX_RETRY:
+            if ("rmnet_mhi0.1" not in interfaces):
+                print(f"{self.id}: Waiting for mobile connection ... Attemtp {count_retry} of {MAX_RETRY}")
+                count_retry += 1
+                time.sleep(2)
+            else:
+                iface_found = True
+                break
+        return iface_found
+
+    
     def disconnect(self):
         self.mqtt_client.disconnect()
     
@@ -80,18 +105,20 @@ def main():
     user_name = os.getlogin()
     if user_name == "coordinator" or user_name=="Francesco": # Trick for execute the firmware also on the coordinator
         user_name = "probe1"
-    probe1 = Probe(user_name, args.dbg)
+    probe = Probe(user_name, args.dbg)
+    if probe.commands_demultiplexer is None:
+        return
     while True:
         command = input()
         match command:
             case "0":
-                probe1.disconnect()
+                probe.disconnect()
                 break
             case _:
                 continue
-    if probe1.waveshare_cm_thread is not None:
-        print("Probe1: killing waveshare-CM thread")
-        os.killpg(os.getpgid(probe1.waveshare_cm_thread.ident), signal.SIGTERM)
+    if probe.waveshare_cm_thread is not None:
+        print(f"{user_name}: killing waveshare-CM thread")
+        os.killpg(os.getpgid(probe.waveshare_cm_thread.ident), signal.SIGTERM)
     return
 
 if __name__ == "__main__":
