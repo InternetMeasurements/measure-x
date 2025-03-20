@@ -58,8 +58,7 @@ class Probe:
         
         self.coex_controller = CoexController(self.mqtt_client,
                                               self.commands_demultiplexer.registration_handler_request)   # ENABLE COEXISTING APPLICATION FUNCTIONALITY
-        
-        #self.coex_controller.scapy_test()
+
         
     def waiting_for_5G_connection(self):
         interfaces = psutil.net_if_addrs()
@@ -72,35 +71,29 @@ class Probe:
         while count_retry < MAX_RETRY:
             time.sleep(2)
             if (not net_if_stats[HAT_IFACE].isup): # If the HAT_IFACE is down...
-                print(f"{self.id}: Waiting for mobile connection ... Attemtp {count_retry} of {MAX_RETRY}")
                 count_retry += 1
+                print(f"{self.id}: Waiting for mobile connection ... Attemtp {count_retry} of {MAX_RETRY}")
             else:
                 iface_found = True
                 break
         return iface_found
 
-    
-    def disconnect(self):
-        self.mqtt_client.disconnect()
-    
+
     def body_start_waveshare_cm(self):
         try:
-            # Esegui il comando con cattura dell'output (senza timeout)
             self.waveshare_process = subprocess.Popen(
                                         ['sudo', 'waveshare-CM'],
                                         stdout=subprocess.PIPE,
                                         stderr=subprocess.PIPE,
                                         preexec_fn=os.setsid)
             
-            # Se il comando è stato eseguito correttamente
-            print(f"Comando eseguito correttamente")
-            
-        except subprocess.CalledProcessError as e:
-            print(f"Errore durante l'esecuzione del processo: {e.stderr}")
-        except FileNotFoundError as e:
-            print(f"Errore: il comando non è stato trovato: {e}")
         except Exception as e:
-            print(f"Si è verificato un errore imprevisto: {e}")
+            print(f"{self.id}: Exception during waveshare driver execution --> {e}")
+
+
+
+    def disconnect(self):
+        self.mqtt_client.disconnect()
 
 
 def main():
@@ -112,22 +105,23 @@ def main():
     if user_name == "coordinator" or user_name=="Francesco": # Trick for execute the firmware also on the coordinator
         user_name = "probe1"
     probe = Probe(user_name, args.dbg)
-    if probe.commands_demultiplexer is None:
-        return
-    while True:
-        command = input()
-        match command:
-            case "0":
-                probe.disconnect()
-                break
-            case _:
-                continue
+
+    if probe.commands_demultiplexer is not  None:
+        while True:
+            command = input()
+            match command:
+                case "0":
+                    probe.disconnect()
+                    break
+                case _:
+                    continue
+
     if probe.waveshare_process is not None:
         try:
-            print(f"{user_name}: killing waveshare-CM thread")
+            print(f"{probe.id}: stopping waveshare-CM driver")
             os.killpg(os.getpgid(probe.waveshare_process.pid), signal.SIGTERM)
         except Exception as e:
-            print(f"{probe.id}: Exception during kill -> {e}")
+            print(f"{probe.id}: Exception during stop -> {e}")
     return
 
 if __name__ == "__main__":
