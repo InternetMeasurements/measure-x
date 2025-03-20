@@ -19,6 +19,9 @@ class AgeOfInformationController:
         self.last_measurement_id = None
         self.last_probe_ntp_server_ip = None
         self.last_probe_server_aoi = None
+        self.last_payload_size = None
+        self.last_packets_rate = None
+
         self.last_socket_port = None
         self.last_role = None
         self.stop_thread_event = threading.Event()
@@ -54,20 +57,19 @@ class AgeOfInformationController:
                             self.send_aoi_NACK(failed_command="start", error_info = "No response from coordinator. Missing coordinator ip for root service", msm_id=msm_id)
                             return
 
-                    payload_size = payload['payload_size'] if ('payload_size' in payload) else None
-                    if payload_size is None:
+                    self.last_payload_size = payload['payload_size'] if ('payload_size' in payload) else None
+                    if self.last_payload_size is None:
                         self.send_aoi_NACK(failed_command=command, error_info="No payload size provided. Force PROBE_READY", msm_id=msm_id)
                         self.shared_state.set_probe_as_ready()
                         return
                     
-                    packets_rate = payload['packets_rate'] if ('packets_rate' in payload) else None
-                    if packets_rate is None:
+                    self.last_packets_rate = payload['packets_rate'] if ('packets_rate' in payload) else None
+                    if self.last_packets_rate is None:
                         self.send_aoi_NACK(failed_command=command, error_info="No packets rate provided. Force PROBE_READY", msm_id=msm_id)
                         self.shared_state.set_probe_as_ready()
                         return
                     
-                    returned_msg = self.submit_thread_to_aoi_measure(msm_id = msm_id, payload_size = payload_size,
-                                                                     packets_rate = packets_rate)
+                    returned_msg = self.submit_thread_to_aoi_measure(msm_id = msm_id)
                     if returned_msg == "OK":
                         self.aoi_thread.start()
                     else:
@@ -84,7 +86,7 @@ class AgeOfInformationController:
                                            error_info = f"Measure_id mismatch: The provided measure_id does not correspond to the ongoing measurement |{self.last_measurement_id}|", 
                                            msm_id=msm_id)
                     return
-                print("stopping...")
+                
                 termination_message = self.stop_aoi_thread()
                 if termination_message == "OK":
                     self.send_aoi_ACK(successed_command=command, msm_id=msm_id)
@@ -150,16 +152,15 @@ class AgeOfInformationController:
                         self.shared_state.set_probe_as_ready()
                         return
                     
-                    socket_timeout = payload["socket_timeout"] if ("socket_timeout" in payload) else None
-                    
                     enable_msg = self.start_ntpsec_service()
                     if enable_msg == "OK":
                         self.last_socket_port = socket_port
                         self.last_role = role
+                        self.last_payload_size = payload_size
                         self.last_measurement_id = msm_id
-                        socket_creation_msg = self.create_socket(socket_timeout)
+                        socket_creation_msg = self.create_socket()
                         if socket_creation_msg == "OK":
-                            returned_msg = self.submit_thread_to_aoi_measure(msm_id = msm_id, payload_size=payload_size)
+                            returned_msg = self.submit_thread_to_aoi_measure(msm_id = msm_id)
                             if returned_msg == "OK":
                                 self.aoi_thread.start()
                                 self.send_aoi_ACK(successed_command = command, msm_id = msm_id)
@@ -181,16 +182,12 @@ class AgeOfInformationController:
                     self.send_aoi_NACK(failed_command = command, error_info = (f"Wrong role -> {role}"), msm_id = msm_id)
                 
                 
-    def create_socket(self, socket_timeout = None):
+    def create_socket(self):
         try:
             self.measure_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             self.measure_socket.bind((self.shared_state.get_probe_ip(), self.last_socket_port))
             if self.last_role == "Server":
-                if (socket_timeout is not None) and (socket_timeout > 0):
-                    self.measure_socket.settimeout(socket_timeout)
-                    print(f"AoIController: Opened socket on IP: |{self.shared_state.get_probe_ip()}| , port: |{self.last_socket_port}|")
-                else:
-                    print(f"AoIController: DEBUG -> Opened socket on IP: |{self.shared_state.get_probe_ip()}| , port: |{self.last_socket_port}|")
+                print(f"AoIController: I'm Server. Opened socket on IP: |{self.shared_state.get_probe_ip()}| , port: |{self.last_socket_port}|")
             #self.measure_socket.settimeout(10)
             return "OK"
         except socket.error as e:
@@ -202,9 +199,9 @@ class AgeOfInformationController:
             return str(e)
                 
 
-    def submit_thread_to_aoi_measure(self, msm_id,  payload_size = None, packets_rate = None):
+    def submit_thread_to_aoi_measure(self, msm_id):
         try:
-            self.aoi_thread = threading.Thread(target=self.run_aoi_measurement, args=(msm_id,payload_size,packets_rate,))
+            self.aoi_thread = threading.Thread(target=self.run_aoi_measurement, args=(msm_id,))
             return "OK"
         except Exception as e:
             returned_msg = (f"Exception while starting measure thread -> {str(e)}")
@@ -212,12 +209,12 @@ class AgeOfInformationController:
             return returned_msg
 
 
-    def run_aoi_measurement(self, msm_id, payload_size, packets_rate):
+    def run_aoi_measurement(self, msm_id):
         if self.last_role == "Client":
             stderr_command = None
             try:
-                if packets_rate is None:
-                    raise Exception(f"AoIController: wrong packets_rate -> |{packets_rate}|")
+                if self.last_packets_rate is None:
+                    raise Exception(f"AoIController: wrong packets_rate -> |{self.last_packets_rate}|")
                 print(f"Role client thread -> last_probe_ntp_server_ip: |{self.last_probe_ntp_server_ip}|")
                 result = subprocess.run( ['sudo', 'ntpdate', self.last_probe_ntp_server_ip], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 if result.returncode == 0:
@@ -229,7 +226,7 @@ class AgeOfInformationController:
                         
                         timestamp_message = {
                             "timestamp" : timestamp_value,
-                            "dummy_payload" : str("F" * payload_size) # Create a dummy payload of 'payload_size' bytes
+                            "dummy_payload" : str("F" * self.last_payload_size) # Create a dummy payload of 'payload_size' bytes
                         }
                         print(f"AoI client: sending... -> {timestamp_value}" )
                         json_timestamp = json.dumps(timestamp_message)
@@ -243,6 +240,7 @@ class AgeOfInformationController:
             finally:
                 if stderr_command is not None:
                     self.send_aoi_NACK(failed_command="start", error_info=stderr_command, msm_id=msm_id)
+
         elif self.last_role == "Server":
             receive_error = None
             base_path = Path(__file__).parent
@@ -254,10 +252,13 @@ class AgeOfInformationController:
                     fieldnames = ["Timestamp", "AoI"]
                     writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
                     writer.writeheader()
-                    print(f"Role server thread. PAYLOAD_SIZE-> {payload_size}")
+                    print(f"AoIController: Role server thread. Listening...")
                     #self.send_aoi_ACK(successed_command="start", msm_id=msm_id)
                     while(not self.stop_thread_event.is_set()):
-                        data, addr = self.measure_socket.recvfrom(payload_size)
+                        data, addr = self.measure_socket.recvfrom(self.last_payload_size)
+                        #BLOCKING RECV
+                        if self.stop_thread_event.is_set():
+                            break
                         reception_timestamp = datetime.datetime.now().timestamp()
 
                         json_message = json.loads(data.decode())
@@ -279,8 +280,6 @@ class AgeOfInformationController:
                     csv_file.close()
             if receive_error is None:
                 self.compress_and_publish_aoi_result(msm_id = msm_id)
-            else:
-                print("non inviato")
             self.shared_state.set_probe_as_ready()
         else:
             print(f"THREAD START WITH STRANGE ROLE -> {self.last_role}")
@@ -289,6 +288,8 @@ class AgeOfInformationController:
         if self.aoi_thread is None:
             return "No AoI measure in progress"
         self.stop_thread_event.set()
+        if self.last_role == "Server":
+            self.measure_socket.sendto( str("F" * self.last_payload_size).encode() , (self.shared_state.get_probe_ip(), self.last_socket_port))
         self.aoi_thread.join()
         self.stop_thread_event.clear()
         self.measure_socket.close()
