@@ -29,6 +29,7 @@ class Probe:
             if not can_continue:
                 print(f"{probe_id}: CAN'T ESTABLISH 5G CONNECTIVITY")
                 return
+            
         else:
             print(f"{probe_id}: DBG mode enabled. Using WiFi...")
 
@@ -67,10 +68,10 @@ class Probe:
         MAX_RETRY = 5
         iface_found = False
         while count_retry < MAX_RETRY:
+            time.sleep(2)
             if ("rmnet_mhi0.1" not in interfaces):
                 print(f"{self.id}: Waiting for mobile connection ... Attemtp {count_retry} of {MAX_RETRY}")
                 count_retry += 1
-                time.sleep(2)
             else:
                 iface_found = True
                 break
