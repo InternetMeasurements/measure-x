@@ -1,6 +1,6 @@
 import json
 from mqttModule.mqttClient import ProbeMqttClient
-from shared_resources import shared_state
+from shared_resources import SharedState
 
 class CommandsDemultiplexer():
     def __init__(self):
@@ -56,7 +56,7 @@ class CommandsDemultiplexer():
             print(f"CommandsDemultiplexer: no registered handler for |{handler}|")
 
     def root_service_command_handler(self, command, payload):
-        global shared_state
+        shared_state = SharedState.get_instance()
         match command:
             case "set_coordinator_ip":
                 coordinator_ip = str(payload['coordinator_ip'])

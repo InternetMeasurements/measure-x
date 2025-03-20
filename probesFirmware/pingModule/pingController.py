@@ -8,11 +8,12 @@ import psutil
 import time
 from pingparsing import PingParsing
 from mqttModule.mqttClient import ProbeMqttClient
-from shared_resources import shared_state
+from shared_resources import SharedState
 
 """ Class that implements the LATENCY measurement funcionality """
 class PingController:
     def __init__(self, mqtt_client : ProbeMqttClient, registration_handler_request_function):
+        self.shared_state = SharedState.get_instance()
         self.mqtt_client = mqtt_client        
         self.ping_thread = None
         self.ping_result = None
@@ -33,7 +34,7 @@ class PingController:
             return
         match command:
             case 'start':
-                if not shared_state.set_probe_as_busy():
+                if not self.shared_state.set_probe_as_busy():
                     self.send_ping_NACK(failed_command = command, error_info = "PROBE BUSY", measurement_related_conf = msm_id)
                     return
                 self.send_ping_ACK(successed_command = "start", measurement_related_conf = msm_id)
@@ -86,7 +87,7 @@ class PingController:
         except Exception as e: #In case of abnormal exception, send the nack to the coordinator
             self.send_ping_NACK(failed_command="start", error_info=str(e), measurement_related_conf=msm_id)
         finally:
-            shared_state.set_probe_as_ready()
+            self.shared_state.set_probe_as_ready()
     
         
     def stop_ping_thread(self):
@@ -105,10 +106,10 @@ class PingController:
             self.ping_thread.join()
             self.ping_thread = None
             print(f"PingController: ping command stopped.")
-            shared_state.set_probe_as_ready()
+            self.shared_state.set_probe_as_ready()
             return "OK"
         except OSError as e:
-            shared_state.set_probe_as_ready()
+            self.shared_state.set_probe_as_ready()
             return str(e)
         
 
@@ -130,7 +131,7 @@ class PingController:
         print(f"PingController: sent NACK, reason-> {error_info} for measure -> |{measurement_related_conf}|")
 
     def send_ping_result(self, json_ping_result : json, icmp_replies, timestamp, msm_id):
-        my_ip = shared_state.get_probe_ip()
+        my_ip = self.shared_state.get_probe_ip()
         json_ping_result["source"] = my_ip
         json_ping_result["timestamp"] = timestamp
         json_ping_result["msm_id"] = msm_id

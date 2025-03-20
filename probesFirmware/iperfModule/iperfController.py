@@ -7,12 +7,14 @@ from pathlib import Path
 import threading
 import signal
 import psutil
-from shared_resources import shared_state
+from shared_resources import SharedState
 from mqttModule.mqttClient import ProbeMqttClient
 
 class IperfController:
     """ Class that implements the THROUGHPUT measurement funcionality """
     def __init__(self, mqtt_client : ProbeMqttClient, registration_handler_request_function):
+
+        self.shared_state = SharedState.get_instance()
 
         self.mqtt_client = mqtt_client
         self.last_role = None
@@ -50,11 +52,11 @@ class IperfController:
         
         my_role = payload['role']
         if my_role == "Client": # If the role is client, then i ONLY check if the probe state is READY. This is beacuse, for the client, the Conf and Start are separated.
-            if not shared_state.probe_is_ready():
+            if not self.shared_state.probe_is_ready():
                 return "PROBE BUSY"
             return self.read_client_configuration(payload)
         elif my_role == "Server": # If the role is client, the i check if is possible to set its state ad BUSY. This is beacuse, for the server, the Conf and Start collide.
-            if not shared_state.set_probe_as_busy():
+            if not self.shared_state.set_probe_as_busy():
                 return "PROBE BUSY"
             return self.read_server_configuration(payload)
         else:
@@ -99,7 +101,7 @@ class IperfController:
             case 'conf':
                 measurement_related_conf = payload['msm_id']
                 role_related_conf = payload['role']
-                if not shared_state.probe_is_ready():
+                if not self.shared_state.probe_is_ready():
                     self.send_iperf_NACK(failed_command=command, error_info="PROBE BUSY", role = role_related_conf, msm_id = measurement_related_conf)
                     return
                 
@@ -114,10 +116,10 @@ class IperfController:
                 if self.last_role == None:
                     self.send_iperf_NACK(failed_command=command, error_info="No configuration")
                     return
-                if not shared_state.probe_is_ready():
+                if not self.shared_state.probe_is_ready():
                     self.send_iperf_NACK(failed_command = command, error_info = "PROBE BUSY", role = self.last_role)
                     return
-                shared_state.set_probe_as_busy()
+                self.shared_state.set_probe_as_busy()
                 if self.last_role == "Client":
                     if self.last_measurement_id is None:
                         self.send_iperf_NACK(failed_command="start", error_info="measure_id is None")
@@ -132,7 +134,7 @@ class IperfController:
                 termination_message = self.stop_iperf_thread(msm_id)
                 if termination_message == "OK":
                     self.send_iperf_ACK(successed_command=command, msm_id=self.last_measurement_id)
-                    shared_state.set_probe_as_ready()
+                    self.shared_state.set_probe_as_ready()
                     self.reset_conf()
                 else:
                     self.send_iperf_NACK(failed_command=command, error_info=termination_message, msm_id = msm_id)
@@ -143,7 +145,7 @@ class IperfController:
         
     def start_iperf(self):
         if self.last_role is None:
-            shared_state.set_probe_as_ready()
+            self.shared_state.set_probe_as_ready()
             self.send_iperf_NACK(failed_command="start", error_info="No configuration")
             return
         
@@ -172,7 +174,7 @@ class IperfController:
         if (execution_return_code != 0) and (execution_return_code != signal.SIGTERM):
             self.send_iperf_NACK(failed_command="start", error_info=self.last_error, msm_id=self.last_measurement_id)
         self.reset_conf()
-        shared_state.set_probe_as_ready()
+        self.shared_state.set_probe_as_ready()
         
 
     
@@ -228,7 +230,7 @@ class IperfController:
             if (result.returncode != 0) and (result.returncode != 1) and (result.returncode != signal.SIGTERM) :
                 print(f"Iperf execution error. stderr: {result.stderr}  | return_code: {result.returncode }")
                 self.send_iperf_NACK(failed_command="conf", error_info = result.stderr, role="Server", msm_id=self.last_measurement_id)
-            shared_state.set_probe_as_ready()
+            self.shared_state.set_probe_as_ready()
         return result.returncode
     
 

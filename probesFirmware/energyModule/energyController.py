@@ -5,7 +5,7 @@ import psutil, time
 from pathlib import Path
 from energyModule.ina219Driver import Ina219Driver, SYNC_OTII_PIN
 from mqttModule.mqttClient import ProbeMqttClient
-from shared_resources import shared_state
+from shared_resources import SharedState
 
 DEFAULT_ENERGY_MEASUREMENT_FOLDER = "energy_measurements"
 
@@ -13,6 +13,7 @@ DEFAULT_ENERGY_MEASUREMENT_FOLDER = "energy_measurements"
 class EnergyController:
     def __init__(self, mqtt_client : ProbeMqttClient, 
                  registration_handler_request_function):
+        self.shared_state = SharedState.get_instance()
         self.mqtt_client = mqtt_client
         try:
             self.driverINA = Ina219Driver()
@@ -60,7 +61,7 @@ class EnergyController:
                         self.send_energy_NACK(failed_command="start", error_info=start_msg, measurement_id=msm_id)
                     else:
                         netstat = psutil.net_io_counters(pernic=True)
-                        default_nic_netstat = netstat[shared_state.default_nic_name]
+                        default_nic_netstat = netstat[self.shared_state.default_nic_name]
                         self.bytes_received_at_measure_start =  default_nic_netstat.bytes_recv
                         self.byte_trasmitted_at_measure_start = default_nic_netstat.bytes_sent
                         self.send_energy_ACK(successed_command="start", measurement_id=msm_id)
@@ -98,7 +99,7 @@ class EnergyController:
 
         # MEASURE BYTE TX and RX
         netstat = psutil.net_io_counters(pernic=True)
-        default_nic_netstat = netstat[shared_state.default_nic_name]
+        default_nic_netstat = netstat[self.shared_state.default_nic_name]
         bytes_received_at_measure_stop =  default_nic_netstat.bytes_recv
         byte_trasmitted_at_measure_stop = default_nic_netstat.bytes_sent
         total_byte_received = bytes_received_at_measure_stop - self.bytes_received_at_measure_start

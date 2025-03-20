@@ -9,7 +9,7 @@ from iperfModule.iperfController import IperfController
 from pingModule.pingController import PingController
 from energyModule.energyController import EnergyController
 from aoiModule.aoiController import AgeOfInformationController
-from shared_resources import shared_state
+from shared_resources import SharedState
 from udppingModule.udppingController import UDPPingController
 from coexModule.coexController import CoexController
 
@@ -31,6 +31,8 @@ class Probe:
                 return
         else:
             print(f"{probe_id}: DBG mode enabled. Using WiFi...")
+
+        SharedState.get_instance() 
 
         self.commands_demultiplexer = CommandsDemultiplexer()
         self.mqtt_client = ProbeMqttClient(probe_id,

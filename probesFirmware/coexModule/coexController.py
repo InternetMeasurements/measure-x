@@ -2,7 +2,7 @@ import os, signal
 from pathlib import Path
 import json
 from mqttModule.mqttClient import ProbeMqttClient
-from shared_resources import shared_state
+from shared_resources import SharedState
 
 from scapy.all import *
 
@@ -34,7 +34,8 @@ class CoexParamaters:
 """ Class that implements the COEXISTING APPLICATIONS measurement funcionality """
 class CoexController:
     def __init__(self, mqtt_client : ProbeMqttClient, registration_handler_request_function):
-        self.mqtt_client = mqtt_client        
+        self.shared_state = SharedState.get_instance()
+        self.mqtt_client = mqtt_client
         self.last_msm_id = None
         self.last_coex_parameters = CoexParamaters()
         self.stop_thread_event = threading.Event()
@@ -55,19 +56,19 @@ class CoexController:
             return
         match command:
             case 'conf':
-                if not shared_state.set_probe_as_busy():
+                if not self.shared_state.set_probe_as_busy():
                     self.send_coex_NACK(failed_command = command, error_info = "PROBE BUSY", measurement_related_conf = msm_id)
                     return
                 check_parameters_msg = self.check_all_parameters(payload=payload)
                 if check_parameters_msg != "OK":
                     self.send_coex_NACK(failed_command = command, error_info = check_parameters_msg, measurement_related_conf = msm_id)
-                    shared_state.set_probe_as_ready()
+                    self.shared_state.set_probe_as_ready()
                     return
                 
                 thread_creation_msg = self.submit_thread_for_coex_traffic()
                 if thread_creation_msg != "OK":
                     self.send_coex_NACK(failed_command = command, error_info = "PROBE BUSY", measurement_related_conf = msm_id)
-                    shared_state.set_probe_as_ready()
+                    self.shared_state.set_probe_as_ready()
                     return
                 # Se va a buon fine la creazione del threas Server (per adesso), manda lui l'ACK
                 print(f"PARAMS: {self.last_coex_parameters.to_dict()}")
@@ -77,7 +78,7 @@ class CoexController:
                     self.send_coex_ACK(successed_command = "conf", measurement_related_conf = self.last_msm_id)
 
             case 'start':
-                if shared_state.probe_is_ready():
+                if self.shared_state.probe_is_ready():
                     self.send_coex_NACK(failed_command = command, error_info = "No coex measure in progress", measurement_related_conf = msm_id)
                     return
                 if msm_id != self.last_msm_id:
@@ -92,7 +93,7 @@ class CoexController:
 
 
             case 'stop':
-                if shared_state.probe_is_ready():
+                if self.shared_state.probe_is_ready():
                     self.send_coex_NACK(failed_command = command, error_info = "No coex measure in progress", measurement_related_conf = msm_id)
                     return
                 
@@ -169,9 +170,9 @@ class CoexController:
         try:
             if self.last_coex_parameters.role == "Server":
                 self.measure_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                self.measure_socket.bind((shared_state.get_probe_ip(), self.last_coex_parameters.socker_port))
+                self.measure_socket.bind((self.shared_state.get_probe_ip(), self.last_coex_parameters.socker_port))
                 self.send_coex_ACK(successed_command = "conf", measurement_related_conf = self.last_msm_id)
-                print(f"CoexController: Opened socket on IP: |{shared_state.get_probe_ip()}| , port: |{self.last_coex_parameters.socker_port}|")
+                print(f"CoexController: Opened socket on IP: |{self.shared_state.get_probe_ip()}| , port: |{self.last_coex_parameters.socker_port}|")
                 print(f"Listening for {self.last_coex_parameters.packets_size} byte, in while (true)")
                 while(not self.stop_thread_event.is_set()):
                     data, addr = self.measure_socket.recvfrom(self.last_coex_parameters.packets_size)
@@ -179,10 +180,10 @@ class CoexController:
                 print("Awaked from recv")
             elif self.last_coex_parameters.role == "Client":        
                 # dst_hwaddr = src_hwaddr = "02:50:f4:00:00:01"
-                src_mac = shared_state.get_probe_mac()
+                src_mac = self.shared_state.get_probe_mac()
                 dest_mac = self.last_coex_parameters.counterpart_probe_mac
 
-                src_ip = shared_state.get_probe_ip()
+                src_ip = self.shared_state.get_probe_ip()
                 dst_ip = self.last_coex_parameters.server_probe_ip
 
                 rate = self.last_coex_parameters.packets_rate
@@ -194,14 +195,14 @@ class CoexController:
 
                 d = sendpfast(pkt, mbps=rate, count=n_pkts, parse_results=True)
                 self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
-                shared_state.set_probe_as_ready()
+                self.shared_state.set_probe_as_ready()
                 self.reset_vars()
                 
         except socket.error as e:
             print(f"CoexController: Role: {self.last_coex_parameters.role} , Socket error -> {str(e)}")
             if (self.last_coex_parameters.role == "Server") and (not self.stop_thread_event.is_set()):
                 self.send_coex_error(command_error = "socket", msm_id = self.last_msm_id, reason = str(e))
-                shared_state.set_probe_as_ready()
+                self.shared_state.set_probe_as_ready()
                 self.reset_vars()
             
 
@@ -223,7 +224,7 @@ class CoexController:
                     os.kill(pid, signal.SIGKILL)
                     print("UCCISO")
             if (self.last_coex_parameters.role is not None):
-                shared_state.set_probe_as_ready()
+                self.shared_state.set_probe_as_ready()
                 self.reset_vars()
             return "OK"
         except Exception as e:
@@ -236,7 +237,7 @@ class CoexController:
         # DEBUG METHOD -> NO MORE INVOKED
         from collections import Counter
         print("scapy test()")
-        nuovo_ip_sorgente = shared_state.get_probe_ip()
+        nuovo_ip_sorgente = self.shared_state.get_probe_ip()
         base_path = os.path.join(Path(__file__).parent)
         pcap_file_path = os.path.join(base_path, "pcap", "probe3_cella1_iliad.pcap")
         modified_packets = []
@@ -252,7 +253,7 @@ class CoexController:
             return
 
         ip_originale = ip_comune[0][0]
-        print(f"IP sorgente originale identificato: {ip_originale} , sostituito con {shared_state.get_probe_ip()}")
+        print(f"IP sorgente originale identificato: {ip_originale} , sostituito con {self.shared_state.get_probe_ip()}")
 
         for pkt in packets:
             if (IP in pkt) and (pkt[IP].src == ip_originale):

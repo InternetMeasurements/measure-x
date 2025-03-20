@@ -5,7 +5,7 @@ import subprocess, threading, signal
 import base64, cbor2, pandas as pd
 from pathlib import Path
 from mqttModule.mqttClient import ProbeMqttClient
-from shared_resources import shared_state
+from shared_resources import SharedState
 
 DEFAULT_UDPPing_MEASUREMENT_FOLDER = "udpping_measurements"
 
@@ -37,7 +37,8 @@ class UDPPingParameters:
 class UDPPingController:
     """ Class that implements the UDP-PING measurement funcionality """
     def __init__(self, mqtt_client : ProbeMqttClient, registration_handler_request_function, wait_for_set_coordinator_ip):
-        
+        self.shared_state = SharedState.get_instance()
+
         self.mqtt_client = mqtt_client
         self.last_measurement_id = None
         self.last_probe_ntp_server_ip = None
@@ -65,14 +66,14 @@ class UDPPingController:
             return
         match command:
             case "disable_ntp_service":
-                if not shared_state.set_probe_as_busy():
+                if not self.shared_state.set_probe_as_busy():
                     self.send_udpping_NACK(failed_command=command, error_info="PROBE BUSY", msm_id=msm_id)
                     return
                 
                 check_params_msg = self.check_all_parameters(payload)
                 if check_params_msg != "OK":
                     self.send_udpping_NACK(failed_command=command, error_info = check_params_msg, msm_id=msm_id)
-                    shared_state.set_probe_as_ready()
+                    self.shared_state.set_probe_as_ready()
                     return
 
                 disable_msg = self.stop_ntpsec_service()
@@ -81,10 +82,10 @@ class UDPPingController:
                     self.send_udpping_ACK(successed_command = command, msm_id = msm_id)
                 else:
                     self.send_udpping_NACK(failed_command = command, error_info = disable_msg, msm_id = msm_id)
-                    shared_state.set_probe_as_ready()
+                    self.shared_state.set_probe_as_ready()
 
             case "start":
-                if (not shared_state.probe_is_ready()): # If the probe has an on-going measurement...
+                if (not self.shared_state.probe_is_ready()): # If the probe has an on-going measurement...
                     if self.last_measurement_id != msm_id: # If this ongoing measurement is not the one mentioned in the command
                         self.send_udpping_NACK(failed_command=command, 
                                             error_info="PROBE BUSY", # This error info can be also a MISMATCH error, but in this case is the same
@@ -99,7 +100,7 @@ class UDPPingController:
                 else:
                     self.send_udpping_NACK(failed_command = command, error_info = "No UDP-PING measurement in progress", msm_id = msm_id)
             case "stop":
-                if shared_state.probe_is_ready():
+                if self.shared_state.probe_is_ready():
                     self.send_udpping_NACK(failed_command = command, error_info = "No UDP-PING measurement in progress", msm_id = msm_id)
                     return
                 if self.last_measurement_id != msm_id:
@@ -115,7 +116,7 @@ class UDPPingController:
                         self.reset_vars()
                 else:
                     self.send_udpping_NACK(failed_command=command, error_info=termination_message)
-                shared_state.set_probe_as_ready()
+                self.shared_state.set_probe_as_ready()
                 
             
             case "enable_ntp_service":
@@ -130,7 +131,7 @@ class UDPPingController:
                     listen_port = payload["listen_port"] if ("listen_port" in payload) else None
                     if listen_port is None:
                         self.send_udpping_NACK(failed_command=command, error_info="No listen port provided", msm_id=msm_id)
-                        shared_state.set_probe_as_ready()
+                        self.shared_state.set_probe_as_ready()
                         return
                     
                     enable_msg = self.start_ntpsec_service()
@@ -146,14 +147,14 @@ class UDPPingController:
                             self.send_udpping_NACK(failed_command = command, error_info = returned_msg, msm_id = msm_id)
                     else:
                         self.send_udpping_NACK(failed_command = command, error_info = enable_msg, msm_id = msm_id)
-                        shared_state.set_probe_as_ready()
+                        self.shared_state.set_probe_as_ready()
                 elif role == "Client":
                     if self.last_measurement_id == msm_id:
                         enable_msg = self.start_ntpsec_service()
                         self.reset_vars()
                         if enable_msg == "OK":
                             self.send_udpping_ACK(successed_command = command, msm_id = msm_id)
-                            #shared_state.set_probe_as_ready()
+                            #self.shared_state.set_probe_as_ready()
                         else:
                             self.send_udpping_NACK(failed_command = command, error_info = enable_msg, msm_id = msm_id)
                     elif self.last_measurement_id is None:
@@ -210,7 +211,7 @@ class UDPPingController:
             except Exception as e:
                 stderr_command = str(e)
                 self.send_udpping_NACK(failed_command="start", error_info=stderr_command, msm_id=msm_id)
-            shared_state.set_probe_as_ready()
+            self.shared_state.set_probe_as_ready()
 
         elif self.last_udpping_params.role == "Server":
             try:
@@ -236,7 +237,7 @@ class UDPPingController:
                     self.send_udpping_NACK(failed_command="enable_ntp_service", error_info=errore_msg, msm_id=msm_id)
                 
                 self.udpping_process.stdout.close()
-                shared_state.set_probe_as_ready()
+                self.shared_state.set_probe_as_ready()
 
     def stop_udpping_thread(self) -> str:
         if (self.udpping_thread is None) or (self.udpping_process is None):

@@ -6,14 +6,15 @@ import socket
 import base64, cbor2, pandas as pd
 from pathlib import Path
 from mqttModule.mqttClient import ProbeMqttClient
-from shared_resources import shared_state
+from shared_resources import SharedState
 
 DEFAULT_AoI_MEASUREMENT_FOLDER = "aoi_measurements"
 
 class AgeOfInformationController:
     """ Class that implements the AGE OF INFORMATION measurement funcionality """
     def __init__(self, mqtt_client : ProbeMqttClient, registration_handler_request_function, wait_for_set_coordinator_ip):
-        
+        self.shared_state = SharedState.get_instance()
+
         self.mqtt_client = mqtt_client
         self.last_measurement_id = None
         self.last_probe_ntp_server_ip = None
@@ -41,28 +42,28 @@ class AgeOfInformationController:
              return
          match command:
             case "start":
-                if (not shared_state.probe_is_ready()): # If the probe has an on-going measurement...
+                if (not self.shared_state.probe_is_ready()): # If the probe has an on-going measurement...
                     if self.last_measurement_id != msm_id: # If this ongoing measurement is not the one mentioned in the command
                         self.send_aoi_NACK(failed_command=command, 
                                            error_info="PROBE BUSY", # This error info can be also a MISMATCH error, but in this case is the same
                                            msm_id=msm_id)
                         return
-                    if shared_state.get_coordinator_ip() is None:
+                    if self.shared_state.get_coordinator_ip() is None:
                         self.wait_for_set_coordinator_ip() # BLOCKING METHOD!
-                        if shared_state.get_coordinator_ip() is None: # Necessary check for confirm the coordinator response of coordinator_ip
+                        if self.shared_state.get_coordinator_ip() is None: # Necessary check for confirm the coordinator response of coordinator_ip
                             self.send_aoi_NACK(failed_command="start", error_info = "No response from coordinator. Missing coordinator ip for root service", msm_id=msm_id)
                             return
 
                     payload_size = payload['payload_size'] if ('payload_size' in payload) else None
                     if payload_size is None:
                         self.send_aoi_NACK(failed_command=command, error_info="No payload size provided. Force PROBE_READY", msm_id=msm_id)
-                        shared_state.set_probe_as_ready()
+                        self.shared_state.set_probe_as_ready()
                         return
                     
                     packets_rate = payload['packets_rate'] if ('packets_rate' in payload) else None
                     if packets_rate is None:
                         self.send_aoi_NACK(failed_command=command, error_info="No packets rate provided. Force PROBE_READY", msm_id=msm_id)
-                        shared_state.set_probe_as_ready()
+                        self.shared_state.set_probe_as_ready()
                         return
                     
                     returned_msg = self.submit_thread_to_aoi_measure(msm_id = msm_id, payload_size = payload_size,
@@ -75,7 +76,7 @@ class AgeOfInformationController:
                     self.send_aoi_NACK(failed_command = command, error_info = "No AoI measurement in progress", msm_id = msm_id)
                     
             case "stop":
-                if shared_state.probe_is_ready():
+                if self.shared_state.probe_is_ready():
                     self.send_aoi_NACK(failed_command = command, error_info = "No AoI measurement in progress", msm_id = msm_id)
                     return
                 if self.last_measurement_id != msm_id:
@@ -91,28 +92,28 @@ class AgeOfInformationController:
                     self.send_aoi_NACK(failed_command=command, error_info=termination_message)
                 
             case "disable_ntp_service":
-                if not shared_state.set_probe_as_busy():
+                if not self.shared_state.set_probe_as_busy():
                     self.send_aoi_NACK(failed_command=command, error_info="PROBE BUSY", msm_id=msm_id)
                     return
                 probe_ntp_server_ip = payload["probe_ntp_server"] if ("probe_ntp_server" in payload) else None
                 if probe_ntp_server_ip is None:
                     self.send_aoi_NACK(failed_command=command, error_info="No probe-ntp-server provided", msm_id=msm_id)
-                    shared_state.set_probe_as_ready()
+                    self.shared_state.set_probe_as_ready()
                     return
                 socket_port = payload["socket_port"] if ("socket_port" in payload) else None
                 if socket_port is None:
                     self.send_aoi_NACK(failed_command=command, error_info="No socket port provided", msm_id=msm_id)
-                    shared_state.set_probe_as_ready()
+                    self.shared_state.set_probe_as_ready()
                     return
                 role = payload["role"] if ("role" in payload) else None
                 if role is None:
                     self.send_aoi_NACK(failed_command=command, error_info="No role provided", msm_id=msm_id)
-                    shared_state.set_probe_as_ready()
+                    self.shared_state.set_probe_as_ready()
                     return
                 last_probe_server_aoi = payload["probe_server_aoi"] if ("probe_server_aoi" in payload) else None
                 if last_probe_server_aoi is None:
                     self.send_aoi_NACK(failed_command=command, error_info="No server aoi provided", msm_id=msm_id)
-                    shared_state.set_probe_as_ready()
+                    self.shared_state.set_probe_as_ready()
                     return
                 disable_msg = self.stop_ntpsec_service()
                 if disable_msg == "OK":
@@ -128,7 +129,7 @@ class AgeOfInformationController:
                         self.send_aoi_NACK(failed_command = command, error_info = socket_creation_msg, msm_id = msm_id)
                 else:
                     self.send_aoi_NACK(failed_command = command, error_info = disable_msg, msm_id = msm_id)
-                    shared_state.set_probe_as_ready()
+                    self.shared_state.set_probe_as_ready()
             case "enable_ntp_service":
                 role = payload["role"] if ("role" in payload) else None
                 if role is None:
@@ -136,17 +137,17 @@ class AgeOfInformationController:
                     return
                 payload_size = payload['payload_size'] if ('payload_size' in payload) else None
                 if role == "Server":
-                    if not shared_state.set_probe_as_busy():
+                    if not self.shared_state.set_probe_as_busy():
                         self.send_aoi_NACK(failed_command=command, error_info="PROBE BUSY", msm_id=msm_id)
                         return
                     socket_port = payload["socket_port"] if ("socket_port" in payload) else None
                     if socket_port is None:
                         self.send_aoi_NACK(failed_command=command, error_info="No socket_port provided", msm_id=msm_id)
-                        shared_state.set_probe_as_ready()
+                        self.shared_state.set_probe_as_ready()
                         return
                     if payload_size is None:
                         self.send_aoi_NACK(failed_command=command, error_info="No payload_size provided", msm_id=msm_id)
-                        shared_state.set_probe_as_ready()
+                        self.shared_state.set_probe_as_ready()
                         return
                     
                     socket_timeout = payload["socket_timeout"] if ("socket_timeout" in payload) else None
@@ -168,12 +169,12 @@ class AgeOfInformationController:
                             self.send_aoi_NACK(failed_command=command, error_info=socket_creation_msg, msm_id=msm_id)
                     else:
                         self.send_aoi_NACK(failed_command = command, error_info = enable_msg, msm_id = msm_id)
-                        shared_state.set_probe_as_ready()
+                        self.shared_state.set_probe_as_ready()
                 elif role == "Client":
                     enable_msg = self.start_ntpsec_service()
                     if enable_msg == "OK":
                         self.send_aoi_ACK(successed_command = command, msm_id = msm_id)
-                        #shared_state.set_probe_as_ready()
+                        #self.shared_state.set_probe_as_ready()
                     else:
                         self.send_aoi_NACK(failed_command = command, error_info = enable_msg, msm_id = msm_id)
                 else:
@@ -183,13 +184,13 @@ class AgeOfInformationController:
     def create_socket(self, socket_timeout = None):
         try:
             self.measure_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            self.measure_socket.bind((shared_state.get_probe_ip(), self.last_socket_port))
+            self.measure_socket.bind((self.shared_state.get_probe_ip(), self.last_socket_port))
             if self.last_role == "Server":
                 if (socket_timeout is not None) and (socket_timeout > 0):
                     self.measure_socket.settimeout(socket_timeout)
-                    print(f"AoIController: Opened socket on IP: |{shared_state.get_probe_ip()}| , port: |{self.last_socket_port}|")
+                    print(f"AoIController: Opened socket on IP: |{self.shared_state.get_probe_ip()}| , port: |{self.last_socket_port}|")
                 else:
-                    print(f"AoIController: DEBUG -> Opened socket on IP: |{shared_state.get_probe_ip()}| , port: |{self.last_socket_port}|")
+                    print(f"AoIController: DEBUG -> Opened socket on IP: |{self.shared_state.get_probe_ip()}| , port: |{self.last_socket_port}|")
             #self.measure_socket.settimeout(10)
             return "OK"
         except socket.error as e:
@@ -280,7 +281,7 @@ class AgeOfInformationController:
                 self.compress_and_publish_aoi_result(msm_id = msm_id)
             else:
                 print("non inviato")
-            shared_state.set_probe_as_ready()
+            self.shared_state.set_probe_as_ready()
         else:
             print(f"THREAD START WITH STRANGE ROLE -> {self.last_role}")
 
@@ -292,7 +293,7 @@ class AgeOfInformationController:
         self.stop_thread_event.clear()
         self.measure_socket.close()
         if (self.last_role is not None):
-            shared_state.set_probe_as_ready()
+            self.shared_state.set_probe_as_ready()
             self.reset_vars()
         return "OK"
     

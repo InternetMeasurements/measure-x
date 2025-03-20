@@ -4,7 +4,7 @@ from pathlib import Path
 import os
 import psutil
 import paho.mqtt.client as mqtt
-from shared_resources import shared_state
+from shared_resources import SharedState
 
 """
     ******************************************************* Classe MQTT FOR THE PROBES *******************************************************
@@ -144,7 +144,8 @@ class ProbeMqttClient(mqtt.Client):
         self.connected_to_broker = False
         return False
     
-    def publish_probe_state(self, state):        
+    def publish_probe_state(self, state):
+        shared_state = SharedState.get_instance()   
         json_status = {
             "handler": "root_service",
             "type": "state",

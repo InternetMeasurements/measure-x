@@ -12,17 +12,19 @@ ETHERNET_IFACE = 'eth0'
 HAT_IFACE = 'rmnet_mhi0.1'
 
 class SharedState:
+    _instance = None
+    
     def __new__(cls):
-        if not hasattr(cls, 'instance'):
-            cls.instance = super(SharedState, cls).__new__(cls)
-            cls.instance.lock = threading.Lock()
-            cls.instance.probe_state = READY
-            cls.instance.coordinator_ip = None
-            cls.instance.default_nic_name = None
-            cls.instance.probe_ip = None
-            cls.instance.probe_mac = None
-            cls.instance.probe_ip_for_clock_sync = None
-        return cls.instance
+        if cls._instance is None:
+            cls._instance = super(SharedState, cls).__new__(cls)
+            cls._instance.lock = threading.Lock()
+            cls._instance.probe_state = READY
+            cls._instance.coordinator_ip = None
+            cls._instance.default_nic_name = None
+            cls._instance.probe_ip = None
+            cls._instance.probe_mac = None
+            cls._instance.probe_ip_for_clock_sync = None
+        return cls._instance
     
     def __init__(self):
         if self.probe_ip is None:
@@ -136,7 +138,8 @@ class SharedState:
             return self.coordinator_ip
 
     @staticmethod
-    def get_instance(self):
-        shared_state = SharedState() # my singleton shared
-        return shared_state
-shared_state = SharedState() # my singleton shared
+    def get_instance():
+        if SharedState._instance is None:
+            SharedState._instance = SharedState()
+        return SharedState._instance
+#shared_state = SharedState() # my singleton shared
