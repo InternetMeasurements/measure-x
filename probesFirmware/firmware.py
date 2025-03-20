@@ -1,4 +1,7 @@
 import os
+import subprocess
+import signal
+import argparse
 from mqttModule.mqttClient import ProbeMqttClient
 from commandsDemultiplexer.commandsDemultiplexer import CommandsDemultiplexer
 from iperfModule.iperfController import IperfController
@@ -11,8 +14,11 @@ from coexModule.coexController import CoexController
 
 
 class Probe:
-    def __init__(self, probe_id):
+    def __init__(self, probe_id, dbg_mode):
         self.id = probe_id
+        self.process = None
+        if not dbg_mode:
+            self.start_waveshare_cm()
         self.commands_demultiplexer = CommandsDemultiplexer()
         self.mqtt_client = ProbeMqttClient(probe_id,
                                            self.commands_demultiplexer.decode_command) # The Decode Handler is triggered internally
@@ -42,13 +48,25 @@ class Probe:
         
     def disconnect(self):
         self.mqtt_client.disconnect()
+    
+    def start_waveshare_cm(self):
+        self.process = subprocess.Popen(
+            ['sudo', 'waveshare-CM'],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            preexec_fn=os.setsid
+        )
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Script to handle dbg mode")
+    parser.add_argument('-dbg', action='store_true', help="Enable the debug mode.")
+    args = parser.parse_args()
+
     user_name = os.getlogin()
-    if user_name == "coordinator" or user_name=="Francesco": # Trick for execute the firmware on the coordinator
+    if user_name == "coordinator" or user_name=="Francesco": # Trick for execute the firmware also on the coordinator
         user_name = "probe1"
-    probe1 = Probe(user_name)
+    probe1 = Probe(user_name, args.dbg)
     while True:
         command = input()
         match command:
@@ -56,7 +74,9 @@ def main():
                 probe1.disconnect()
                 break
             case _:
-                continue  
+                continue
+    
+    os.killpg(os.getpgid(probe1.process.pid), signal.SIGINT)
     return
 
 if __name__ == "__main__":
