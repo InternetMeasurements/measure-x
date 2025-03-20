@@ -162,7 +162,7 @@ class CoexController:
             print(f"CoexController: Exception while creating socket -> {str(e)}")
             return str(e)
 
-
+    
             
     def body_worker_for_coex_traffic(self):
         self.measure_socket = None
@@ -271,7 +271,7 @@ class CoexController:
 
 
     def reset_vars(self):
-        print("CoexgController: variables reset")
+        print("CoexController: variables reset")
         self.last_msm_id = None
         self.last_coex_parameters = CoexParamaters()
         self.thread_worker_on_socket = None
