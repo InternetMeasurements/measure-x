@@ -161,7 +161,7 @@ class INA219:
         self.bus.write_i2c_block_data(self.addr, address, [(data >> 8) & 0xFF, data & 0xFF])
 
     def set_calibration_16V_4A(self):
-        # Those values are the result after reading the INA datasheet
+        # Those values are the result after reading the INA datasheet --> Pag 17
         """Configure INA219 to measure up to 16V and 4A with 8Sample."""
         self._current_lsb = 0.000125  # 125 μA per bit
         self._power_lsb = self._current_lsb * 20  # 0.0025 W per bit
