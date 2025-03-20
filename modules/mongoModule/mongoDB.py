@@ -1,5 +1,6 @@
 import time
 from bson import ObjectId
+from datetime import datetime
 from pymongo import MongoClient
 from modules.mongoModule.models.error_model import ErrorModel
 from modules.mongoModule.models.measurement_model_mongo import MeasurementModelMongo
@@ -112,6 +113,11 @@ class MongoDB:
                                          error_cause="Unknown measurement_id")
             else:
                 find_result = MeasurementModelMongo.cast_dict_in_MeasurementModelMongo(find_result)
+                dt = datetime.fromtimestamp(find_result.start_time)
+                find_result.start_time = dt.strftime("%H:%M:%S.%f %d/%m/%Y")
+                if (find_result.state == "completed") and (find_result.stop_time is not None):
+                    dt = datetime.fromtimestamp(find_result.stop_time)
+                    find_result.stop_time = dt.strftime("%H:%M:%S.%f %d/%m/%Y")
         except Exception as e:
             print(f"MongoDB: exception in find_measurement_by_id -> {e}")
             find_result = ErrorModel(object_ref_id=measurement_id, object_ref_type="measurement", 
@@ -145,6 +151,74 @@ class MongoDB:
                                 }
                             })
         return replace_result.modified_count
+    
+    def find_and_plot(self, msm_id):
+        import matplotlib.pyplot as plt
+        import numpy as np
+
+        result = self.find_all_results_by_measurement_id(msm_id=msm_id)
+        aois = result[0]["aois"]
+
+
+        timestamps = np.array([aoi_data["Timestamp"] for aoi_data in aois], dtype=float)
+        aoi_values = np.array([aoi_data["AoI"] for aoi_data in aois], dtype=float)
+
+        timestamps -= timestamps[0]
+
+
+        plt.figure(figsize=(10, 6))
+        plt.plot(timestamps, aoi_values, marker='o', linestyle='-', color='b', label="AoI")
+        plt.xlabel("Timestamp (s)", fontsize=16)
+        plt.ylabel("AoI", fontsize=16)
+        plt.axvspan(xmin=5, xmax=15, color='red', alpha=0.3, label="Iperf measurement")
+        plt.rcParams['font.size'] = 14
+        plt.xticks(fontsize=16)
+        plt.yticks(fontsize=16)
+
+        plt.title("AoI and Throughput measurements",  fontsize=16)
+        plt.grid(axis='x')
+        plt.legend()
+        plt.show()
+
+
+
+
+    def calculate_time_differences(self, seconds_diff):
+        # Troviamo tutti i documenti ordinati per start_time in modo decrescente
+        cursor = self.measurements_collection.find({"state": "completed"}).sort("start_time", 1)
+
+        previous_start_time = None
+        previous_id = None
+        previous_type = None
+        differences = []
+
+        # Iteriamo sui documenti
+        for document in cursor:
+            current_start_time = document["start_time"]
+            current_id = document["_id"]
+            current_type = document["type"]
+
+            # Se c'è un documento precedente, calcoliamo la differenza
+            if previous_start_time is not None:
+                time_difference = previous_start_time - current_start_time
+                differences.append((current_start_time, time_difference))
+
+                # Se la differenza è inferiore ai 60 secondi e i tipi sono diversi, stampiamo gli ID dei documenti
+                if abs(time_difference) < seconds_diff and previous_type != current_type:
+                    print("*******************INIZIO*******************")
+                    print(f"Time Difference: {time_difference} seconds")
+                    print(f"ID of Previous Document: {previous_id}")
+                    print(f"ID of Current Document: {current_id}")
+                    print(f"Type of Previous Document: {previous_type}")
+                    print(f"Type of Current Document: {current_type}")
+                    print("*******************FINE*******************")
+                    print("\n")
+
+            # Aggiorniamo previous_start_time, previous_id e previous_type per il prossimo ciclo
+            previous_start_time = current_start_time
+            previous_id = current_id
+            previous_type = current_type
+
 
     # ------------------------------------------------- RESULTS COLLECTION -------------------------------------------------
 
