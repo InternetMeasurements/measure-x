@@ -103,14 +103,13 @@ class CoexController:
                                         error_info="Measure_ID Mismatch: The provided measure_id does not correspond to the ongoing measurement",
                                         measurement_related_conf = msm_id)
                     return
-                silent_mode = payload["silent"] if ("silent" in payload) else None
-                termination_message = self.stop_worker_socket_thread(silent_mode)
-                if silent_mode is None:
-                    if termination_message != "OK":
-                        self.send_coex_NACK(failed_command=command, error_info=termination_message, measurement_related_conf = msm_id)
-                    else:
-                        self.send_coex_ACK(successed_command="stop", measurement_related_conf=msm_id)
-                        #self.last_msm_id = None
+
+                termination_message = self.stop_worker_socket_thread()
+                if termination_message != "OK":
+                    self.send_coex_NACK(failed_command=command, error_info=termination_message, measurement_related_conf = msm_id)
+                else:
+                    self.send_coex_ACK(successed_command="stop", measurement_related_conf = msm_id)
+                    #self.last_msm_id = None
             case _:
                 self.send_coex_NACK(failed_command = command, error_info = "Command not handled", measurement_related_conf = msm_id)
         
@@ -198,7 +197,7 @@ class CoexController:
                 pkt = Ether(src=src_mac, dst=dest_mac) / IP(src=src_ip, dst=dst_ip) / UDP(sport=30000, dport=dport) / Raw(RandString(size=size))
 
                 d = sendpfast(pkt, mbps=rate, count=n_pkts, parse_results=True)
-                print("FINE")
+                self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
                 
         except socket.error as e:
             print(f"CoexController: Role: {self.last_coex_parameters.role} , Socket error -> {str(e)}")
@@ -208,19 +207,8 @@ class CoexController:
                 self.reset_vars()
             
 
-    def stop_worker_socket_thread(self, silent_mode = None):
+    def stop_worker_socket_thread(self):
         try:
-            # VERIFICA SE SERVE DAVVERO QUESTA SILENT_MODE VISTO CHE ADESSO HO CAPITO COME SVEGLIARE IL THREAD DALLA recv
-            if (silent_mode is not None) and (silent_mode == True):
-                proc = subprocess.run(["pgrep", "-f", DEFAULT_THREAD_NAME], capture_output=True, text=True)
-                print(f"CoexController: SILENT MODE -> killing coex traffic thread")
-                if proc.stdout:
-                    pid = int(proc.stdout.strip())
-                    os.kill(pid, signal.SIGKILL)
-                    print("\t KILLED")
-                shared_state.set_probe_as_ready()
-                self.reset_vars()
-                return "OK"
             if self.last_coex_parameters.role == "Server":
                 self.stop_thread_event.set()
                 print(f"Sending |{self.last_coex_parameters.packets_size}| byte to myself:{self.last_coex_parameters.socker_port}")
