@@ -212,7 +212,7 @@ class CoexController:
                 self.stop_thread_event.set()
                 print(f"Sending |{self.last_coex_parameters.packets_size}| byte to myself:{self.last_coex_parameters.socker_port}")
                 # Sending self.last_coex_parameters.packets_size BYTE to myself to wakeUp the thread blocked in recv. I won't use the SOCKET_TIMEOUT.
-                self.measure_socket.sendto( str("F" * self.last_coex_parameters.packets_size).encode() , (shared_state.get_probe_ip(), self.last_coex_parameters.socker_port))
+                self.measure_socket.sendto( str("F" * self.last_coex_parameters.packets_size).encode() , (self.shared_state.get_probe_ip(), self.last_coex_parameters.socker_port))
                 self.thread_worker_on_socket.join()
                 self.stop_thread_event.clear()
                 self.measure_socket.close()
