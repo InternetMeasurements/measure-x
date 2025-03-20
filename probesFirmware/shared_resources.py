@@ -6,8 +6,8 @@ import scapy.all as scapy
 BUSY = "BUSY"
 READY = "READY"
 
-MY_PC_IFACE = "Wi-Fi" # This is for test on my PC
-WLAN_IFACE = 'wlan0'
+# MY_PC_IFACE = "Wi-Fi" # This is for test on my PC
+# WLAN_IFACE = 'wlan0'
 ETHERNET_IFACE = 'eth0'
 HAT_IFACE = 'rmnet_mhi0.1'
 
@@ -83,7 +83,7 @@ class SharedState:
         with self.lock:
             if (self.probe_ip_for_clock_sync is None) or (self.probe_ip_for_clock_sync == "0.0.0.0"):
                 try:
-                    my_ip_for_sync = netifaces.ifaddresses("eth0")[netifaces.AF_INET][0]['addr'] # SCOMMENTA QUANDO ESEGUI SU PROBE -> 18/03/2025
+                    my_ip_for_sync = netifaces.ifaddresses(ETHERNET_IFACE)[netifaces.AF_INET][0]['addr'] # SCOMMENTA QUANDO ESEGUI SU PROBE -> 18/03/2025
                     #my_ip_for_sync = "DEBUG"
                     self.probe_ip_for_clock_sync = my_ip_for_sync
                     print(f"SharedState: my ip for clock sync -> |{self.probe_ip_for_clock_sync}|")

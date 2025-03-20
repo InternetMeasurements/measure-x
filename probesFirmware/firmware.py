@@ -9,10 +9,9 @@ from iperfModule.iperfController import IperfController
 from pingModule.pingController import PingController
 from energyModule.energyController import EnergyController
 from aoiModule.aoiController import AgeOfInformationController
-from shared_resources import SharedState
+from shared_resources import SharedState, HAT_IFACE
 from udppingModule.udppingController import UDPPingController
 from coexModule.coexController import CoexController
-
 
 class Probe:
     def __init__(self, probe_id, dbg_mode):
@@ -64,12 +63,15 @@ class Probe:
         
     def waiting_for_5G_connection(self):
         interfaces = psutil.net_if_addrs()
+        net_if_stats = psutil.net_if_stats()
         count_retry = 0
         MAX_RETRY = 5
         iface_found = False
+        if (HAT_IFACE not in interfaces):
+            return False
         while count_retry < MAX_RETRY:
             time.sleep(2)
-            if ("rmnet_mhi0.1" not in interfaces):
+            if (not net_if_stats[HAT_IFACE].isup): # If the HAT_IFACE is down...
                 print(f"{self.id}: Waiting for mobile connection ... Attemtp {count_retry} of {MAX_RETRY}")
                 count_retry += 1
             else:
