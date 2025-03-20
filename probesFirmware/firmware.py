@@ -21,7 +21,7 @@ class Probe:
         self.waveshare_cm_thread = None
         if not dbg_mode:
             print(f"{probe_id}: 5G mode enabled. Establishing mobile connection...")
-            self.waveshare_cm_thread = threading.Thread(target=self.start_waveshare_cm)
+            self.waveshare_cm_thread = threading.Thread(target=self.body_start_waveshare_cm)
             self.waveshare_cm_thread.daemon = True
             self.waveshare_cm_thread.start()
             can_continue = self.waiting_for_5G_connection()
@@ -77,7 +77,7 @@ class Probe:
     def disconnect(self):
         self.mqtt_client.disconnect()
     
-    def start_waveshare_cm():
+    def body_start_waveshare_cm(self):
         try:
             # Esegui il comando con cattura dell'output (senza timeout)
             result = subprocess.run(
