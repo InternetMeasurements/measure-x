@@ -18,7 +18,7 @@ class Age_of_Information_Coordinator:
         self.mongo_db = mongo_db
         self.queued_measurements = {}
         self.events_received_status_from_probe_sender = {}
-        self.events_stop_server_ack = {}
+        self.events_stop_probe_ack = {}
 
         # Requests to commands_multiplexer: handler STATUS registration
         registration_response = registration_handler_status_callback( interested_status = "aoi",
@@ -93,7 +93,7 @@ class Age_of_Information_Coordinator:
         self.mqtt_client.publish_on_command_topic(probe_id = probe_sender, complete_command=json.dumps(json_disable_ntp_service))
 
 
-    def send_enable_ntp_service(self, probe_sender, msm_id, role, payload_size = None, socket_port = None, socket_timeout = None):
+    def send_enable_ntp_service(self, probe_sender, msm_id, role, payload_size = None, socket_port = None):
         # This command, at the end of the measurement, must be sent to the client probe, to re-enable the ntp_sec service.
         # In this case, the last two paramers are not used, so they can be None (ONLY IN THIS SPECIFIC CASE).
         json_enable_ntp_service = {
@@ -103,8 +103,7 @@ class Age_of_Information_Coordinator:
                 "msm_id": msm_id,
                 "role": role,
                 "socket_port": socket_port,
-                "payload_size": payload_size,
-                "socket_timeout": socket_timeout
+                "payload_size": payload_size
             }
         }
         self.mqtt_client.publish_on_command_topic(probe_id = probe_sender, complete_command=json.dumps(json_enable_ntp_service))
@@ -134,9 +133,9 @@ class Age_of_Information_Coordinator:
                             self.events_received_status_from_probe_sender[msm_id][0].set()
                     case "stop":
                         print(f"AoI_Coordinator: ACK from probe |{probe_sender}|->|stop| , measurement_id -> |{msm_id}|")
-                        if msm_id in self.events_stop_server_ack:
-                            self.events_stop_server_ack[msm_id][1] = "OK"
-                            self.events_stop_server_ack[msm_id][0].set()
+                        if msm_id in self.events_stop_probe_ack:
+                            self.events_stop_probe_ack[msm_id][1] = "OK"
+                            self.events_stop_probe_ack[msm_id][0].set()
                     case "disable_ntp_service":
                         print(f"AoI_Coordinator: ACK from probe |{probe_sender}| , command: |{command_executed_on_probe}| , msm_id: |{msm_id}|")
                         if msm_id in self.events_received_status_from_probe_sender:
@@ -202,8 +201,7 @@ class Age_of_Information_Coordinator:
         self.events_received_status_from_probe_sender[msm_id] = [threading.Event(), None]
         self.send_enable_ntp_service(probe_sender=new_measurement.dest_probe, msm_id = msm_id,
                                      socket_port = aoi_parameters['socket_port'], role="Server",
-                                     payload_size = aoi_parameters['payload_size'] + 100,
-                                     socket_timeout = aoi_parameters['socket_timeout'])
+                                     payload_size = aoi_parameters['payload_size'] + 100)
         self.events_received_status_from_probe_sender[msm_id][0].wait(timeout = 5)        
 
         event_enable_msg = self.events_received_status_from_probe_sender[msm_id][1]        
@@ -224,7 +222,6 @@ class Age_of_Information_Coordinator:
                 event_start_msg = self.events_received_status_from_probe_sender[msm_id][1]
                 if event_start_msg == "OK":
                     self.queued_measurements[msm_id] = new_measurement
-                    new_measurement.parameters.pop("socket_timeout", None)
                     inserted_measurement_id = self.mongo_db.insert_measurement(measure = new_measurement)
                     if inserted_measurement_id is None:
                         print(f"AoI_Coordinator: can't start aoi. Error while storing ping measurement on Mongo")
@@ -251,32 +248,32 @@ class Age_of_Information_Coordinator:
         if msm_id_to_stop not in self.queued_measurements:
             return "Error", f"Unknown aoi measurement |{msm_id_to_stop}|", "May be failed"
         measurement_to_stop : MeasurementModelMongo = self.queued_measurements[msm_id_to_stop]
-        self.events_stop_server_ack[msm_id_to_stop] = [threading.Event(), None]
+        self.events_stop_probe_ack[msm_id_to_stop] = [threading.Event(), None]
         # Stop sending to the Server-AoI-Probe
-        self.send_probe_aoi_measure_stop(probe_sender = measurement_to_stop.dest_probe, msm_id = msm_id_to_stop)
-        self.events_stop_server_ack[msm_id_to_stop][0].wait(5)
-        # ------------------------------- YOU MUST WAIT (AT MOST 5s) FOR AN ACK/NACK OF STOP COMMAND FROM DEST PROBE (AoI-SERVER)
-        stop_event_message = self.events_stop_server_ack[msm_id_to_stop][1]
-        stop_server_message_error = stop_event_message if (stop_event_message != "OK") else None
-
-        if (stop_server_message_error is not None) and ("MISMATCH" in stop_server_message_error):
-            return "Error", f"Probe |{measurement_to_stop.dest_probe}| says: |{stop_server_message_error}|", "Probe already busy for different measurement"
-
-        self.events_stop_server_ack[msm_id_to_stop] = [threading.Event(), None]
         self.send_probe_aoi_measure_stop(probe_sender = measurement_to_stop.source_probe, msm_id = msm_id_to_stop)
-        self.events_stop_server_ack[msm_id_to_stop][0].wait(5)
-        stop_event_message = self.events_stop_server_ack[msm_id_to_stop][1]
+        self.events_stop_probe_ack[msm_id_to_stop][0].wait(5)
+        # ------------------------------- YOU MUST WAIT (AT MOST 5s) FOR AN ACK/NACK OF STOP COMMAND FROM DEST PROBE (AoI-SERVER)
+        stop_event_message = self.events_stop_probe_ack[msm_id_to_stop][1]
+        stop_client_message_error = stop_event_message if (stop_event_message != "OK") else None
+
+        if (stop_client_message_error is not None) and ("mismatch" in stop_client_message_error):
+            return "Error", f"Probe |{measurement_to_stop.dest_probe}| says: |{stop_client_message_error}|", "Probe already busy for different measurement"
+
+        self.events_stop_probe_ack[msm_id_to_stop] = [threading.Event(), None]
+        self.send_probe_aoi_measure_stop(probe_sender = measurement_to_stop.dest_probe, msm_id = msm_id_to_stop)
+        self.events_stop_probe_ack[msm_id_to_stop][0].wait(5)
+        stop_event_message = self.events_stop_probe_ack[msm_id_to_stop][1]
 
         # Renabling the ntp_sec service on client probe
         self.send_enable_ntp_service(probe_sender=measurement_to_stop.source_probe, msm_id=msm_id_to_stop, role="Client")
 
         stop_client_message_error = stop_event_message if (stop_event_message != "OK") else None
 
-        if (stop_server_message_error is None) and (stop_client_message_error is None):
+        if (stop_client_message_error is None) and (stop_client_message_error is None):
             return "OK", f"Measurement {msm_id_to_stop} stopped", None
 
-        if stop_server_message_error is not None:
-            return "Error", f"Probe |{measurement_to_stop.dest_probe}| says: |{stop_server_message_error}|", "AoI server may be is down"
+        if stop_client_message_error is not None:
+            return "Error", f"Probe |{measurement_to_stop.dest_probe}| says: |{stop_client_message_error}|", "AoI server may be is down"
         
         if stop_client_message_error is not None:
             return "Error", f"Probe |{measurement_to_stop.source_probe}| says: |{stop_event_message}|", "AoI client may be is down"
@@ -339,8 +336,6 @@ class Age_of_Information_Coordinator:
     def override_default_parameters(self, json_config, measurement_parameters):
         json_overrided_config = json_config
         if (measurement_parameters is not None) and (isinstance(measurement_parameters, dict)):
-            if ('socket_timeout' in measurement_parameters):
-                json_overrided_config['socket_timeout'] = measurement_parameters['socket_timeout']
             if ('socket_port' in measurement_parameters):
                 json_overrided_config['socket_port'] = measurement_parameters['socket_port']
             if ('packets_rate' in measurement_parameters):
