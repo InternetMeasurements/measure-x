@@ -18,6 +18,7 @@ class Probe:
     def __init__(self, probe_id, dbg_mode):
         self.id = probe_id
         self.commands_demultiplexer = None
+        self.waveshare_cm_thread = None
         if not dbg_mode:
             print(f"{probe_id}: 5G mode enabled. Establishing mobile connection...")
             self.waveshare_cm_thread = threading.Thread(target=self.start_waveshare_cm)
