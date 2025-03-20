@@ -80,6 +80,16 @@ class Coex_Coordinator:
                     if msm_id is None:
                         print(f"Coex_Coordinator: received |stop| ACK from probe |{probe_sender}| wihout measure_id")
                         return
+                    if msm_id not in self.queued_measurements: # If the coordinator has been rebooted in the while...
+                        measurement_from_mongo = self.mongo_db.find_measurement_by_id(measurement_id=msm_id)
+                        if not isinstance(measurement_from_mongo, MeasurementModelMongo):
+                            print(f"Coex_Coordinator: received |stop| ACK of measurement not stored in DB -> |{msm_id}|")
+                            return
+                        self.queued_measurements[msm_id] = measurement_from_mongo
+                    # If the measurement is not completed AND the probe sender is the probe client, then i will stop also the server probe
+                    if (self.queued_measurements[msm_id].state == "started") and (self.queued_measurements[msm_id].source_probe == probe_sender):
+                        print(f"Coex_Coordinator: received |stop| ACK from |{probe_sender}|. Stopping the server probe |{self.queued_measurements[msm_id].dest_probe}|")
+                        self.send_probe_coex_stop(probe_id=self.queued_measurements[msm_id].dest_probe, msm_id_to_stop=msm_id)
                     if msm_id in self.events_received_stop_ack:
                         self.events_received_stop_ack[msm_id][1] = "OK"
                         self.events_received_stop_ack[msm_id][0].set()
@@ -87,8 +97,10 @@ class Coex_Coordinator:
                     print(f"Coex_Coordinator: received ACK from probe |{probe_sender}| , UNKNOWN COMMAND -> |{command}|")
                     return
                 print(f"Coex_Coordinator: received ACK from probe |{probe_sender}| , command -> |{command}|")
+
             case "NACK":
                 reason = payload['reason']
+                print(f"Coex_Coordinator: WARNING --> NACK from |{probe_sender}| , command: |{command}| , reason: |{reason}|")
                 if command == "conf":
                     if msm_id in self.events_received_ack_from_probe_sender:
                         self.events_received_ack_from_probe_sender[msm_id][1] = reason
@@ -101,7 +113,7 @@ class Coex_Coordinator:
                     if msm_id in self.events_received_stop_ack:
                         self.events_received_stop_ack[msm_id][1] = reason
                         self.events_received_stop_ack[msm_id][0].set()
-                print(f"Coex_Coordinator: probe |{probe_sender}| , command: |{command}| -> NACK, reason -> {reason}")
+            
             case _:
                 print(f"Coex_Coordinator: received unkown type message -> |{type}|")
 
