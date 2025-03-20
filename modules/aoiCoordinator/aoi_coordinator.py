@@ -5,7 +5,7 @@ import cbor2, base64
 from bson import ObjectId
 from modules.mqttModule.mqtt_client import Mqtt_Client
 from modules.configLoader.config_loader import ConfigLoader, AOI_KEY
-from modules.mongoModule.mongoDB import MongoDB, MeasurementModelMongo
+from modules.mongoModule.mongoDB import MongoDB, MeasurementModelMongo, ErrorModel
 from modules.mongoModule.models.age_of_information_model_mongo import AgeOfInformationResultModelMongo
 
 class Age_of_Information_Coordinator:
@@ -300,6 +300,14 @@ class Age_of_Information_Coordinator:
         if msm_id is None:
             print(f"AoI_Coordinator: received result from probe |{probe_sender}| -> No measure_id provided. IGNORE.")
             return
+        
+        if msm_id not in self.queued_measurements:
+            measure_from_db : MeasurementModelMongo = self.mongo_db.find_measurement_by_id(measurement_id=msm_id)
+            if isinstance(measure_from_db, ErrorModel):
+                print(f"AoI_Coordinator: received result from a measure not prensent in DB -> {msm_id}")
+                return
+            self.queued_measurements[msm_id] = measure_from_db
+
         c_aois_b64 = result["c_aois_b64"] if ("c_aois_b64" in result) else None
         if c_aois_b64 is None:
             print(f"AoI_Coordinator: WARNING -> received result without AoI-timeseries , measure_id -> {result['msm_id']}")

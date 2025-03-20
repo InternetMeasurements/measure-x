@@ -221,7 +221,7 @@ class AgeOfInformationController:
                     print(f"AoIController: clock synced with {self.last_probe_ntp_server_ip}")
                     self.send_aoi_ACK(successed_command = "start", msm_id = msm_id)
                     while(not self.stop_thread_event.is_set()):
-                        time.sleep(1 / packets_rate) # packets_rate can't be 0. The coordinator must check it.
+                        time.sleep(1 / self.last_packets_rate) # packets_rate can't be 0. The coordinator must check it.
                         timestamp_value = datetime.datetime.now().timestamp()
                         
                         timestamp_message = {
@@ -360,6 +360,9 @@ class AgeOfInformationController:
         c_aois_b64 = base64.b64encode(compressed_aois).decode("utf-8")
         aoi_min = df["AoI"].min()
         aoi_max = df["AoI"].max()
+
+        aoi_min = None if (pd.isna(aoi_min)) else aoi_min
+        aoi_max = None if (pd.isna(aoi_max)) else aoi_max
 
         # MEASURE RESULT MESSAGE
         json_aoi_result = {
