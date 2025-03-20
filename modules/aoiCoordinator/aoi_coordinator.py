@@ -224,6 +224,7 @@ class Age_of_Information_Coordinator:
                 event_start_msg = self.events_received_status_from_probe_sender[msm_id][1]
                 if event_start_msg == "OK":
                     self.queued_measurements[msm_id] = new_measurement
+                    new_measurement.parameters.pop("socket_timeout", None)
                     inserted_measurement_id = self.mongo_db.insert_measurement(measure = new_measurement)
                     if inserted_measurement_id is None:
                         print(f"AoI_Coordinator: can't start aoi. Error while storing ping measurement on Mongo")

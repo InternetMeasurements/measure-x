@@ -143,7 +143,15 @@ class Iperf_Coordinator:
                 print(f"Iperf_Coordinator: received unkown type message -> |{type}|")
 
         
-    def send_probe_iperf_start(self, new_measurement : MeasurementModelMongo):        
+    def send_probe_iperf_start(self, new_measurement : MeasurementModelMongo):
+        new_measurement.parameters.pop("output_iperf_dir", None)
+        new_measurement.parameters.pop("save_result_on_flash", None)
+        new_measurement.parameters.pop("verbose", None)
+        new_measurement.parameters.pop("result_measurement_filename", None)
+        new_measurement.parameters.pop("role", None)
+        
+        
+
         inserted_measurement_id = self.mongo_db.insert_measurement(new_measurement)
         if (inserted_measurement_id is None):
             return "Error", "Can't send start! Error while inserting measurement iperf in mongo", "MongoDB Down?"
