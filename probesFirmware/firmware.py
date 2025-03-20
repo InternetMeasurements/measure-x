@@ -19,6 +19,7 @@ class Probe:
         self.id = probe_id
         self.commands_demultiplexer = None
         self.waveshare_cm_thread = None
+        self.waveshare_process = None
         if not dbg_mode:
             print(f"{probe_id}: 5G mode enabled. Establishing mobile connection...")
             self.waveshare_cm_thread = threading.Thread(target=self.body_start_waveshare_cm)
@@ -80,15 +81,14 @@ class Probe:
     def body_start_waveshare_cm(self):
         try:
             # Esegui il comando con cattura dell'output (senza timeout)
-            result = subprocess.run(
-                ['sudo', 'waveshare-CM'],
-                capture_output=True,  # Cattura stdout e stderr
-                text=True,  # Restituisce output come stringa (non byte)
-                check=True  # Genera un'eccezione se il comando restituisce un codice di errore
-            )
+            self.waveshare_process = subprocess.Popen(
+                                        ['sudo', 'waveshare-CM'],
+                                        stdout=subprocess.PIPE,
+                                        stderr=subprocess.PIPE,
+                                        preexec_fn=os.setsid)
             
             # Se il comando è stato eseguito correttamente
-            print(f"Comando eseguito correttamente, output:\n{result.stdout}")
+            print(f"Comando eseguito correttamente")
             
         except subprocess.CalledProcessError as e:
             print(f"Errore durante l'esecuzione del processo: {e.stderr}")
@@ -117,9 +117,12 @@ def main():
                 break
             case _:
                 continue
-    if probe.waveshare_cm_thread is not None:
-        print(f"{user_name}: killing waveshare-CM thread")
-        os.killpg(os.getpgid(probe.waveshare_cm_thread.ident), signal.SIGTERM)
+    if probe.waveshare_process is not None:
+        try:
+            print(f"{user_name}: killing waveshare-CM thread")
+            os.killpg(os.getpgid(probe.waveshare_process.pid), signal.SIGTERM)
+        except Exception as e:
+            print(f"{probe.id}: Exception during kill -> {e}")
     return
 
 if __name__ == "__main__":
