@@ -22,7 +22,7 @@ class Coex_Coordinator:
         self.mongo_db = mongo_db
         self.ask_probe_ip_mac = ask_probe_ip_mac_callback
         self.events_received_ack_from_probe_sender = {}
-        self.events_received_stop_ack = {}
+        self.events_stop_probe_ack = {}
         self.queued_measurements = {}
 
         registration_response = registration_handler_error_callback( interested_error = "coex",
@@ -90,9 +90,9 @@ class Coex_Coordinator:
                     if (self.queued_measurements[msm_id].state == "started") and (self.queued_measurements[msm_id].source_probe == probe_sender):
                         print(f"Coex_Coordinator: received |stop| ACK from |{probe_sender}|. Stopping the server probe |{self.queued_measurements[msm_id].dest_probe}|")
                         self.send_probe_coex_stop(probe_id=self.queued_measurements[msm_id].dest_probe, msm_id_to_stop=msm_id)
-                    if msm_id in self.events_received_stop_ack:
-                        self.events_received_stop_ack[msm_id][1] = "OK"
-                        self.events_received_stop_ack[msm_id][0].set()
+                    if msm_id in self.events_stop_probe_ack:
+                        self.events_stop_probe_ack[msm_id][1] = "OK"
+                        self.events_stop_probe_ack[msm_id][0].set()
                 else:
                     print(f"Coex_Coordinator: received ACK from probe |{probe_sender}| , UNKNOWN COMMAND -> |{command}|")
                     return
@@ -110,9 +110,9 @@ class Coex_Coordinator:
                         self.events_received_ack_from_probe_sender[msm_id][1] = reason
                         self.events_received_ack_from_probe_sender[msm_id][0].set()
                 elif command == "stop":
-                    if msm_id in self.events_received_stop_ack:
-                        self.events_received_stop_ack[msm_id][1] = reason
-                        self.events_received_stop_ack[msm_id][0].set()
+                    if msm_id in self.events_stop_probe_ack:
+                        self.events_stop_probe_ack[msm_id][1] = reason
+                        self.events_stop_probe_ack[msm_id][0].set()
             
             case _:
                 print(f"Coex_Coordinator: received unkown type message -> |{type}|")
@@ -297,16 +297,16 @@ class Coex_Coordinator:
             self.queued_measurements[msm_id_to_stop] = measure_from_db
 
         measurement_to_stop : MeasurementModelMongo = self.queued_measurements[msm_id_to_stop]
-        self.events_received_stop_ack[msm_id_to_stop] = [threading.Event(), None]
+        self.events_stop_probe_ack[msm_id_to_stop] = [threading.Event(), None]
         self.send_probe_coex_stop(probe_id = measurement_to_stop.dest_probe, msm_id_to_stop = msm_id_to_stop)
-        self.events_received_stop_ack[msm_id_to_stop][0].wait(5)
+        self.events_stop_probe_ack[msm_id_to_stop][0].wait(5)
         # ------------------------------- WAIT FOR RECEIVE AN ACK/NACK -------------------------------
-        stop_event_message = self.events_received_stop_ack[msm_id_to_stop][1]
+        stop_event_message = self.events_stop_probe_ack[msm_id_to_stop][1]
         if stop_event_message == "OK":
-            self.events_received_stop_ack[msm_id_to_stop] = [threading.Event(), None]
+            self.events_stop_probe_ack[msm_id_to_stop] = [threading.Event(), None]
             self.send_probe_coex_stop(probe_id = measurement_to_stop.source_probe, msm_id_to_stop = msm_id_to_stop)
-            self.events_received_stop_ack[msm_id_to_stop][0].wait(5)
-            stop_event_message = self.events_received_stop_ack[msm_id_to_stop][1]
+            self.events_stop_probe_ack[msm_id_to_stop][0].wait(5)
+            stop_event_message = self.events_stop_probe_ack[msm_id_to_stop][1]
             if stop_event_message == "OK":
                 if self.mongo_db.set_measurement_as_completed(msm_id_to_stop):
                     print(f"Coex_Coordinator: measurement |{msm_id_to_stop}| setted as completed")
