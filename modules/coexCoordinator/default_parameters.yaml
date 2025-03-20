@@ -3,4 +3,3 @@ coex:
   packets_size: 100 # bytes. All BIT to trasmit are: 3000*100*8, that is: 2 400 000 bit
   packets_rate: 0.24 # 0.24Mbps. That is: 240 000 bitps. So the tramission's duration is: 2 400 000 / 240 000 -> 10seconds
   socket_port: 60606
-  socket_timeout: 0

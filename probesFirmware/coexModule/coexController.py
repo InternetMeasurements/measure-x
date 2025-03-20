@@ -10,13 +10,12 @@ DEFAULT_THREAD_NAME = "coex_traffic_worker"
 
 class CoexParamaters:
     def __init__(self, role = None, packets_size = None, packets_number = None, packets_rate = None,
-                 socker_port = None, socket_timeout = None, server_probe_ip = None, counterpart_probe_mac = None):
+                 socker_port = None, server_probe_ip = None, counterpart_probe_mac = None):
         self.role = role
         self.packets_size = packets_size
         self.packets_number = packets_number
         self.packets_rate = packets_rate
         self.socker_port = socker_port
-        self.socket_timeout = socket_timeout # Server parameter
         self.server_probe_ip = server_probe_ip # Client paramter
         self.counterpart_probe_mac = counterpart_probe_mac
     
@@ -27,7 +26,6 @@ class CoexParamaters:
             "packets_number": self.packets_number,
             "packets_rate": self.packets_rate,
             "socker_port": self.socker_port,
-            "socket_timeout": self.socket_timeout,
             "server_probe_ip": self.server_probe_ip,
             "counterpart_probe_mac" : self.counterpart_probe_mac
         }
@@ -172,8 +170,6 @@ class CoexController:
             if self.last_coex_parameters.role == "Server":
                 self.measure_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 self.measure_socket.bind((shared_state.get_probe_ip(), self.last_coex_parameters.socker_port))
-                if self.last_coex_parameters.socket_timeout != 0:
-                    self.measure_socket.settimeout(self.last_coex_parameters.socket_timeout)
                 self.send_coex_ACK(successed_command = "conf", measurement_related_conf = self.last_msm_id)
                 print(f"CoexController: Opened socket on IP: |{shared_state.get_probe_ip()}| , port: |{self.last_coex_parameters.socker_port}|")
                 print(f"Listening for {self.last_coex_parameters.packets_size} byte, in while (true)")
@@ -302,7 +298,7 @@ class CoexController:
         if counterpart_probe_mac is None:
             return "No counterpart probe mac provided"
         
-        socket_timeout = server_probe_ip = None
+        server_probe_ip = None
         role = payload["role"] if ("role" in payload) else None
         if role is None:
             return "No role provided"
@@ -310,10 +306,6 @@ class CoexController:
             server_probe_ip = payload["server_probe_ip"] if ("server_probe_ip" in payload) else None
             if server_probe_ip is None:
                 return "No server probe ip provided"
-        elif role == "Server":
-            socket_timeout = payload["socket_timeout"] if ("socket_timeout" in payload) else None
-            if socket_timeout is None:
-                return "No socket timeout provided"
             
         msm_id = payload["msm_id"] if ("msm_id" in payload) else None
         if msm_id is None:
@@ -321,6 +313,6 @@ class CoexController:
         
         self.last_msm_id = msm_id
         self.last_coex_parameters = CoexParamaters(role = role, packets_size = packets_size, packets_number = packets_number,
-                                                   packets_rate = packets_rate, socker_port = socket_port, socket_timeout = socket_timeout,
+                                                   packets_rate = packets_rate, socker_port = socket_port,
                                                    server_probe_ip=server_probe_ip, counterpart_probe_mac=counterpart_probe_mac)
         return "OK"

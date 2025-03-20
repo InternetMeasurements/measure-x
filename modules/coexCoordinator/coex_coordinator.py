@@ -163,7 +163,6 @@ class Coex_Coordinator:
             "packets_number": parameters["packets_number"],
             "packets_rate" : parameters["packets_rate"],
             "socket_port" : parameters["socket_port"],
-            "socket_timeout": parameters["socket_timeout"],
             "server_probe_ip": server_probe_ip,
             "counterpart_probe_mac": counterpart_probe_mac
         }
@@ -309,14 +308,18 @@ class Coex_Coordinator:
             self.events_received_stop_ack[msm_id_to_stop][0].wait(5)
             stop_event_message = self.events_received_stop_ack[msm_id_to_stop][1]
             if stop_event_message == "OK":
+                if self.mongo_db.set_measurement_as_completed(msm_id_to_stop):
+                    print(f"Coex_Coordinator: measurement |{msm_id_to_stop}| setted as completed")
+                else:
+                    print(f"Coex_Coordinator: error while setting |completed| the measure --> |{msm_id_to_stop}|")
                 return "OK", f"Measurement {msm_id_to_stop} stopped", None
             if stop_event_message is not None:
                 return "Error", f"Probe |{measurement_to_stop.source_probe}| says: |{stop_event_message}|", ""
             return "Error", f"Can't stop the measurement -> |{msm_id_to_stop}|", f"No response from probe |{measurement_to_stop.source_probe}|"
         
         self.send_probe_coex_stop(probe_id = measurement_to_stop.source_probe, msm_id_to_stop = msm_id_to_stop)
-        if self.mongo_db.set_measurement_as_failed_by_id(msm_id_to_stop):
-            print(f"Coex_Coordinator: measurement |{msm_id_to_stop}| setted as failed")
+        if self.mongo_db.set_measurement_as_completed(msm_id_to_stop):
+            print(f"Coex_Coordinator: measurement |{msm_id_to_stop}| setted as completed")
         
         if stop_event_message is not None:
             return "Error", f"Probe |{measurement_to_stop.dest_probe}| says: |{stop_event_message}|", ""
@@ -338,8 +341,6 @@ class Coex_Coordinator:
                 json_overrided_config['packets_size'] = measurement_parameters['packets_size']
             if ('packets_rate' in measurement_parameters):
                 json_overrided_config['packets_rate'] = measurement_parameters['packets_rate']
-            if ('socket_timeout' in measurement_parameters):
-                json_overrided_config['socket_timeout'] = measurement_parameters['socket_timeout']
             if ('socket_port' in measurement_parameters):
                 json_overrided_config['socket_port'] = measurement_parameters['socket_port']
                 
