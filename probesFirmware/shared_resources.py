@@ -18,10 +18,10 @@ class SharedState:
             cls.instance.lock = threading.Lock()
             cls.instance.probe_state = READY
             cls.instance.coordinator_ip = None
-            cls.default_nic_name = None
-            cls.probe_ip = None
-            cls.probe_mac = None
-            cls.probe_ip_for_clock_sync = None
+            cls.instance.default_nic_name = None
+            cls.instance.probe_ip = None
+            cls.instance.probe_mac = None
+            cls.instance.probe_ip_for_clock_sync = None
         return cls.instance
     
     def __init__(self):
@@ -81,8 +81,8 @@ class SharedState:
         with self.lock:
             if (self.probe_ip_for_clock_sync is None) or (self.probe_ip_for_clock_sync == "0.0.0.0"):
                 try:
-                    #my_ip_for_sync = netifaces.ifaddresses("eth0")[netifaces.AF_INET][0]['addr'] # SCOMMENTA QUANDO ESEGUI SU PROBE -> 18/03/2025
-                    my_ip_for_sync = "DEBUG"
+                    my_ip_for_sync = netifaces.ifaddresses("eth0")[netifaces.AF_INET][0]['addr'] # SCOMMENTA QUANDO ESEGUI SU PROBE -> 18/03/2025
+                    #my_ip_for_sync = "DEBUG"
                     self.probe_ip_for_clock_sync = my_ip_for_sync
                     print(f"SharedState: my ip for clock sync -> |{self.probe_ip_for_clock_sync}|")
                 except KeyError as k:
@@ -135,5 +135,8 @@ class SharedState:
         with self.lock:
             return self.coordinator_ip
 
-
+    @staticmethod
+    def get_instance(self):
+        shared_state = SharedState() # my singleton shared
+        return shared_state
 shared_state = SharedState() # my singleton shared
