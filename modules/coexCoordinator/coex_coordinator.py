@@ -8,7 +8,7 @@ from modules.mqttModule.mqtt_client import Mqtt_Client
 from modules.configLoader.config_loader import ConfigLoader, COEX_KEY
 from bson import ObjectId
 from modules.mongoModule.mongoDB import MongoDB, SECONDS_OLD_MEASUREMENT, ErrorModel
-from modules.mongoModule.models.measurement_model_mongo import MeasurementModelMongo
+from modules.mongoModule.models.measurement_model_mongo import MeasurementModelMongo, CoexistingApplicationModelMongo
 from modules.mongoModule.models.coex_result_model_mongo import CoexResultModelMongo
 
 class Coex_Coordinator:
@@ -155,14 +155,16 @@ class Coex_Coordinator:
         else:
             print(f"Coex_Coordinator: error unknown command -> {error_command}")
 
-    def send_probe_coex_conf(self, probe_sender, msm_id, role, parameters, counterpart_probe_mac, server_probe_ip = None):
+    def send_probe_coex_conf(self, probe_sender, msm_id, role, parameters : CoexistingApplicationModelMongo, 
+                             counterpart_probe_mac, server_probe_ip = None):
         json_conf_payload = {
             "msm_id": msm_id,
             "role": role,
-            "packets_size": parameters["packets_size"],
-            "packets_number": parameters["packets_number"],
-            "packets_rate" : parameters["packets_rate"],
-            "socket_port" : parameters["socket_port"],
+            "packets_size": parameters.packets_size, #parameters["packets_size"],
+            "packets_number": parameters.packets_number, #["packets_number"],
+            "packets_rate" : parameters.packets_rate, #["packets_rate"],
+            "socket_port" : parameters.socket_port, #["socket_port"],
+            "trace_name" : parameters.trace_name,
             "server_probe_ip": server_probe_ip,
             "counterpart_probe_mac": counterpart_probe_mac
         }
@@ -217,7 +219,7 @@ class Coex_Coordinator:
         measurement_id = str(new_measurement._id)
 
         coex_parameters = self.get_default_coex_parameters()
-        coex_parameters = self.override_default_parameters(coex_parameters, new_measurement.parameters)
+        coex_parameters = self.override_default_parameters(coex_parameters, new_measurement.coexisting_application)
 
         source_probe_ip, source_probe_mac = self.ask_probe_ip_mac(new_measurement.source_probe)
         if (source_probe_ip is None):
@@ -228,12 +230,12 @@ class Coex_Coordinator:
         
         new_measurement.source_probe_ip = source_probe_ip
         new_measurement.dest_probe_ip = dest_probe_ip
-        new_measurement.parameters = coex_parameters.copy()
+        new_measurement.coexisting_application = CoexistingApplicationModelMongo.cast_dict_in_CoexistingApplicationModelMongo(coex_parameters.copy())
         self.queued_measurements[measurement_id] = new_measurement
         
         self.events_received_ack_from_probe_sender[measurement_id] = [threading.Event(), None]
-        self.send_probe_coex_conf(probe_sender = new_measurement.dest_probe, msm_id = measurement_id, role="Server", parameters=new_measurement.parameters,
-                                  counterpart_probe_mac = source_probe_mac)
+        self.send_probe_coex_conf(probe_sender = new_measurement.dest_probe, msm_id = measurement_id, role="Server",
+                                  parameters = new_measurement.coexisting_application, counterpart_probe_mac = source_probe_mac)
 
         self.events_received_ack_from_probe_sender[measurement_id][0].wait(timeout = 5)
         # ------------------------------- YOU MUST WAIT (AT MOST 5s) FOR AN ACK/NACK FROM DEST_PROBE (COEX INITIATOR)
@@ -242,14 +244,14 @@ class Coex_Coordinator:
         if probe_server_conf_message == "OK":
             self.events_received_ack_from_probe_sender[measurement_id] = [threading.Event(), None]
             self.send_probe_coex_conf(probe_sender = new_measurement.source_probe, msm_id = measurement_id, role="Client",
-                                      parameters=new_measurement.parameters, server_probe_ip=new_measurement.dest_probe_ip,
+                                      parameters = new_measurement.coexisting_application, server_probe_ip = new_measurement.dest_probe_ip,
                                       counterpart_probe_mac = dest_probe_mac)
             self.events_received_ack_from_probe_sender[measurement_id][0].wait(timeout = 5)
             # ------------------------------- YOU MUST WAIT (AT MOST 5s) FOR AN ACK/NACK FROM SOURCE_PROBE (COEX INITIATOR)
             probe_client_conf_message = self.events_received_ack_from_probe_sender[measurement_id][1]
             if probe_client_conf_message == "OK":
                 self.events_received_ack_from_probe_sender[measurement_id] = [threading.Event(), None]
-                self.send_probe_coex_start(probe_id=new_measurement.source_probe, msm_id=measurement_id)
+                self.send_probe_coex_start(probe_id = new_measurement.source_probe, msm_id = measurement_id)
                 self.events_received_ack_from_probe_sender[measurement_id][0].wait(timeout = 5)
                 # ------------------------------- YOU MUST WAIT (AT MOST 5s) FOR AN ACK/NACK START FROM SOURCE_PROBE (COEX INITIATOR)
                 probe_client_start_message = self.events_received_ack_from_probe_sender[measurement_id][1]
@@ -335,13 +337,20 @@ class Coex_Coordinator:
     def override_default_parameters(self, json_config, measurement_parameters):
         json_overrided_config = json_config
         if (measurement_parameters is not None) and (isinstance(measurement_parameters, dict)):
-            if ('packets_number' in measurement_parameters):
-                json_overrided_config['packets_number'] = measurement_parameters['packets_number']
-            if ('packets_size' in measurement_parameters):
-                json_overrided_config['packets_size'] = measurement_parameters['packets_size']
-            if ('packets_rate' in measurement_parameters):
-                json_overrided_config['packets_rate'] = measurement_parameters['packets_rate']
-            if ('socket_port' in measurement_parameters):
-                json_overrided_config['socket_port'] = measurement_parameters['socket_port']
+            if ("trace_name" in measurement_parameters) and (measurement_parameters["trace_name"] is not None):
+                json_overrided_config["trace_name"] = measurement_parameters["trace_name"]
+                json_overrided_config['packets_number'] = None
+                json_overrided_config['packets_size'] = None
+                json_overrided_config['packets_rate'] = None
+                json_overrided_config['socket_port'] = None
+            else:
+                if ('packets_number' in measurement_parameters):
+                    json_overrided_config['packets_number'] = measurement_parameters['packets_number']
+                if ('packets_size' in measurement_parameters):
+                    json_overrided_config['packets_size'] = measurement_parameters['packets_size']
+                if ('packets_rate' in measurement_parameters):
+                    json_overrided_config['packets_rate'] = measurement_parameters['packets_rate']
+                if ('socket_port' in measurement_parameters):
+                    json_overrided_config['socket_port'] = measurement_parameters['socket_port']
                 
         return json_overrided_config

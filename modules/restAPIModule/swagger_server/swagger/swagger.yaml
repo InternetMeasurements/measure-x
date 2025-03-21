@@ -288,7 +288,7 @@ components:
         dest_probe: dest_probe
         gps_source_probe: gps_source_probe
         coexisting_application:
-          _id: _id
+          trace_name: tcp_traffic.pcap
         _id: _id
         state: state
     IperfResultModelMongo:
@@ -412,17 +412,29 @@ components:
           type: string
           description: Unique MongoID for the Energy result
     CoexistingApplication:
-      required:
-      - _id
       type: object
       properties:
-        _id:
+        packets_number:
+          type: number
+          description: Total number of packets to be generated
+          format: int
+        packets_size:
+          type: number
+          description: Packets size of packets (BYTE)
+          format: int
+        packets_rate:
+          type: number
+          description: Packets rate (Mbps)
+          format: float
+        trace_name:
           type: string
-          description: Unique id of the coexisting application description
-      description: Coexisting Application defines the background traffic to simulate
-        a coexsting application
+          description: Name of pcap trace to be replayed
+      description: Coexisting Application defines the background traffic to simulate a coexsting application
       example:
-        _id: _id
+        packets_number: 3000
+        packets_size: 100
+        packets_rate: 0.24
+        trace_name: null
     ErrorModel:
       required:
       - error_cause

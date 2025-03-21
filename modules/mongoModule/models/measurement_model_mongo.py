@@ -1,4 +1,5 @@
 from bson.objectid import ObjectId
+from modules.mongoModule.models.coex_measurement_model_mongo import CoexistingApplicationModelMongo
 
 
 class MeasurementModelMongo:
@@ -86,7 +87,8 @@ class MeasurementModelMongo:
             'dest_probe_ip': self.dest_probe_ip,
             'gps_source_probe': self.gps_source_probe,
             'gps_dest_probe': self.gps_dest_probe,
-            'coexisting_application': self.coexisting_application,
+            'coexisting_application':
+                self.coexisting_application.to_dict() if isinstance(self.coexisting_application, CoexistingApplicationModelMongo) else self.coexisting_application ,
             'stop_time': self.stop_time,
             'results': [str(result_id) for result_id in self.results],
             'parameters': self.parameters
