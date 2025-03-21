@@ -11,14 +11,15 @@ DEFAULT_PCAP_FOLDER = "pcap"
 
 class CoexParamaters:
     def __init__(self, role = None, packets_size = None, packets_number = None, packets_rate = None,
-                 socker_port = None, server_probe_ip = None, counterpart_probe_mac = None):
+                 socker_port = None, server_probe_ip = None, counterpart_probe_mac = None, trace_name = None):
         self.role = role
         self.packets_size = packets_size
-        self.packets_number = packets_number
-        self.packets_rate = packets_rate
+        self.packets_number = packets_number # Client paramter
+        self.packets_rate = packets_rate # Client paramter
         self.socker_port = socker_port
         self.server_probe_ip = server_probe_ip # Client paramter
         self.counterpart_probe_mac = counterpart_probe_mac
+        self.trace_name = trace_name # Client paramter
     
     def to_dict(self):
         return {
@@ -28,7 +29,8 @@ class CoexParamaters:
             "packets_rate": self.packets_rate,
             "socker_port": self.socker_port,
             "server_probe_ip": self.server_probe_ip,
-            "counterpart_probe_mac" : self.counterpart_probe_mac
+            "counterpart_probe_mac" : self.counterpart_probe_mac,
+            "trace_name" : self.trace_name
         }
 
 
@@ -179,7 +181,8 @@ class CoexController:
                     data, addr = self.measure_socket.recvfrom(self.last_coex_parameters.packets_size)
                     print(f"Thread_Coex: Received data from |{addr}|. Data size: {len(data)} byte")
                 print("Awaked from recv")
-            elif self.last_coex_parameters.role == "Client":        
+            elif self.last_coex_parameters.role == "Client":
+                    
                 # dst_hwaddr = src_hwaddr = "02:50:f4:00:00:01"
                 src_mac = self.shared_state.get_probe_mac()
                 dest_mac = self.last_coex_parameters.counterpart_probe_mac
@@ -300,6 +303,12 @@ class CoexController:
         if counterpart_probe_mac is None:
             return "No counterpart probe mac provided"
         
+        trace_name = payload["trace_name"] if ("trace_name" in payload) else None
+        if trace_name is not None: # Checking if pcap file exists
+            trace_path = os.path.join(Path(__file__).parent, DEFAULT_PCAP_FOLDER, trace_name)
+            if not Path(trace_path).exists():
+                return f"Trace file |{trace_name}| not found!"
+        
         server_probe_ip = None
         role = payload["role"] if ("role" in payload) else None
         if role is None:
@@ -315,6 +324,6 @@ class CoexController:
         
         self.last_msm_id = msm_id
         self.last_coex_parameters = CoexParamaters(role = role, packets_size = packets_size, packets_number = packets_number,
-                                                   packets_rate = packets_rate, socker_port = socket_port,
-                                                   server_probe_ip=server_probe_ip, counterpart_probe_mac=counterpart_probe_mac)
+                                                   packets_rate = packets_rate, socker_port = socket_port, server_probe_ip = server_probe_ip,
+                                                   counterpart_probe_mac = counterpart_probe_mac, trace_name = trace_name)
         return "OK"
