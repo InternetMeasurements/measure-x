@@ -68,6 +68,8 @@ class CoexController:
                     self.shared_state.set_probe_as_ready()
                     return
                 
+
+                
                 thread_creation_msg = self.submit_thread_for_coex_traffic()
                 if thread_creation_msg != "OK":
                     self.send_coex_NACK(failed_command = command, error_info = "PROBE BUSY", measurement_related_conf = msm_id)
@@ -182,7 +184,6 @@ class CoexController:
                     print(f"Thread_Coex: Received data from |{addr}|. Data size: {len(data)} byte")
                 print("Awaked from recv")
             elif self.last_coex_parameters.role == "Client":
-                    
                 # dst_hwaddr = src_hwaddr = "02:50:f4:00:00:01"
                 src_mac = self.shared_state.get_probe_mac()
                 dest_mac = self.last_coex_parameters.counterpart_probe_mac
@@ -190,14 +191,18 @@ class CoexController:
                 src_ip = self.shared_state.get_probe_ip()
                 dst_ip = self.last_coex_parameters.server_probe_ip
 
-                rate = self.last_coex_parameters.packets_rate
-                n_pkts = self.last_coex_parameters.packets_number
-                size = self.last_coex_parameters.packets_size
-                dport = self.last_coex_parameters.socker_port
+                if self.last_coex_parameters.trace_name is None:
 
-                pkt = Ether(src=src_mac, dst=dest_mac) / IP(src=src_ip, dst=dst_ip) / UDP(sport=30000, dport=dport) / Raw(RandString(size=size))
+                    rate = self.last_coex_parameters.packets_rate
+                    n_pkts = self.last_coex_parameters.packets_number
+                    size = self.last_coex_parameters.packets_size
+                    dport = self.last_coex_parameters.socker_port
 
-                d = sendpfast(pkt, mbps=rate, count=n_pkts, parse_results=True)
+                    pkt = Ether(src=src_mac, dst=dest_mac) / IP(src=src_ip, dst=dst_ip) / UDP(sport=30000, dport=dport) / Raw(RandString(size=size))
+
+                    d = sendpfast(pkt, mbps=rate, count=n_pkts, parse_results=True)
+                else:
+                    print(f"Per adesso nulla. Andrebbe caricata la traccia {self.last_coex_parameters.trace_name}")
                 self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
                 self.shared_state.set_probe_as_ready()
                 self.reset_vars()
@@ -282,18 +287,25 @@ class CoexController:
         self.thread_worker_on_socket = None
         self.stop_thread_event.clear()
 
-    def check_all_parameters(self, payload) -> str:        
-        packets_size = payload["packets_size"] if ("packets_size" in payload) else None
-        if packets_size is None:
-            return "No packets size provided"
-        
-        packets_rate = payload["packets_rate"] if ("packets_rate" in payload) else None
-        if packets_rate is None:
-            return "No packets rate provided"
-        
-        packets_number = payload["packets_number"] if ("packets_number" in payload) else None
-        if packets_number is None:
-            return "No packets number provided"
+    def check_all_parameters(self, payload) -> str:
+
+        trace_name = payload["trace_name"] if ("trace_name" in payload) else None
+        if trace_name is not None: # Checking if pcap file exists
+            trace_path = os.path.join(Path(__file__).parent, DEFAULT_PCAP_FOLDER, trace_name)
+            if not Path(trace_path).exists():
+                return f"Trace file |{trace_name}| not found!"
+        else:          
+            packets_size = payload["packets_size"] if ("packets_size" in payload) else None
+            if packets_size is None:
+                return "No packets size provided"
+            
+            packets_rate = payload["packets_rate"] if ("packets_rate" in payload) else None
+            if packets_rate is None:
+                return "No packets rate provided"
+            
+            packets_number = payload["packets_number"] if ("packets_number" in payload) else None
+            if packets_number is None:
+                return "No packets number provided"            
         
         socket_port = payload["socket_port"] if ("socket_port" in payload) else None
         if socket_port is None:
@@ -302,12 +314,6 @@ class CoexController:
         counterpart_probe_mac = payload["counterpart_probe_mac"] if ("counterpart_probe_mac" in payload) else None
         if counterpart_probe_mac is None:
             return "No counterpart probe mac provided"
-        
-        trace_name = payload["trace_name"] if ("trace_name" in payload) else None
-        if trace_name is not None: # Checking if pcap file exists
-            trace_path = os.path.join(Path(__file__).parent, DEFAULT_PCAP_FOLDER, trace_name)
-            if not Path(trace_path).exists():
-                return f"Trace file |{trace_name}| not found!"
         
         server_probe_ip = None
         role = payload["role"] if ("role" in payload) else None
