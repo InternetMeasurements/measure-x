@@ -43,6 +43,7 @@ class CoexController:
         self.last_coex_parameters = CoexParamaters()
         self.stop_thread_event = threading.Event()
         self.thread_worker_on_socket = None
+        self.tcpliveplay_process = None
 
         # Requests to commands_demultiplexer
         registration_response = registration_handler_request_function(
@@ -158,6 +159,7 @@ class CoexController:
     def submit_thread_for_coex_traffic(self):
         try:
             self.thread_worker_on_socket = threading.Thread(target=self.body_worker_for_coex_traffic, name = DEFAULT_THREAD_NAME , args=())    
+            print(f"Ident: {self.thread_worker_on_socket.ident} vs NativeId: {self.thread_worker_on_socket.native_id}")
             return "OK"
         except socket.error as e:
             print(f"CoexController: Socket error -> {str(e)}")
@@ -200,13 +202,14 @@ class CoexController:
                             self.reset_vars()
                             return
                         print(f"Thread_Coex: Waiting for coex traffic stop...")
+                        socket_port = self.last_coex_parameters.socker_port
                         self.stop_thread_event.wait() # WARNING -> BLOCKING WAIT FOR Thread_Coex. Only the STOP command will wake-up it.
                         cmd_to_delete_rule_for_RST_packets_suppression = ["sudo", "iptables", "-D", "OUTPUT", "-p", "tcp", "--tcp-flags", "RST",
                                                                           "RST", "-d", self.shared_state.get_probe_ip(), "--dport",
-                                                                          str(self.last_coex_parameters.socker_port), "-j", "DROP"]
+                                                                          str(socket_port), "-j", "DROP"]
                         try:
                             result = subprocess.run(cmd_to_delete_rule_for_RST_packets_suppression, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                            print(f"Thread_Coex: deleted rule for RST packets suppression for [{self.shared_state.get_probe_ip()}:{self.last_coex_parameters.socker_port}]")
+                            print(f"Thread_Coex: deleted rule for RST packets suppression for [{self.shared_state.get_probe_ip()}:{socket_port}]")
                         except subprocess.CalledProcessError as e:
                             print(f"Thread_Coex: error while deleting suppression rule. Exception -> {e}")
                     except subprocess.CalledProcessError as e:
@@ -233,8 +236,15 @@ class CoexController:
                     pkt = Ether(src=src_mac, dst=dest_mac) / IP(src=src_ip, dst=dst_ip) / UDP(sport=30000, dport=dport) / Raw(RandString(size=size))
 
                     d = sendpfast(pkt, mbps=rate, count=n_pkts, parse_results=True)
-                else:
-                    print(f"Per adesso nulla. Andrebbe caricata la traccia {self.last_coex_parameters.trace_name}")
+                else: # Else, if a trace_name has been specified, then it will be used tcpliveplay
+                    # tcpliveplay eth0 sample2.pcap 192.168.1.5 52:51:01:12:38:02 52178
+                    complete_trace_path = os.path.join(Path(__file__).parent, DEFAULT_PCAP_FOLDER, self.last_coex_parameters.trace_name)
+                    tcpliveplay_cmd = ['tcpliveplay', self.shared_state.default_nic_name, complete_trace_path, self.last_coex_parameters.server_probe_ip,
+                                       self.last_coex_parameters.counterpart_probe_mac, self.last_coex_parameters.socker_port ]
+                    self.tcpliveplay_process = subprocess.Popen(tcpliveplay_cmd, stdout = subprocess.PIPE, stderr = subprocess.PIPE, text = True)
+                    print(f"Thread_Coex: tcpliveplay avviato")
+                    self.tcpliveplay_process.wait()
+                    print(f"Thread_Coex: dopo la wait() del process")
                 self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
                 self.shared_state.set_probe_as_ready()
                 self.reset_vars()
@@ -252,12 +262,15 @@ class CoexController:
             if self.last_coex_parameters.role == "Server":
                 self.stop_thread_event.set()
                 if self.last_coex_parameters.trace_name is None:
-                    print(f"Sending |{self.last_coex_parameters.packets_size}| byte to myself:{self.last_coex_parameters.socker_port}")
+                    #print(f"Sending |{self.last_coex_parameters.packets_size}| byte to myself:{self.last_coex_parameters.socker_port}")
                     # Sending self.last_coex_parameters.packets_size BYTE to myself to wakeUp the thread blocked in recv. I won't use the SOCKET_TIMEOUT.
                     self.measure_socket.sendto( str("F" * self.last_coex_parameters.packets_size).encode() , (self.shared_state.get_probe_ip(), self.last_coex_parameters.socker_port))
                     self.thread_worker_on_socket.join()
-                    self.stop_thread_event.clear()
                     self.measure_socket.close()
+                else:
+                    self.tcpliveplay_process.terminate()
+                    self.thread_worker_on_socket.join()
+                self.stop_thread_event.clear()
             elif self.last_coex_parameters.role == "Client":
                 proc = subprocess.run(["pgrep", "-f", DEFAULT_THREAD_NAME], capture_output=True, text=True)
                 print(f"pgrep stdout -> {proc.stdout}")
@@ -265,60 +278,22 @@ class CoexController:
                     pid = int(proc.stdout.strip())
                     os.kill(pid, signal.SIGKILL)
                     print("UCCISO")
-            if (self.last_coex_parameters.role is not None):
-                self.shared_state.set_probe_as_ready()
-                self.reset_vars()
+            self.shared_state.set_probe_as_ready()
+            self.reset_vars()
             return "OK"
         except Exception as e:
             print(f"CoexController: Role -> {self.last_coex_parameters.role} , exception while stoppping socket -> {e}")
             return str(e)
-
-    
-            
-    def scapy_test(self):
-        # DEBUG METHOD -> NO MORE INVOKED
-        from collections import Counter
-        print("scapy test()")
-        nuovo_ip_sorgente = self.shared_state.get_probe_ip()
-        base_path = os.path.join(Path(__file__).parent)
-        pcap_file_path = os.path.join(base_path, "pcap", "probe3_cella1_iliad.pcap")
-        modified_packets = []
-
-        packets = rdpcap(pcap_file_path)
-
-        # Conta gli IP sorgenti nei pacchetti con flag SYN (probabili client)
-        ip_sorgenti = [pkt[IP].src for pkt in packets if IP in pkt and TCP in pkt and pkt[TCP].flags & 2]
-        ip_comune = Counter(ip_sorgenti).most_common(1)
-
-        if not ip_comune:
-            print(" Nessun IP sorgente identificato automaticamente!")
-            return
-
-        ip_originale = ip_comune[0][0]
-        print(f"IP sorgente originale identificato: {ip_originale} , sostituito con {self.shared_state.get_probe_ip()}")
-
-        for pkt in packets:
-            if (IP in pkt) and (pkt[IP].src == ip_originale):
-                pkt_mod = pkt.copy()
-                pkt_mod[IP].src = nuovo_ip_sorgente
-                del pkt_mod[IP].chksum
-                if TCP in pkt_mod:
-                    del pkt_mod[TCP].chksum
-                modified_packets.append(pkt_mod)
-            else:
-                modified_packets.append(pkt)
-
-        d = sendpfast(modified_packets, realtime=True, file_cache=True, parse_results=True)
-
-        print(f"OUTPUT -> {d}")
-
+        
 
     def reset_vars(self):
         print("CoexController: variables reset")
         self.last_msm_id = None
         self.last_coex_parameters = CoexParamaters()
         self.thread_worker_on_socket = None
+        self.tcpliveplay_process = None
         self.stop_thread_event.clear()
+
 
     def check_all_parameters(self, payload : dict) -> str:
         role = payload.get("role")

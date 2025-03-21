@@ -250,6 +250,7 @@ class Coex_Coordinator:
             # ------------------------------- YOU MUST WAIT (AT MOST 5s) FOR AN ACK/NACK FROM SOURCE_PROBE (COEX INITIATOR)
             probe_client_conf_message = self.events_received_ack_from_probe_sender[measurement_id][1]
             if probe_client_conf_message == "OK":
+                self.queued_measurements[measurement_id] = new_measurement
                 self.events_received_ack_from_probe_sender[measurement_id] = [threading.Event(), None]
                 self.send_probe_coex_start(probe_id = new_measurement.source_probe, msm_id = measurement_id)
                 self.events_received_ack_from_probe_sender[measurement_id][0].wait(timeout = 5)
@@ -260,7 +261,6 @@ class Coex_Coordinator:
                     if inserted_measurement_id is None:
                         print(f"Coex_Coordinator: can't start coex. Error while storing coex measurement on Mongo")
                         return "Error", "Can't send start! Error while inserting measurement coex in mongo", "MongoDB Down?"
-                    self.queued_measurements[measurement_id] = new_measurement
                     return "OK", new_measurement.to_dict(), None
                 
                 # Sending stop to the server probe, otherwise it will remain BUSY
