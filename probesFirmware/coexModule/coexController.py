@@ -11,13 +11,13 @@ DEFAULT_PCAP_FOLDER = "pcap"
 
 class CoexParamaters:
     def __init__(self, role = None, packets_size = None, packets_number = None, packets_rate = None,
-                 socker_port = None, server_probe_ip = None, counterpart_probe_mac = None, trace_name = None):
+                 socker_port = None, counterpart_probe_ip = None, counterpart_probe_mac = None, trace_name = None):
         self.role = role
         self.packets_size = packets_size
         self.packets_number = packets_number # Client paramter
         self.packets_rate = packets_rate # Client paramter
         self.socker_port = socker_port
-        self.server_probe_ip = server_probe_ip # Client paramter
+        self.counterpart_probe_ip = counterpart_probe_ip # Client paramter
         self.counterpart_probe_mac = counterpart_probe_mac
         self.trace_name = trace_name # Client paramter
     
@@ -28,7 +28,7 @@ class CoexParamaters:
             "packets_number": self.packets_number,
             "packets_rate": self.packets_rate,
             "socker_port": self.socker_port,
-            "server_probe_ip": self.server_probe_ip,
+            "counterpart_probe_ip": self.counterpart_probe_ip,
             "counterpart_probe_mac" : self.counterpart_probe_mac,
             "trace_name" : self.trace_name
         }
@@ -186,9 +186,9 @@ class CoexController:
                         print(f"Thread_Coex: Received data from |{addr}|. Data size: {len(data)} byte")
                     self.measure_socket.close()
                     print("Thread_Coex: socket closed")
-                else:
+                else: # IF THE COEXITING TRAFFIC COMES FROM A PCAP...
                     cmd_to_add_rule_for_RST_packets_suppression = ["sudo", "iptables", "-A", "OUTPUT", "-p", "tcp", "--tcp-flags", "RST", 
-                                                                    "RST", "-d", self.shared_state.get_probe_ip(), "--dport",
+                                                                    "RST", "-d", self.last_coex_parameters.counterpart_probe_ip "--dport",
                                                                     str(self.last_coex_parameters.socker_port), "-j", "DROP"]
                     try:
                         result = subprocess.run(cmd_to_add_rule_for_RST_packets_suppression, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check = True)
@@ -224,7 +224,7 @@ class CoexController:
                 dest_mac = self.last_coex_parameters.counterpart_probe_mac
 
                 src_ip = self.shared_state.get_probe_ip()
-                dst_ip = self.last_coex_parameters.server_probe_ip
+                dst_ip = self.last_coex_parameters.counterpart_probe_ip
 
                 if self.last_coex_parameters.trace_name is None:
 
@@ -239,7 +239,7 @@ class CoexController:
                 else: # Else, if a trace_name has been specified, then it will be used tcpliveplay
                     # tcpliveplay eth0 sample2.pcap 192.168.1.5 52:51:01:12:38:02 52178
                     complete_trace_path = os.path.join(Path(__file__).parent, DEFAULT_PCAP_FOLDER, self.last_coex_parameters.trace_name)
-                    tcpliveplay_cmd = ['tcpliveplay', self.shared_state.default_nic_name, complete_trace_path, self.last_coex_parameters.server_probe_ip,
+                    tcpliveplay_cmd = ['tcpliveplay', self.shared_state.default_nic_name, complete_trace_path, self.last_coex_parameters.counterpart_probe_ip,
                                        self.last_coex_parameters.counterpart_probe_mac, str(self.last_coex_parameters.socker_port) ]
                     self.tcpliveplay_process = subprocess.Popen(tcpliveplay_cmd, stdout = subprocess.PIPE, stderr = subprocess.PIPE, text = True)
                     print(f"Thread_Coex: tcpliveplay avviato")
@@ -297,7 +297,7 @@ class CoexController:
 
     def check_all_parameters(self, payload : dict) -> str:
         role = payload.get("role")
-        server_probe_ip = payload.get("server_probe_ip")
+        counterpart_probe_ip = payload.get("counterpart_probe_ip")
         trace_name = payload.get("trace_name")
         packets_size = payload.get("packets_size")
         packets_rate = payload.get("packets_rate")
@@ -308,10 +308,7 @@ class CoexController:
 
         if role is None:
             return "No role provided"
-        elif role == "Client":
-            if server_probe_ip is None:
-                return "No server probe ip provided"
-            
+        elif role == "Client":            
             if trace_name is not None: # Checking if pcap file exists
                 trace_name += ".pcap" if (not trace_name.endswith(".pcap")) else ""
                 trace_path = os.path.join(Path(__file__).parent, DEFAULT_PCAP_FOLDER, trace_name)
@@ -324,6 +321,9 @@ class CoexController:
                 if packets_number is None:
                     return "No packets number provided"            
         
+        if counterpart_probe_ip is None:
+                return "No counterpart probe ip provided"
+
         if socket_port is None:
             return "No socket port provided"
 
@@ -338,6 +338,6 @@ class CoexController:
         
         self.last_msm_id = msm_id
         self.last_coex_parameters = CoexParamaters(role = role, packets_size = packets_size, packets_number = packets_number,
-                                                   packets_rate = packets_rate, socker_port = socket_port, server_probe_ip = server_probe_ip,
+                                                   packets_rate = packets_rate, socker_port = socket_port, counterpart_probe_ip = counterpart_probe_ip,
                                                    counterpart_probe_mac = counterpart_probe_mac, trace_name = trace_name)
         return "OK"

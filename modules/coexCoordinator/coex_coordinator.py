@@ -156,7 +156,7 @@ class Coex_Coordinator:
             print(f"Coex_Coordinator: error unknown command -> {error_command}")
 
     def send_probe_coex_conf(self, probe_sender, msm_id, role, parameters : CoexistingApplicationModelMongo, 
-                             counterpart_probe_mac, server_probe_ip = None):
+                             counterpart_probe_mac, counterpart_probe_ip = None):
         json_conf_payload = {
             "msm_id": msm_id,
             "role": role,
@@ -165,7 +165,7 @@ class Coex_Coordinator:
             "packets_rate" : parameters.packets_rate, #["packets_rate"],
             "socket_port" : parameters.socket_port, #["socket_port"],
             "trace_name" : parameters.trace_name,
-            "server_probe_ip": server_probe_ip,
+            "counterpart_probe_ip": counterpart_probe_ip,
             "counterpart_probe_mac": counterpart_probe_mac
         }
         
@@ -244,7 +244,7 @@ class Coex_Coordinator:
         if probe_server_conf_message == "OK":
             self.events_received_ack_from_probe_sender[measurement_id] = [threading.Event(), None]
             self.send_probe_coex_conf(probe_sender = new_measurement.source_probe, msm_id = measurement_id, role="Client",
-                                      parameters = new_measurement.coexisting_application, server_probe_ip = new_measurement.dest_probe_ip,
+                                      parameters = new_measurement.coexisting_application, counterpart_probe_ip = new_measurement.dest_probe_ip,
                                       counterpart_probe_mac = dest_probe_mac)
             self.events_received_ack_from_probe_sender[measurement_id][0].wait(timeout = 5)
             # ------------------------------- YOU MUST WAIT (AT MOST 5s) FOR AN ACK/NACK FROM SOURCE_PROBE (COEX INITIATOR)
