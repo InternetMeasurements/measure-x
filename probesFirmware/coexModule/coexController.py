@@ -67,9 +67,7 @@ class CoexController:
                     self.send_coex_NACK(failed_command = command, error_info = check_parameters_msg, measurement_related_conf = msm_id)
                     self.shared_state.set_probe_as_ready()
                     return
-                
-
-                
+                                
                 thread_creation_msg = self.submit_thread_for_coex_traffic()
                 if thread_creation_msg != "OK":
                     self.send_coex_NACK(failed_command = command, error_info = "PROBE BUSY", measurement_related_conf = msm_id)
@@ -173,16 +171,48 @@ class CoexController:
     def body_worker_for_coex_traffic(self):
         self.measure_socket = None
         try:
+            print(f"Thread_Coex: I'm the |{self.last_coex_parameters.role}| probe of measure |{self.last_msm_id}|")
             if self.last_coex_parameters.role == "Server":
-                self.measure_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                self.measure_socket.bind((self.shared_state.get_probe_ip(), self.last_coex_parameters.socker_port))
-                self.send_coex_ACK(successed_command = "conf", measurement_related_conf = self.last_msm_id)
-                print(f"CoexController: Opened socket on IP: |{self.shared_state.get_probe_ip()}| , port: |{self.last_coex_parameters.socker_port}|")
-                print(f"Listening for {self.last_coex_parameters.packets_size} byte, in while (true)")
-                while(not self.stop_thread_event.is_set()):
-                    data, addr = self.measure_socket.recvfrom(self.last_coex_parameters.packets_size)
-                    print(f"Thread_Coex: Received data from |{addr}|. Data size: {len(data)} byte")
-                print("Awaked from recv")
+                if self.last_coex_parameters.trace_name is None: # This means that there will be a Custom Traffic (UDP)
+                    self.measure_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                    self.measure_socket.bind((self.shared_state.get_probe_ip(), self.last_coex_parameters.socker_port))
+                    self.send_coex_ACK(successed_command = "conf", measurement_related_conf = self.last_msm_id)
+                    print(f"Thread_Coex: Opened socket on IP: |{self.shared_state.get_probe_ip()}| , port: |{self.last_coex_parameters.socker_port}|")
+                    print(f"Thread_Coex: Listening for {self.last_coex_parameters.packets_size} byte ...")
+                    while(not self.stop_thread_event.is_set()):
+                        data, addr = self.measure_socket.recvfrom(self.last_coex_parameters.packets_size)
+                        print(f"Thread_Coex: Received data from |{addr}|. Data size: {len(data)} byte")
+                    self.measure_socket.close()
+                    print("Thread_Coex: socket closed")
+                else:
+                    cmd_to_add_rule_for_RST_packets_suppression = ["sudo", "iptables", "-A", "OUTPUT", "-p", "tcp", "--tcp-flags", "RST", 
+                                                                    "RST", "-d", self.shared_state.get_probe_ip(), "--dport",
+                                                                    str(self.last_coex_parameters.socker_port), "-j", "DROP"]
+                    try:
+                        result = subprocess.run(cmd_to_add_rule_for_RST_packets_suppression, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check = True)
+                        if result.returncode == 0:
+                            print(f"Thread_Coex: added rule for RST packets suppression for [{self.shared_state.get_probe_ip()}:{self.last_coex_parameters.socker_port}]")
+                            self.send_coex_ACK(successed_command = "conf", measurement_related_conf = self.last_msm_id)
+                        else:
+                            print(f"Thread_Coex: error while adding suppression rule. Error -> : {result.stderr.decode()}")
+                            self.send_coex_NACK(failed_command = "conf", error_info= f"Error while adding suppression rule. Error --> {result.stderr.decode()}", measurement_related_conf = self.last_msm_id)
+                            self.shared_state.set_probe_as_ready()
+                            self.reset_vars()
+                            return
+                        print(f"Thread_Coex: Waiting for coex traffic stop...")
+                        self.stop_thread_event.wait() # WARNING -> BLOCKING WAIT FOR Thread_Coex. Only the STOP command will wake-up it.
+                        cmd_to_delete_rule_for_RST_packets_suppression = ["sudo", "iptables", "-D", "OUTPUT", "-p", "tcp", "--tcp-flags", "RST",
+                                                                          "RST", "-d", self.shared_state.get_probe_ip(), "--dport",
+                                                                          str(self.last_coex_parameters.socker_port), "-j", "DROP"]
+                        try:
+                            result = subprocess.run(cmd_to_delete_rule_for_RST_packets_suppression, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                            print(f"Thread_Coex: deleted rule for RST packets suppression for [{self.shared_state.get_probe_ip()}:{self.last_coex_parameters.socker_port}]")
+                        except subprocess.CalledProcessError as e:
+                            print(f"Thread_Coex: error while deleting suppression rule. Exception -> {e}")
+                    except subprocess.CalledProcessError as e:
+                        print(f"Thread_Coex: error while adding suppression rule. Exception -> {e}")
+                        self.send_coex_NACK(failed_command = "conf", error_info= f"Error while adding suppression rule. Exception --> {result.stderr.decode()}", measurement_related_conf = self.last_msm_id)
+                    
             elif self.last_coex_parameters.role == "Client":
                 # dst_hwaddr = src_hwaddr = "02:50:f4:00:00:01"
                 src_mac = self.shared_state.get_probe_mac()
@@ -219,12 +249,13 @@ class CoexController:
         try:
             if self.last_coex_parameters.role == "Server":
                 self.stop_thread_event.set()
-                print(f"Sending |{self.last_coex_parameters.packets_size}| byte to myself:{self.last_coex_parameters.socker_port}")
-                # Sending self.last_coex_parameters.packets_size BYTE to myself to wakeUp the thread blocked in recv. I won't use the SOCKET_TIMEOUT.
-                self.measure_socket.sendto( str("F" * self.last_coex_parameters.packets_size).encode() , (self.shared_state.get_probe_ip(), self.last_coex_parameters.socker_port))
-                self.thread_worker_on_socket.join()
-                self.stop_thread_event.clear()
-                self.measure_socket.close()
+                if self.last_coex_parameters.trace_name is None:
+                    print(f"Sending |{self.last_coex_parameters.packets_size}| byte to myself:{self.last_coex_parameters.socker_port}")
+                    # Sending self.last_coex_parameters.packets_size BYTE to myself to wakeUp the thread blocked in recv. I won't use the SOCKET_TIMEOUT.
+                    self.measure_socket.sendto( str("F" * self.last_coex_parameters.packets_size).encode() , (self.shared_state.get_probe_ip(), self.last_coex_parameters.socker_port))
+                    self.thread_worker_on_socket.join()
+                    self.stop_thread_event.clear()
+                    self.measure_socket.close()
             elif self.last_coex_parameters.role == "Client":
                 proc = subprocess.run(["pgrep", "-f", DEFAULT_THREAD_NAME], capture_output=True, text=True)
                 print(f"pgrep stdout -> {proc.stdout}")
