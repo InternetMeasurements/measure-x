@@ -188,7 +188,7 @@ class CoexController:
                     print("Thread_Coex: socket closed")
                 else: # IF THE COEXITING TRAFFIC COMES FROM A PCAP...
                     cmd_to_add_rule_for_RST_packets_suppression = ["sudo", "iptables", "-A", "OUTPUT", "-p", "tcp", "--tcp-flags", "RST", 
-                                                                    "RST", "-d", self.last_coex_parameters.counterpart_probe_ip "--dport",
+                                                                    "RST", "-d", self.last_coex_parameters.counterpart_probe_ip, "--dport",
                                                                     str(self.last_coex_parameters.socker_port), "-j", "DROP"]
                     try:
                         result = subprocess.run(cmd_to_add_rule_for_RST_packets_suppression, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check = True)
