@@ -215,7 +215,8 @@ class Coex_Coordinator:
 
 
     def probes_preparer_to_measurements(self, new_measurement : MeasurementModelMongo):
-        new_measurement.assign_id()
+        if new_measurement._id is None:
+            new_measurement.assign_id()
         measurement_id = str(new_measurement._id)
 
         coex_parameters = self.get_default_coex_parameters()
