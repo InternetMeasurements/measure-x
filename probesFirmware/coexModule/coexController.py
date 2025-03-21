@@ -211,7 +211,7 @@ class CoexController:
                             print(f"Thread_Coex: error while deleting suppression rule. Exception -> {e}")
                     except subprocess.CalledProcessError as e:
                         print(f"Thread_Coex: error while adding suppression rule. Exception -> {e}")
-                        self.send_coex_NACK(failed_command = "conf", error_info= f"Error while adding suppression rule. Exception --> {result.stderr.decode()}", measurement_related_conf = self.last_msm_id)
+                        self.send_coex_NACK(failed_command = "conf", error_info= f"Error while adding suppression rule. Exception --> {e}", measurement_related_conf = self.last_msm_id)
                     
             elif self.last_coex_parameters.role == "Client":
                 # dst_hwaddr = src_hwaddr = "02:50:f4:00:00:01"
