@@ -310,9 +310,6 @@ class CoexController:
                 if not Path(trace_path).exists():
                     return f"Trace file |{trace_name}| not found!"
             else:          
-                if packets_size is None:
-                    return "No packets size provided"
-                
                 if packets_rate is None:
                     return "No packets rate provided"
                 
@@ -321,6 +318,9 @@ class CoexController:
         
         if socket_port is None:
             return "No socket port provided"
+
+        if packets_size is None:
+            return "No packets size provided"
 
         if counterpart_probe_mac is None:
             return "No counterpart probe mac provided"
