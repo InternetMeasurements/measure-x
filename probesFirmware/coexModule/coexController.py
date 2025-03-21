@@ -193,7 +193,7 @@ class CoexController:
                     try:
                         result = subprocess.run(cmd_to_add_rule_for_RST_packets_suppression, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check = True)
                         if result.returncode == 0:
-                            print(f"Thread_Coex: added rule for RST packets suppression for [{self.shared_state.get_probe_ip()}:{self.last_coex_parameters.socker_port}]")
+                            print(f"Thread_Coex: added rule for RST packets suppression for [{self.last_coex_parameters.counterpart_probe_ip}:{self.last_coex_parameters.socker_port}]")
                             self.send_coex_ACK(successed_command = "conf", measurement_related_conf = self.last_msm_id)
                         else:
                             print(f"Thread_Coex: error while adding suppression rule. Error -> : {result.stderr.decode()}")
@@ -205,7 +205,7 @@ class CoexController:
                         socket_port = self.last_coex_parameters.socker_port
                         self.stop_thread_event.wait() # WARNING -> BLOCKING WAIT FOR Thread_Coex. Only the STOP command will wake-up it.
                         cmd_to_delete_rule_for_RST_packets_suppression = ["sudo", "iptables", "-D", "OUTPUT", "-p", "tcp", "--tcp-flags", "RST",
-                                                                          "RST", "-d", self.shared_state.get_probe_ip(), "--dport",
+                                                                          "RST", "-d", self.last_coex_parameters.counterpart_probe_ip, "--dport",
                                                                           str(socket_port), "-j", "DROP"]
                         try:
                             result = subprocess.run(cmd_to_delete_rule_for_RST_packets_suppression, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -239,7 +239,7 @@ class CoexController:
                 else: # Else, if a trace_name has been specified, then it will be used tcpliveplay
                     # tcpliveplay eth0 sample2.pcap 192.168.1.5 52:51:01:12:38:02 52178
                     complete_trace_path = os.path.join(Path(__file__).parent, DEFAULT_PCAP_FOLDER, self.last_coex_parameters.trace_name)
-                    tcpliveplay_cmd = ['tcpliveplay', self.shared_state.default_nic_name, complete_trace_path, self.last_coex_parameters.counterpart_probe_ip,
+                    tcpliveplay_cmd = ['sudo', 'tcpliveplay', self.shared_state.default_nic_name, complete_trace_path, self.last_coex_parameters.counterpart_probe_ip,
                                        self.last_coex_parameters.counterpart_probe_mac, str(self.last_coex_parameters.socker_port) ]
                     self.tcpliveplay_process = subprocess.Popen(tcpliveplay_cmd, stdout = subprocess.PIPE, stderr = subprocess.PIPE, text = True)
                     print(f"Thread_Coex: tcpliveplay avviato")
@@ -268,7 +268,6 @@ class CoexController:
                     self.thread_worker_on_socket.join()
                     self.measure_socket.close()
                 else:
-                    self.tcpliveplay_process.terminate()
                     self.thread_worker_on_socket.join()
                 self.stop_thread_event.clear()
             elif self.last_coex_parameters.role == "Client":
@@ -322,7 +321,7 @@ class CoexController:
                     return "No packets number provided"            
         
         if counterpart_probe_ip is None:
-                return "No counterpart probe ip provided"
+            return "No counterpart probe ip provided"
 
         if socket_port is None:
             return "No socket port provided"
