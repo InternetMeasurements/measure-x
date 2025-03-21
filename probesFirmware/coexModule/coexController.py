@@ -288,44 +288,43 @@ class CoexController:
         self.stop_thread_event.clear()
 
     def check_all_parameters(self, payload : dict) -> str:
+        role = payload.get("role")
+        server_probe_ip = payload.get("server_probe_ip")
+        trace_name = payload.get("trace_name")
+        packets_size = payload.get("packets_size")
+        packets_rate = payload.get("packets_rate")
+        packets_number = payload.get("packets_number")
+        socket_port = payload.get("socket_port")
+        counterpart_probe_mac = payload.get("counterpart_probe_mac")
+        msm_id = payload.get("msm_id")
 
-        server_probe_ip = None
-        role = payload.get("role") # payload["role"] if ("role" in payload) else None
         if role is None:
             return "No role provided"
         elif role == "Client":
-            server_probe_ip = payload.get("server_probe_ip") #payload["server_probe_ip"] if ("server_probe_ip" in payload) else None
             if server_probe_ip is None:
                 return "No server probe ip provided"
-
-            trace_name = payload.get("trace_name") # ["trace_name"] if ("trace_name" in payload) else None
+            
             if trace_name is not None: # Checking if pcap file exists
                 trace_name += ".pcap" if (not trace_name.endswith(".pcap")) else ""
                 trace_path = os.path.join(Path(__file__).parent, DEFAULT_PCAP_FOLDER, trace_name)
                 if not Path(trace_path).exists():
                     return f"Trace file |{trace_name}| not found!"
             else:          
-                packets_size = payload["packets_size"] if ("packets_size" in payload) else None
                 if packets_size is None:
                     return "No packets size provided"
                 
-                packets_rate = payload["packets_rate"] if ("packets_rate" in payload) else None
                 if packets_rate is None:
                     return "No packets rate provided"
                 
-                packets_number = payload["packets_number"] if ("packets_number" in payload) else None
                 if packets_number is None:
                     return "No packets number provided"            
         
-        socket_port = payload["socket_port"] if ("socket_port" in payload) else None
         if socket_port is None:
             return "No socket port provided"
 
-        counterpart_probe_mac = payload["counterpart_probe_mac"] if ("counterpart_probe_mac" in payload) else None
         if counterpart_probe_mac is None:
             return "No counterpart probe mac provided"
             
-        msm_id = payload["msm_id"] if ("msm_id" in payload) else None
         if msm_id is None:
             return "No measurement ID provided"
         
