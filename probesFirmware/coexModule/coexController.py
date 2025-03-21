@@ -1,12 +1,13 @@
 import os, signal
-from pathlib import Path
 import json
+from pathlib import Path
 from mqttModule.mqttClient import ProbeMqttClient
 from shared_resources import SharedState
 
 from scapy.all import *
 
 DEFAULT_THREAD_NAME = "coex_traffic_worker"
+DEFAULT_PCAP_FOLDER = "pcap"
 
 class CoexParamaters:
     def __init__(self, role = None, packets_size = None, packets_number = None, packets_rate = None,
