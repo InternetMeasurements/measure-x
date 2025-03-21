@@ -237,11 +237,11 @@ class CoexController:
 
                     d = sendpfast(pkt, mbps=rate, count=n_pkts, parse_results=True)
                 else: # Else, if a trace_name has been specified, then it will be used tcpliveplay
-                    # tcpliveplay eth0 sample2.pcap 192.168.1.5 52:51:01:12:38:02 52178
+                    # sudo tcpliveplay wlan0 tcp_out.pcap 192.168.143.211 2c:cf:67:6d:95:a3 60606
                     complete_trace_path = os.path.join(Path(__file__).parent, DEFAULT_PCAP_FOLDER, self.last_coex_parameters.trace_name)
                     tcpliveplay_cmd = ['sudo', 'tcpliveplay', self.shared_state.default_nic_name, complete_trace_path, self.last_coex_parameters.counterpart_probe_ip,
                                        self.last_coex_parameters.counterpart_probe_mac, str(self.last_coex_parameters.socker_port) ]
-                    self.tcpliveplay_process = subprocess.Popen(tcpliveplay_cmd, stdout = subprocess.PIPE, stderr = subprocess.PIPE, text = True)
+                    self.tcpliveplay_process = subprocess.Popen(tcpliveplay_cmd, stdout = subprocess.DEVNULL, stderr = subprocess.DEVNULL, text = True)
                     print(f"Thread_Coex: tcpliveplay avviato")
                     self.tcpliveplay_process.wait()
                     print(f"Thread_Coex: dopo la wait() del process")
