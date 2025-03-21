@@ -342,6 +342,7 @@ class Coex_Coordinator:
                 json_overrided_config['packets_number'] = None
                 json_overrided_config['packets_size'] = None
                 json_overrided_config['packets_rate'] = None
+                json_overrided_config['socket_port'] = json_config['socket_port']
             else:
                 if ('packets_number' in measurement_parameters):
                     json_overrided_config['packets_number'] = measurement_parameters['packets_number']
