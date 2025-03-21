@@ -21,7 +21,7 @@ class CoexistingApplicationModelMongo:
     def cast_dict_in_CoexistingApplicationModelMongo(dict):
         if ("trace_name" in dict) and (dict["trace_name"] is not None):
             return CoexistingApplicationModelMongo(trace_name=dict["trace_name"], socket_port = dict["socket_port"],
-                                                   packets_size = dict["packet_size"])
+                                                   packets_size = dict["packets_size"])
         
         return CoexistingApplicationModelMongo(packets_size=dict["packets_size"], packets_number=dict["packets_number"],
                                                packets_rate=dict["packets_rate"], socket_port=dict["socket_port"])
