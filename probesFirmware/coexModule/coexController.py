@@ -240,7 +240,7 @@ class CoexController:
                     # tcpliveplay eth0 sample2.pcap 192.168.1.5 52:51:01:12:38:02 52178
                     complete_trace_path = os.path.join(Path(__file__).parent, DEFAULT_PCAP_FOLDER, self.last_coex_parameters.trace_name)
                     tcpliveplay_cmd = ['tcpliveplay', self.shared_state.default_nic_name, complete_trace_path, self.last_coex_parameters.server_probe_ip,
-                                       self.last_coex_parameters.counterpart_probe_mac, self.last_coex_parameters.socker_port ]
+                                       self.last_coex_parameters.counterpart_probe_mac, str(self.last_coex_parameters.socker_port) ]
                     self.tcpliveplay_process = subprocess.Popen(tcpliveplay_cmd, stdout = subprocess.PIPE, stderr = subprocess.PIPE, text = True)
                     print(f"Thread_Coex: tcpliveplay avviato")
                     self.tcpliveplay_process.wait()
