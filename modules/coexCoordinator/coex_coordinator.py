@@ -277,7 +277,7 @@ class Coex_Coordinator:
             if probe_client_conf_message is not None:
                 print(f"Preparer coex: awaked from client conf NACK -> {probe_client_conf_message}")
                 
-                return "Error", f"Probe |{new_measurement.source_probe}| says: {probe_server_conf_message}", ""      
+                return "Error", f"Probe |{new_measurement.source_probe}| says: {probe_client_conf_message}", ""      
             else:
                 print(f"Preparer coex: No response from probe -> |{new_measurement.source_probe}")
                 # Sending stop to the server probe, otherwise it will remain BUSY
@@ -340,7 +340,7 @@ class Coex_Coordinator:
             if ("trace_name" in measurement_parameters) and (measurement_parameters["trace_name"] is not None):
                 json_overrided_config["trace_name"] = measurement_parameters["trace_name"]
                 json_overrided_config['packets_number'] = None
-                json_overrided_config['packets_size'] = None
+                json_overrided_config['packets_size'] = json_config['packets_size']
                 json_overrided_config['packets_rate'] = None
                 json_overrided_config['socket_port'] = json_config['socket_port']
             else:
@@ -352,5 +352,6 @@ class Coex_Coordinator:
                     json_overrided_config['packets_rate'] = measurement_parameters['packets_rate']
             if ('socket_port' in measurement_parameters):
                     json_overrided_config['socket_port'] = measurement_parameters['socket_port']
-                
+            if ('packets_size' in measurement_parameters):
+                    json_overrided_config['packets_size'] = measurement_parameters['packets_size']                
         return json_overrided_config
