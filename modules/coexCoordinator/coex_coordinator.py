@@ -86,10 +86,11 @@ class Coex_Coordinator:
                             print(f"Coex_Coordinator: received |stop| ACK of measurement not stored in DB -> |{msm_id}|")
                             return
                         self.queued_measurements[msm_id] = measurement_from_mongo
+                    
                     # If the measurement is not completed AND the probe sender is the probe client, then i will stop also the server probe
-                    if (self.queued_measurements[msm_id].state == "started") and (self.queued_measurements[msm_id].source_probe == probe_sender):
-                        print(f"Coex_Coordinator: received |stop| ACK from |{probe_sender}|. Stopping the server probe |{self.queued_measurements[msm_id].dest_probe}|")
-                        self.send_probe_coex_stop(probe_id=self.queued_measurements[msm_id].dest_probe, msm_id_to_stop=msm_id)
+                    if (self.queued_measurements[msm_id].state == "started") and (self.queued_measurements[msm_id].coexisting_application["source_probe"] == probe_sender):
+                        print(f"Coex_Coordinator: received |stop| ACK from |{probe_sender}|. Stopping the server probe |{self.queued_measurements[msm_id].coexisting_application['dest_probe']}|")
+                        self.send_probe_coex_stop(probe_id=self.queued_measurements[msm_id].coexisting_application["dest_probe"], msm_id_to_stop=msm_id, silent = True)
                     if msm_id in self.events_stop_probe_ack:
                         self.events_stop_probe_ack[msm_id][1] = "OK"
                         self.events_stop_probe_ack[msm_id][0].set()
@@ -188,12 +189,13 @@ class Coex_Coordinator:
         self.mqtt_client.publish_on_command_topic(probe_id=probe_id, complete_command=json.dumps(json_coex_start))
 
 
-    def send_probe_coex_stop(self, probe_id, msm_id_to_stop):
+    def send_probe_coex_stop(self, probe_id, msm_id_to_stop, silent = False):
         json_coex_stop = {
             "handler": "coex",
             "command": "stop",
             "payload": {
-                "msm_id": msm_id_to_stop
+                "msm_id": msm_id_to_stop,
+                "silent": silent
             }
         }
         self.mqtt_client.publish_on_command_topic(probe_id = probe_id, complete_command=json.dumps(json_coex_stop))
@@ -221,23 +223,32 @@ class Coex_Coordinator:
 
         coex_parameters = self.get_default_coex_parameters()
         coex_parameters = self.override_default_parameters(coex_parameters, new_measurement.coexisting_application)
+        if coex_parameters is None:
+            return None, None, None
+        coexisting_application = CoexistingApplicationModelMongo.cast_dict_in_CoexistingApplicationModelMongo(coex_parameters.copy())
 
-        source_probe_ip, source_probe_mac = self.ask_probe_ip_mac(new_measurement.source_probe)
-        if (source_probe_ip is None):
-            return "Error", f"No response from client probe: {new_measurement.source_probe}", "Reponse Timeout"
-        dest_probe_ip, dest_probe_mac = self.ask_probe_ip_mac(new_measurement.dest_probe)
-        if dest_probe_ip is None:
-            return "Error", f"No response from client probe: {new_measurement.dest_probe}", "Reponse Timeout"
+        source_coex_probe_ip, source_coex_probe_mac = self.ask_probe_ip_mac(coexisting_application.source_probe)
+        if (source_coex_probe_ip is None):
+            print(f"Coex_Coordinator: No response from client probe: {coexisting_application.source_probe}")
+            return "Error", f"No response from client probe: {coexisting_application.source_probe}", "Reponse Timeout"
         
-        new_measurement.source_probe_ip = source_probe_ip
-        new_measurement.dest_probe_ip = dest_probe_ip
-        new_measurement.coexisting_application = CoexistingApplicationModelMongo.cast_dict_in_CoexistingApplicationModelMongo(coex_parameters.copy())
+        dest_coex_probe_ip, dest_coex_probe_mac = self.ask_probe_ip_mac(coexisting_application.dest_probe)
+        if dest_coex_probe_ip is None:
+            print(f"Coex_Coordinator: No response from server probe: {coexisting_application.dest_probe}")
+            return "Error", f"No response from server probe: {new_measurement.dest_probe}", "Reponse Timeout"
+        
+        coexisting_application.source_probe_ip = source_coex_probe_ip
+        coexisting_application.dest_probe_ip = dest_coex_probe_ip
+
+        #new_measurement.coexisting_application.source_probe_ip = source_coex_probe_ip
+        #new_measurement.dest_probe_ip = dest_coex_probe_ip
+        new_measurement.coexisting_application = coexisting_application.to_dict() #CoexistingApplicationModelMongo.cast_dict_in_CoexistingApplicationModelMongo(coex_parameters.copy())
         self.queued_measurements[measurement_id] = new_measurement
         
         self.events_received_ack_from_probe_sender[measurement_id] = [threading.Event(), None]
-        self.send_probe_coex_conf(probe_sender = new_measurement.dest_probe, msm_id = measurement_id, role="Server",
-                                  parameters = new_measurement.coexisting_application, counterpart_probe_ip=new_measurement.source_probe_ip,
-                                  counterpart_probe_mac = source_probe_mac)
+        self.send_probe_coex_conf(probe_sender = coexisting_application.dest_probe, msm_id = measurement_id, role="Server",
+                                  parameters = coexisting_application, counterpart_probe_ip=coexisting_application.source_probe_ip,
+                                  counterpart_probe_mac = source_coex_probe_mac)
 
         self.events_received_ack_from_probe_sender[measurement_id][0].wait(timeout = 5)
         # ------------------------------- YOU MUST WAIT (AT MOST 5s) FOR AN ACK/NACK FROM DEST_PROBE (COEX INITIATOR)
@@ -245,55 +256,56 @@ class Coex_Coordinator:
         probe_server_conf_message = self.events_received_ack_from_probe_sender[measurement_id][1]
         if probe_server_conf_message == "OK":
             self.events_received_ack_from_probe_sender[measurement_id] = [threading.Event(), None]
-            self.send_probe_coex_conf(probe_sender = new_measurement.source_probe, msm_id = measurement_id, role="Client",
-                                      parameters = new_measurement.coexisting_application, counterpart_probe_ip = new_measurement.dest_probe_ip,
-                                      counterpart_probe_mac = dest_probe_mac)
+            self.send_probe_coex_conf(probe_sender = coexisting_application.source_probe, msm_id = measurement_id, role="Client",
+                                      parameters = coexisting_application, counterpart_probe_ip = coexisting_application.dest_probe_ip,
+                                      counterpart_probe_mac = dest_coex_probe_mac)
             self.events_received_ack_from_probe_sender[measurement_id][0].wait(timeout = 5)
             # ------------------------------- YOU MUST WAIT (AT MOST 5s) FOR AN ACK/NACK FROM SOURCE_PROBE (COEX INITIATOR)
             probe_client_conf_message = self.events_received_ack_from_probe_sender[measurement_id][1]
             if probe_client_conf_message == "OK":
                 self.queued_measurements[measurement_id] = new_measurement
                 self.events_received_ack_from_probe_sender[measurement_id] = [threading.Event(), None]
-                self.send_probe_coex_start(probe_id = new_measurement.source_probe, msm_id = measurement_id)
+                self.send_probe_coex_start(probe_id = coexisting_application.source_probe, msm_id = measurement_id)
                 self.events_received_ack_from_probe_sender[measurement_id][0].wait(timeout = 5)
                 # ------------------------------- YOU MUST WAIT (AT MOST 5s) FOR AN ACK/NACK START FROM SOURCE_PROBE (COEX INITIATOR)
                 probe_client_start_message = self.events_received_ack_from_probe_sender[measurement_id][1]
                 if probe_client_start_message == "OK":
-                    inserted_measurement_id = self.mongo_db.insert_measurement(measure = new_measurement)
-                    if inserted_measurement_id is None:
-                        print(f"Coex_Coordinator: can't start coex. Error while storing coex measurement on Mongo")
-                        return "Error", "Can't send start! Error while inserting measurement coex in mongo", "MongoDB Down?"
+                    #inserted_measurement_id = self.mongo_db.insert_measurement(measure = new_measurement)
+                    measure_has_been_updated = self.mongo_db.replace_measurement(measurement_id = measurement_id, measure = new_measurement)
+                    if measure_has_been_updated is None:
+                        print(f"Coex_Coordinator: can't update coex. Error while updating coex measurement on Mongo")
                     return "OK", new_measurement.to_dict(), None
                 
                 # Sending stop to the server probe, otherwise it will remain BUSY
-                self.send_probe_coex_stop(probe_id=new_measurement.dest_probe, msm_id_to_stop=measurement_id) 
+                self.send_probe_coex_stop(probe_id=coexisting_application.dest_probe, msm_id_to_stop=measurement_id) 
                 if probe_client_start_message is not None:
                     print(f"Preparer coex: awaked from client start NACK -> {probe_client_start_message}")
-                    return "Error", f"Probe |{new_measurement.source_probe}| says: {probe_server_conf_message}", ""      
+                    return "Error", f"Probe |{coexisting_application.source_probe}| says: {probe_server_conf_message}", ""      
                 else:
-                    print(f"Preparer coex: No response from probe -> |{new_measurement.source_probe}")
-                    return "Error", f"No response from Probe: {new_measurement.source_probe}" , "Response Timeout"
+                    print(f"Preparer coex: No response from probe -> |{coexisting_application.source_probe}")
+                    return "Error", f"No response from Probe: {coexisting_application.source_probe}" , "Response Timeout"
             
             # Sending stop to the server probe, otherwise it will remain BUSY
-            self.send_probe_coex_stop(probe_id=new_measurement.dest_probe, msm_id_to_stop=measurement_id)
+            self.send_probe_coex_stop(probe_id=coexisting_application.dest_probe, msm_id_to_stop=measurement_id)
             if probe_client_conf_message is not None:
                 print(f"Preparer coex: awaked from client conf NACK -> {probe_client_conf_message}")
                 
-                return "Error", f"Probe |{new_measurement.source_probe}| says: {probe_client_conf_message}", ""      
+                return "Error", f"Probe |{coexisting_application.source_probe}| says: {probe_client_conf_message}", ""      
             else:
-                print(f"Preparer coex: No response from probe -> |{new_measurement.source_probe}")
+                print(f"Preparer coex: No response from probe -> |{coexisting_application.source_probe}")
                 # Sending stop to the server probe, otherwise it will remain BUSY
-                self.send_probe_coex_stop(probe_id=new_measurement.dest_probe, msm_id_to_stop=measurement_id) 
-                return "Error", f"No response from Probe: {new_measurement.source_probe}" , "Response Timeout"
+                self.send_probe_coex_stop(probe_id=coexisting_application.dest_probe, msm_id_to_stop=measurement_id) 
+                return "Error", f"No response from Probe: {coexisting_application.source_probe}" , "Response Timeout"
         elif probe_server_conf_message is not None:
             print(f"Preparer coex: awaked from server conf NACK -> {probe_server_conf_message}")
-            return "Error", f"Probe |{new_measurement.dest_probe}| says: {probe_server_conf_message}", ""            
+            return "Error", f"Probe |{coexisting_application.dest_probe}| says: {probe_server_conf_message}", ""            
         else:
-            print(f"Preparer coex: No response from probe -> |{new_measurement.dest_probe}")
-            return "Error", f"No response from Probe: {new_measurement.dest_probe}" , "Response Timeout"
+            print(f"Preparer coex: No response from probe -> |{coexisting_application.dest_probe}")
+            return "Error", f"No response from Probe: {coexisting_application.dest_probe}" , "Response Timeout"
 
 
     def coex_measurement_stopper(self, msm_id_to_stop : str):
+        # Da aggiungere anche in aoi stopper, questo modo di gestire lo stop --> 22/03/2025
         if msm_id_to_stop not in self.queued_measurements:
             measure_from_db : MeasurementModelMongo = self.mongo_db.find_measurement_by_id(measurement_id=msm_id_to_stop)
             if isinstance(measure_from_db, ErrorModel):
@@ -301,33 +313,36 @@ class Coex_Coordinator:
             self.queued_measurements[msm_id_to_stop] = measure_from_db
 
         measurement_to_stop : MeasurementModelMongo = self.queued_measurements[msm_id_to_stop]
+
+        coexisting_application = CoexistingApplicationModelMongo.cast_dict_in_CoexistingApplicationModelMongo(measurement_to_stop.coexisting_application)
+
         self.events_stop_probe_ack[msm_id_to_stop] = [threading.Event(), None]
-        self.send_probe_coex_stop(probe_id = measurement_to_stop.dest_probe, msm_id_to_stop = msm_id_to_stop)
+        self.send_probe_coex_stop(probe_id = coexisting_application.dest_probe, msm_id_to_stop = msm_id_to_stop)
         self.events_stop_probe_ack[msm_id_to_stop][0].wait(5)
         # ------------------------------- WAIT FOR RECEIVE AN ACK/NACK -------------------------------
         stop_event_message = self.events_stop_probe_ack[msm_id_to_stop][1]
         if stop_event_message == "OK":
             self.events_stop_probe_ack[msm_id_to_stop] = [threading.Event(), None]
-            self.send_probe_coex_stop(probe_id = measurement_to_stop.source_probe, msm_id_to_stop = msm_id_to_stop)
+            self.send_probe_coex_stop(probe_id = coexisting_application.source_probe, msm_id_to_stop = msm_id_to_stop)
             self.events_stop_probe_ack[msm_id_to_stop][0].wait(5)
             stop_event_message = self.events_stop_probe_ack[msm_id_to_stop][1]
             if stop_event_message == "OK":
-                if self.mongo_db.set_measurement_as_completed(msm_id_to_stop):
-                    print(f"Coex_Coordinator: measurement |{msm_id_to_stop}| setted as completed")
-                else:
-                    print(f"Coex_Coordinator: error while setting |completed| the measure --> |{msm_id_to_stop}|")
-                return "OK", f"Measurement {msm_id_to_stop} stopped", None
+                #if self.mongo_db.set_measurement_as_completed(msm_id_to_stop):
+                #    print(f"Coex_Coordinator: measurement |{msm_id_to_stop}| setted as completed")
+                #else:
+                #    print(f"Coex_Coordinator: error while setting |completed| the measure --> |{msm_id_to_stop}|")
+                return "OK", f"Coexistring Application traffic for {msm_id_to_stop}, -> STOPPED", None
             if stop_event_message is not None:
-                return "Error", f"Probe |{measurement_to_stop.source_probe}| says: |{stop_event_message}|", ""
+                return "Error", f"Probe |{coexisting_application.source_probe}| says: |{stop_event_message}|", "May be the coex traffic is already finished."
             return "Error", f"Can't stop the measurement -> |{msm_id_to_stop}|", f"No response from probe |{measurement_to_stop.source_probe}|"
         
-        self.send_probe_coex_stop(probe_id = measurement_to_stop.source_probe, msm_id_to_stop = msm_id_to_stop)
-        if self.mongo_db.set_measurement_as_completed(msm_id_to_stop):
-            print(f"Coex_Coordinator: measurement |{msm_id_to_stop}| setted as completed")
+        self.send_probe_coex_stop(probe_id = coexisting_application.source_probe, msm_id_to_stop = msm_id_to_stop)
+        #if self.mongo_db.set_measurement_as_completed(msm_id_to_stop):
+        #    print(f"Coex_Coordinator: measurement |{msm_id_to_stop}| setted as completed")
         
         if stop_event_message is not None:
-            return "Error", f"Probe |{measurement_to_stop.dest_probe}| says: |{stop_event_message}|", ""
-        return "Error", f"Can't stop the measurement -> |{msm_id_to_stop}|", f"No response from probe |{measurement_to_stop.dest_probe}|"
+            return "Error", f"Probe |{coexisting_application.dest_probe}| says: |{stop_event_message}|", "May be the coex traffic is already finished."
+        return "Error", f"Can't stop the measurement -> |{msm_id_to_stop}|", f"No response from probe |{coexisting_application.dest_probe}|"
     
 
     def get_default_coex_parameters(self) -> json:
@@ -336,8 +351,16 @@ class Coex_Coordinator:
         json_default_config = cl.config if (cl.config is not None) else {}
         return json_default_config
 
-    def override_default_parameters(self, json_config, measurement_parameters):
+    def override_default_parameters(self, json_config, measurement_parameters : dict):
         json_overrided_config = json_config
+        source_probe_coex = measurement_parameters.get("source_probe")
+        dest_probe_coex = measurement_parameters.get("dest_probe")
+        if source_probe_coex is None:
+            print("Coex_Coordinator: Warning --> missing coex source probe --> No Coexisting Application Traffic")
+            return None
+        if dest_probe_coex is None:
+            print("Coex_Coordinator: Warning --> missing coex dest probe --> No Coexisting Application Traffic")
+            return None
         if (measurement_parameters is not None) and (isinstance(measurement_parameters, dict)):
             if ("trace_name" in measurement_parameters) and (measurement_parameters["trace_name"] is not None):
                 json_overrided_config["trace_name"] = measurement_parameters["trace_name"]
@@ -355,5 +378,7 @@ class Coex_Coordinator:
             if ('socket_port' in measurement_parameters):
                     json_overrided_config['socket_port'] = measurement_parameters['socket_port']
             if ('packets_size' in measurement_parameters):
-                    json_overrided_config['packets_size'] = measurement_parameters['packets_size']                
+                    json_overrided_config['packets_size'] = measurement_parameters['packets_size']
+        json_overrided_config['source_probe'] = source_probe_coex
+        json_overrided_config['dest_probe'] = dest_probe_coex
         return json_overrided_config
