@@ -58,6 +58,9 @@ class MongoDB:
             print(f"MongoDB: Error while storing the measurment on mongo -> {e}")
             return None
         
+    def replace_measurement(self, measurement_id, measure : MeasurementModelMongo):
+        result = self.measurements_collection.replace_one({"_id": ObjectId(measurement_id)}, measure.to_dict(to_store = True))
+        return (result.matched_count > 0)
 
     def set_measurement_as_completed(self, measurement_id) -> bool:
         stop_time = time.time()
@@ -124,7 +127,7 @@ class MongoDB:
                                      error_description="It must be a 12-byte input or a 24-character hex string",
                                      error_cause="measurement_id NOT VALID")
         return find_result
-    
+
 
     def get_measurement_state(self, measurement_id) -> str:
         measurement_result : MeasurementModelMongo = self.measurements_collection.find_one({"_id": ObjectId(measurement_id)})
