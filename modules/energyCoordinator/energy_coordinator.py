@@ -12,10 +12,12 @@ class EnergyCoordinator:
                  registration_handler_status_callback,
                  registration_handler_result_callback,
                  registration_measure_preparer_callback,
+                 ask_probe_ip_mac_callback,
                  registration_measurement_stopper_callback,
                  mongo_db : MongoDB):
         self.mqtt_client = mqtt_client
         self.mongo_db = mongo_db
+        self.ask_probe_ip_mac = ask_probe_ip_mac_callback
         self.queued_measurements = {}
         self.events_received_start_ack = {}
         self.events_received_stop_ack = {}
@@ -148,6 +150,13 @@ class EnergyCoordinator:
     def probes_preparer_to_measurements(self, new_measurement : MeasurementModelMongo):
         new_measurement.assign_id()
         measurement_id = str(new_measurement._id)
+
+        source_probe_ip, _ = self.ask_probe_ip_mac(new_measurement.source_probe)
+        if (source_probe_ip is None):
+            print(f"EnergyCoordinator: No response from probe: {new_measurement.source_probe}")
+            return "Error", f"No response from probe: {new_measurement.source_probe}", "Reponse Timeout"
+        new_measurement.source_probe_ip = source_probe_ip
+
         self.events_received_start_ack[measurement_id] = [threading.Event(), None]
         self.queued_measurements[str(new_measurement._id)] = new_measurement
 
@@ -199,7 +208,7 @@ class EnergyCoordinator:
         # ------------------------------- YOU MUST WAIT (AT MOST 5s) FOR AN ACK/NACK FROM SOURCE_PROBE
         stop_event_message = self.events_received_stop_ack[msm_id_to_stop][1]
         if stop_event_message == "OK":
-            return "OK", f"Measurement {msm_id_to_stop} stopped", None
+            return "OK", f"Measurement {msm_id_to_stop} stopped.", None
         elif stop_event_message is not None:
             print(f"Measurement stoppper: awaked from probe energy NACK -> |{stop_event_message}|")
             return "Error", f"Probe |{queued_measurement.source_probe}| says: |{stop_event_message}|", ""

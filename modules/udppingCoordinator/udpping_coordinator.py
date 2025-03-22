@@ -272,7 +272,7 @@ class UDPPing_Coordinator:
         stop_client_message_error = stop_event_message if (stop_event_message != "OK") else None
 
         if (stop_server_message_error is None) and (stop_client_message_error is None):
-            return "OK", f"Measurement {msm_id_to_stop} stopped", None
+            return "OK", f"Measurement {msm_id_to_stop} stopped.", None
 
         if stop_server_message_error is not None:
             return "Error", f"Probe |{measurement_to_stop.dest_probe}| says: |{stop_server_message_error}|", "UDPPING server may be is down"

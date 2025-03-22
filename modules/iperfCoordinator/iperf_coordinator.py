@@ -374,7 +374,7 @@ class Iperf_Coordinator:
         # ------------------------------- YOU MUST WAIT (AT MOST 5s) FOR AN ACK/NACK OF STOP COMMAND FROM DEST PROBE (IPERF-SERVER)
         stop_event_message = self.events_stop_server_ack[msm_id_to_stop][1]
         if stop_event_message == "OK":
-            return "OK", f"Measurement {msm_id_to_stop} stopped", None
+            return "OK", f"Measurement {msm_id_to_stop} stopped.", None
         if stop_event_message is not None:
             return "Error", f"Probe |{measurement_to_stop.dest_probe}| says: |{stop_event_message}|", ""
         return "Error", f"Can't stop the measurement -> |{msm_id_to_stop}|", f"No response from probe server |{measurement_to_stop.dest_probe}|"

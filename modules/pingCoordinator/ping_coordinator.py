@@ -245,7 +245,7 @@ class Ping_Coordinator:
             print(f"Ping_Coordinator: measurement |{msm_id_to_stop}| setted as failed")
         stop_event_message = self.events_received_stop_ack[msm_id_to_stop][1]
         if stop_event_message == "OK":
-            return "OK", f"Measurement {msm_id_to_stop} stopped", None
+            return "OK", f"Measurement {msm_id_to_stop} stopped.", None
         if stop_event_message is not None:
             return "Error", f"Probe |{measurement_to_stop.source_probe}| says: |{stop_event_message}|", ""
         return "Error", f"Can't stop the measurement -> |{msm_id_to_stop}|", f"No response from probe |{measurement_to_stop.source_probe}|"
