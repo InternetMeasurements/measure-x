@@ -41,6 +41,7 @@ class CoexController:
         self.mqtt_client = mqtt_client
         self.last_msm_id = None
         self.last_coex_parameters = CoexParamaters()
+        self.last_complete_trace_path = None
         self.stop_thread_event = threading.Event()
         self.thread_worker_on_socket = None
         self.tcpliveplay_process = None
@@ -240,8 +241,7 @@ class CoexController:
                     d = sendpfast(pkt, mbps=rate, count=n_pkts, parse_results=True)
                 else: # Else, if a trace_name has been specified, then it will be used tcpliveplay
                     # sudo tcpliveplay wlan0 tcp_out.pcap 192.168.143.211 2c:cf:67:6d:95:a3 60606
-                    complete_trace_path = os.path.join(Path(__file__).parent, DEFAULT_PCAP_FOLDER, self.last_coex_parameters.trace_name)
-                    tcpliveplay_cmd = ['sudo', 'tcpliveplay', self.shared_state.default_nic_name, complete_trace_path, self.last_coex_parameters.counterpart_probe_ip,
+                    tcpliveplay_cmd = ['sudo', 'tcpliveplay', self.shared_state.default_nic_name, self.last_complete_trace_path, self.last_coex_parameters.counterpart_probe_ip,
                                        self.last_coex_parameters.counterpart_probe_mac, str(self.last_coex_parameters.socker_port) ]
                     self.tcpliveplay_process = subprocess.Popen(tcpliveplay_cmd, stdout = subprocess.DEVNULL, stderr = subprocess.DEVNULL, text = True)
                     print(f"Thread_Coex: tcpliveplay started")
@@ -291,6 +291,7 @@ class CoexController:
         self.last_coex_parameters = CoexParamaters()
         self.thread_worker_on_socket = None
         self.tcpliveplay_process = None
+        self.last_complete_trace_path = None
         self.stop_thread_event.clear()
 
 
@@ -311,8 +312,11 @@ class CoexController:
             if trace_name is not None: # Checking if pcap file exists
                 trace_name += ".pcap" if (not trace_name.endswith(".pcap")) else ""
                 trace_path = os.path.join(Path(__file__).parent, DEFAULT_PCAP_FOLDER, trace_name)
-                if not Path(trace_path).exists():
-                    return f"Trace file |{trace_name}| not found!"
+                if not Path(trace_path).exists(): # If the pcap file is not present in the coex module path, the probe will check in its home dir
+                    trace_path = os.path.join(Path.home(), DEFAULT_PCAP_FOLDER, trace_name)
+                    if not Path(trace_path).exists():
+                        return f"Trace file |{trace_name}| not found!"
+                self.last_complete_trace_path = trace_path
             else:          
                 if packets_rate is None:
                     return "No packets rate provided"
