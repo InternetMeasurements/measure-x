@@ -244,9 +244,9 @@ class CoexController:
                     tcpliveplay_cmd = ['sudo', 'tcpliveplay', self.shared_state.default_nic_name, complete_trace_path, self.last_coex_parameters.counterpart_probe_ip,
                                        self.last_coex_parameters.counterpart_probe_mac, str(self.last_coex_parameters.socker_port) ]
                     self.tcpliveplay_process = subprocess.Popen(tcpliveplay_cmd, stdout = subprocess.DEVNULL, stderr = subprocess.DEVNULL, text = True)
-                    print(f"Thread_Coex: tcpliveplay avviato")
+                    print(f"Thread_Coex: tcpliveplay started")
                     self.tcpliveplay_process.wait()
-                    print(f"Thread_Coex: dopo la wait() del process")
+                    print(f"Thread_Coex: tcpliveplay killed")
                 self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
                 self.shared_state.set_probe_as_ready()
                 self.reset_vars()
@@ -274,11 +274,9 @@ class CoexController:
                 self.stop_thread_event.clear()
             elif self.last_coex_parameters.role == "Client":
                 proc = subprocess.run(["pgrep", "-f", DEFAULT_THREAD_NAME], capture_output=True, text=True)
-                print(f"pgrep stdout -> {proc.stdout}")
                 if proc.stdout:
                     pid = int(proc.stdout.strip())
                     os.kill(pid, signal.SIGKILL)
-                    print("UCCISO")
             self.shared_state.set_probe_as_ready()
             self.reset_vars()
             return "OK"
