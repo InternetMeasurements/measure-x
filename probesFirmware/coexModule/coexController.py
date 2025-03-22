@@ -162,8 +162,7 @@ class CoexController:
 
     def submit_thread_for_coex_traffic(self):
         try:
-            self.thread_worker_on_socket = threading.Thread(target=self.body_worker_for_coex_traffic, name = DEFAULT_THREAD_NAME , args=())    
-            print(f"Ident: {self.thread_worker_on_socket.ident} vs NativeId: {self.thread_worker_on_socket.native_id}")
+            self.thread_worker_on_socket = threading.Thread(target=self.body_worker_for_coex_traffic, name = DEFAULT_THREAD_NAME , args=())
             return "OK"
         except socket.error as e:
             print(f"CoexController: Socket error -> {str(e)}")

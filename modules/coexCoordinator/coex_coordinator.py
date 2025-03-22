@@ -227,6 +227,10 @@ class Coex_Coordinator:
             return None, None, None
         coexisting_application = CoexistingApplicationModelMongo.cast_dict_in_CoexistingApplicationModelMongo(coex_parameters.copy())
 
+        if coexisting_application.delay_start != 0:
+            print(f"Coex_Coordinator: coex traffic delayed of {str(coexisting_application.delay_start)}s")
+            time.sleep(coexisting_application.delay_start) # I can do this, because all of this code is run by another thread respect to the main
+
         source_coex_probe_ip, source_coex_probe_mac = self.ask_probe_ip_mac(coexisting_application.source_probe)
         if (source_coex_probe_ip is None):
             print(f"Coex_Coordinator: No response from client probe: {coexisting_application.source_probe}")
@@ -305,7 +309,6 @@ class Coex_Coordinator:
 
 
     def coex_measurement_stopper(self, msm_id_to_stop : str):
-        # Da aggiungere anche in aoi stopper, questo modo di gestire lo stop --> 22/03/2025
         if msm_id_to_stop not in self.queued_measurements:
             measure_from_db : MeasurementModelMongo = self.mongo_db.find_measurement_by_id(measurement_id=msm_id_to_stop)
             if isinstance(measure_from_db, ErrorModel):
@@ -351,8 +354,8 @@ class Coex_Coordinator:
         json_default_config = cl.config if (cl.config is not None) else {}
         return json_default_config
 
-    def override_default_parameters(self, json_config, measurement_parameters : dict):
-        json_overrided_config = json_config
+    def override_default_parameters(self, json_config : dict, measurement_parameters : dict):
+        json_overrided_config = json_config.copy()
         source_probe_coex = measurement_parameters.get("source_probe")
         dest_probe_coex = measurement_parameters.get("dest_probe")
         if source_probe_coex is None:
@@ -377,6 +380,8 @@ class Coex_Coordinator:
                     json_overrided_config['packets_rate'] = measurement_parameters['packets_rate']
             if ('socket_port' in measurement_parameters):
                     json_overrided_config['socket_port'] = measurement_parameters['socket_port']
+            if ('delay_start' in measurement_parameters):
+                    json_overrided_config['delay_start'] = measurement_parameters['delay_start']
         json_overrided_config['source_probe'] = source_probe_coex
         json_overrided_config['dest_probe'] = dest_probe_coex
         return json_overrided_config
