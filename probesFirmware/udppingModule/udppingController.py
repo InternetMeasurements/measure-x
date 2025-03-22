@@ -125,7 +125,7 @@ class UDPPingController:
                     self.send_udpping_NACK(failed_command=command, error_info="No role provided", msm_id=msm_id)
                     return
                 if role == "Server":
-                    if not shared_state.set_probe_as_busy():
+                    if not self.shared_state.set_probe_as_busy():
                         self.send_udpping_NACK(failed_command=command, error_info="PROBE BUSY", msm_id=msm_id)
                         return
                     listen_port = payload["listen_port"] if ("listen_port" in payload) else None
