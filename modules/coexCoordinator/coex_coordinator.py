@@ -336,7 +336,7 @@ class Coex_Coordinator:
                 return "Error", f"Probe |{coexisting_application.source_probe}| says: |{stop_event_message}|", "May be the coex traffic is already finished."
             return "Error", f"Can't stop the measurement -> |{msm_id_to_stop}|", f"No response from probe |{measurement_to_stop.source_probe}|"
         
-        self.send_probe_coex_stop(probe_id = coexisting_application.source_probe, msm_id_to_stop = msm_id_to_stop)
+        self.send_probe_coex_stop(probe_id = coexisting_application.source_probe, msm_id_to_stop = msm_id_to_stop, silent=True)
         #if self.mongo_db.set_measurement_as_completed(msm_id_to_stop):
         #    print(f"Coex_Coordinator: measurement |{msm_id_to_stop}| setted as completed")
         
