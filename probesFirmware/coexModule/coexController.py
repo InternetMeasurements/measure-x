@@ -323,8 +323,9 @@ class CoexController:
                 trace_path = os.path.join(Path(__file__).parent, DEFAULT_PCAP_FOLDER, trace_name)
                 print(f"First path: {trace_path}")
                 if not Path(trace_path).exists(): # If the pcap file is not present in the coex module path, the probe will check in its home dir
-                    trace_path = os.path.join(Path.home(), DEFAULT_PCAP_FOLDER, trace_name)
+                    trace_path = os.path.join(Path.home(), "home", os.getlogin(), DEFAULT_PCAP_FOLDER, trace_name)
                     print(f"Second path: {trace_path}")
+                    
                     if not Path(trace_path).exists():
                         return f"Trace file |{trace_name}| not found!"
                 self.last_complete_trace_path = trace_path
