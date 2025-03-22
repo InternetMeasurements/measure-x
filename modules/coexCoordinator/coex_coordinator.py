@@ -365,7 +365,7 @@ class Coex_Coordinator:
             if ("trace_name" in measurement_parameters) and (measurement_parameters["trace_name"] is not None):
                 json_overrided_config["trace_name"] = measurement_parameters["trace_name"]
                 json_overrided_config['packets_number'] = None
-                json_overrided_config['packets_size'] = json_config['packets_size']
+                json_overrided_config['packets_size'] = None # json_config['packets_size']
                 json_overrided_config['packets_rate'] = None
                 json_overrided_config['socket_port'] = json_config['socket_port']
             else:
@@ -377,8 +377,6 @@ class Coex_Coordinator:
                     json_overrided_config['packets_rate'] = measurement_parameters['packets_rate']
             if ('socket_port' in measurement_parameters):
                     json_overrided_config['socket_port'] = measurement_parameters['socket_port']
-            if ('packets_size' in measurement_parameters):
-                    json_overrided_config['packets_size'] = measurement_parameters['packets_size']
         json_overrided_config['source_probe'] = source_probe_coex
         json_overrided_config['dest_probe'] = dest_probe_coex
         return json_overrided_config

@@ -326,9 +326,6 @@ class CoexController:
         if socket_port is None:
             return "No socket port provided"
 
-        if packets_size is None:
-            return "No packets size provided"
-
         if counterpart_probe_mac is None:
             return "No counterpart probe mac provided"
             
