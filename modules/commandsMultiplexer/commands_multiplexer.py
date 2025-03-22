@@ -6,6 +6,8 @@ from modules.mongoModule.models.measurement_model_mongo import MeasurementModelM
 from modules.mongoModule.mongoDB import MongoDB, ErrorModel, STARTED_STATE, FAILED_STATE, COMPLETED_STATE
 from modules.mqttModule.mqtt_client import Mqtt_Client
 
+from concurrent.futures import ThreadPoolExecutor
+
 class CommandsMultiplexer:
     def __init__(self, mongo_db : MongoDB):
         self.mongo_db = mongo_db
@@ -174,6 +176,14 @@ class CommandsMultiplexer:
         if measurement_type in self.probes_preparer_callback:
             # *** Ensure that all "preparer" methods return exactly three values (triad). ***
             success_message, measurement_as_dict, error_cause = self.probes_preparer_callback[measurement_type](new_measurement)
+            
+            # ******* WITH THESE LINE BELOW, IT'S POSSIBLE EXPLOIT THE COEX-MODULE IN PARALLEL WAY WITH THE 'measurement_type'-MODULE OF THE STARTED MEASURE  *******
+            if success_message == "OK": # Naturally, only if the measure is started, it will be generated the coex traffic.
+                if new_measurement.coexisting_application is not None:                
+                    coexisting_application_thread = threading.Thread(target=self.probes_preparer_callback['coex'], args=(new_measurement,))
+                    coexisting_application_thread.start()
+            # ******************************************************************************************************************************************** 
+
             if success_message == "OK":
                 msm_id = measurement_as_dict["_id"]
                 msm_type = measurement_as_dict["type"]
@@ -191,7 +201,19 @@ class CommandsMultiplexer:
         
         if measure_from_db.state == STARTED_STATE:
             if measure_from_db.type in self.measurement_stopper_callback:
-                return self.measurement_stopper_callback[measure_from_db.type](msm_id_to_stop)
+                stop_resul, stop_message, stop_error = self.measurement_stopper_callback[measure_from_db.type](msm_id_to_stop)
+
+                if measure_from_db.coexisting_application is not None:
+                    with ThreadPoolExecutor(max_workers=1) as executor: 
+                        future = executor.submit(self.measurement_stopper_callback['coex'], msm_id_to_stop)  # Avvia il thread
+                        stop_coex_resul, stop_coex_message, stop_coex_error = future.result()
+                        if stop_coex_resul != "OK":
+                            print(f"WARNING: unable to stop coex traffic, error -> {stop_coex_message}. Possible cause -> {stop_coex_error}")
+                            stop_message += f" Warning: problem with stopping coex traffic -> {stop_coex_message}. Possible cause: {stop_coex_error}"
+                    #coexisting_application_stopping_thread = threading.Thread(target=self.measurement_stopper_callback['coex'], args=(msm_id_to_stop,))
+                    #coexisting_application_stopping_thread.start()
+                
+                return stop_resul, stop_message, stop_error
             return "Error", "Check the measurement type", f"Unkown measure type: {measure_from_db.type}"
         elif measure_from_db.state == FAILED_STATE:
             return "Error", "Measurement was failed", "Wrong id?"
