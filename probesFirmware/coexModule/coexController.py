@@ -76,7 +76,8 @@ class CoexController:
                     self.shared_state.set_probe_as_ready()
                     return
                 # Se va a buon fine la creazione del threas Server (per adesso), manda lui l'ACK
-                print(f"PARAMS: {self.last_coex_parameters.to_dict()}")
+                self.print_coex_conf_info_message()
+                
                 if self.last_coex_parameters.role == "Server":
                     self.thread_worker_on_socket.start()
                 else:
@@ -118,7 +119,7 @@ class CoexController:
                     #self.last_msm_id = None
             case _:
                 self.send_coex_NACK(failed_command = command, error_info = "Command not handled", measurement_related_conf = msm_id)
-        
+
 
     def send_coex_ACK(self, successed_command, measurement_related_conf): # Incapsulating from the coex client
         json_ack = {
@@ -284,6 +285,14 @@ class CoexController:
             print(f"CoexController: Role -> {self.last_coex_parameters.role} , exception while stoppping socket -> {e}")
             return str(e)
         
+    def print_coex_conf_info_message(self):
+        if self.last_coex_parameters.trace_name is None:
+            print(f"CoexController: conf received -> CBR traffic |rate: {str(self.last_coex_parameters.packets_rate)}| , |size: {str(self.last_coex_parameters.packets_size)}|")
+            print(f" , |number: {str(self.last_coex_parameters.packets_number)}| , |port: {str(self.last_coex_parameters.socker_port)}| , |counterpart_ip: {self.last_coex_parameters.counterpart_probe_ip}|" +
+                    + f" , |counterpart_mac: {self.last_coex_parameters.counterpart_probe_mac}|")
+        else:
+            print(f"CoexController: conf received -> trace traffic |trace_name: {self.last_coex_parameters.trace_name}| , |port: {str(self.last_coex_parameters.socker_port)}|" + 
+                  + f" , |counterpart_ip: {self.last_coex_parameters.counterpart_probe_ip}| , |counterpart_mac: {self.last_coex_parameters.counterpart_probe_mac}|")
 
     def reset_vars(self):
         print("CoexController: variables reset")
