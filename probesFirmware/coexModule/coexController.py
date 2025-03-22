@@ -98,7 +98,9 @@ class CoexController:
 
             case 'stop':
                 if self.shared_state.probe_is_ready():
-                    self.send_coex_NACK(failed_command = command, error_info = "No coex measure in progress", measurement_related_conf = msm_id)
+                    silent_mode = payload["silent"]
+                    if not silent_mode:
+                        self.send_coex_NACK(failed_command = command, error_info = "No coex measure in progress", measurement_related_conf = msm_id)
                     return
                 
                 if (self.last_msm_id is not None) and (msm_id != self.last_msm_id):
