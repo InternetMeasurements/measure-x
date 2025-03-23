@@ -247,8 +247,9 @@ class CoexController:
                     print(f"Thread_Coex: tcpliveplay started")
                     time.sleep(10)
                     self.tcpliveplay_process.terminate()
-                    self.tcpliveplay_process.wait()
                     print(f"Thread_Coex: tcpliveplay killed")
+                    self.tcpliveplay_process.wait()
+                    
                 self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
                 self.shared_state.set_probe_as_ready()
                 self.reset_vars()
