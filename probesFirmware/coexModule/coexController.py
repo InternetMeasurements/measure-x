@@ -22,7 +22,7 @@ class CoexParamaters:
         self.counterpart_probe_mac = counterpart_probe_mac
         self.trace_name = trace_name # Client paramter
         self.duration = duration
-    
+
     def to_dict(self):
         return {
             "role": self.role,
@@ -48,6 +48,8 @@ class CoexController:
         self.stop_thread_event = threading.Event()
         self.thread_worker_on_socket = None
         self.tcpliveplay_process = None
+        self.measure_socket = None
+
 
         # Requests to commands_demultiplexer
         registration_response = registration_handler_request_function(
@@ -79,12 +81,9 @@ class CoexController:
                     self.shared_state.set_probe_as_ready()
                     return
                 # Se va a buon fine la creazione del threas Server (per adesso), manda lui l'ACK
-                self.print_coex_conf_info_message()
-                
-                if self.last_coex_parameters.role == "Server":
-                    self.thread_worker_on_socket.start()
-                else:
-                    self.send_coex_ACK(successed_command = "conf", measurement_related_conf = self.last_msm_id)
+                self.print_coex_conf_info_message()                
+                self.thread_worker_on_socket.start()
+                self.send_coex_ACK(successed_command = "conf", measurement_related_conf = self.last_msm_id)
 
             case 'start':
                 if self.shared_state.probe_is_ready():
@@ -176,14 +175,12 @@ class CoexController:
     
             
     def body_worker_for_coex_traffic(self):
-        self.measure_socket = None
         try:
             print(f"Thread_Coex: I'm the |{self.last_coex_parameters.role}| probe of measure |{self.last_msm_id}|")
             if self.last_coex_parameters.role == "Server":
                 if self.last_coex_parameters.trace_name is None: # This means that there will be a Custom Traffic (UDP)
                     self.measure_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                     self.measure_socket.bind((self.shared_state.get_probe_ip(), self.last_coex_parameters.socker_port))
-                    self.send_coex_ACK(successed_command = "conf", measurement_related_conf = self.last_msm_id)
                     print(f"Thread_Coex: Opened socket on IP: |{self.shared_state.get_probe_ip()}| , port: |{self.last_coex_parameters.socker_port}|")
                     print(f"Thread_Coex: Listening for {self.last_coex_parameters.packets_size} byte ...")
                     while(not self.stop_thread_event.is_set()):
@@ -334,7 +331,7 @@ class CoexController:
                 # Remember that, the future thread that will invoke this method, may be will have the resetted vars, so its role is None. 
             return "OK"
         except Exception as e:
-            print(f"CoexController: Role -> {self.last_coex_parameters.role} , exception while stoppping socket -> {e}")
+            print(f"CoexController: Role -> {self.last_coex_parameters.role} , exception while closing socket -> {e}")
             return str(e)
         
     def print_coex_conf_info_message(self):
