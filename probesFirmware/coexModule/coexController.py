@@ -118,7 +118,6 @@ class CoexController:
                     self.send_coex_NACK(failed_command=command, error_info=termination_message, measurement_related_conf = msm_id)
                 else:
                     self.send_coex_ACK(successed_command="stop", measurement_related_conf = msm_id)
-                    #self.last_msm_id = None
             case _:
                 self.send_coex_NACK(failed_command = command, error_info = "Command not handled", measurement_related_conf = msm_id)
 
@@ -286,7 +285,8 @@ class CoexController:
                     self.measure_socket.close()
                 else:
                     self.thread_worker_on_socket.join()
-                self.stop_thread_event.clear()
+                self.shared_state.set_probe_as_ready()
+                self.reset_vars()
             elif self.last_coex_parameters.role == "Client":
                 """
                 proc = subprocess.run(["pgrep", "-f", DEFAULT_THREAD_NAME], capture_output=True, text=True)
