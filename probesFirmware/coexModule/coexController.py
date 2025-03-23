@@ -307,6 +307,9 @@ class CoexController:
                         else:
                             proc = subprocess.run(["pgrep", "-f", DEFAULT_THREAD_NAME], capture_output=True, text=True)
                             print(f"TENTATIVO UCCISIONE-AUTOMATICO-CBR --> |{proc.stdout}|")
+                            if self.measure_socket is not None:
+                                print("socket chiuso")
+                                self.measure_socket.close()
                             if proc.stdout:
                                 pid = int(proc.stdout.strip())
                                 os.kill(pid, signal.SIGKILL)
