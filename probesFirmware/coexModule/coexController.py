@@ -1,5 +1,6 @@
 import os, signal
 import json
+import multiprocessing
 from pathlib import Path
 from mqttModule.mqttClient import ProbeMqttClient
 from shared_resources import SharedState
@@ -163,7 +164,7 @@ class CoexController:
 
     def submit_thread_for_coex_traffic(self):
         try:
-            self.thread_worker_on_socket = threading.Thread(target=self.body_worker_for_coex_traffic, name = DEFAULT_THREAD_NAME , args=())
+            self.thread_worker_on_socket = multiprocessing.Process(target=self.body_worker_for_coex_traffic) #threading.Thread(target=self.body_worker_for_coex_traffic, name = DEFAULT_THREAD_NAME , args=())
             return "OK"
         except socket.error as e:
             print(f"CoexController: Socket error -> {str(e)}")
@@ -244,8 +245,10 @@ class CoexController:
                         future_stopper = threading.Timer(self.last_coex_parameters.duration, self.stop_worker_socket_thread, args=(True, self.last_msm_id))
                         future_stopper.start()
                         d = sendpfast(pkt, mbps = rate, loop = 1, parse_results = True) # Send the packet forever (duration: 0)
+                        print("sendpfast con loop terminata")
                     else:
                         d = sendpfast(pkt, mbps=rate, count=n_pkts, parse_results=True)
+                        print("Send p fast no loop terminata")
                         self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
                         self.shared_state.set_probe_as_ready()
                         self.reset_vars()
@@ -305,15 +308,18 @@ class CoexController:
                         if self.tcpliveplay_process is not None:
                             self.tcpliveplay_process.terminate()
                         else:
+                            if self.thread_worker_on_socket is not None:
+                                self.thread_worker_on_socket.terminate()
+                                self.thread_worker_on_socket.join()
+                                print("CoexController: automatic stop of Coex Application Traffic")
+                            """
                             proc = subprocess.run(["pgrep", "-f", DEFAULT_THREAD_NAME], capture_output=True, text=True)
                             print(f"TENTATIVO UCCISIONE-AUTOMATICO-CBR --> |{proc.stdout}|")
-                            if self.measure_socket is not None:
-                                print("socket chiuso")
-                                self.measure_socket.close()
                             if proc.stdout:
                                 pid = int(proc.stdout.strip())
                                 os.kill(pid, signal.SIGKILL)
-                                print("UCCISIONE CBR OK")
+                                print("UCCISIONE CBR OK")"
+                            """
                         self.send_coex_ACK(successed_command="stop", measurement_related_conf=measurement_coex_to_stop)
                         self.shared_state.set_probe_as_ready()
                         self.reset_vars()
@@ -321,12 +327,10 @@ class CoexController:
                     if self.tcpliveplay_process is not None:
                         self.tcpliveplay_process.terminate()      
                     else:
-                        proc = subprocess.run(["pgrep", "-f", DEFAULT_THREAD_NAME], capture_output=True, text=True)
-                        print(f"TENTATIVO UCCISIONE-MANUALE- CBR --> |{proc.stdout}|")
-                        if proc.stdout:
-                            pid = int(proc.stdout.strip())
-                            os.kill(pid, signal.SIGKILL)
-                            print("UCCISIONE CBR OK")                                     
+                        if self.thread_worker_on_socket is not None:
+                            self.thread_worker_on_socket.terminate()
+                            self.thread_worker_on_socket.join()
+                            print("CoexController: manual stop of Coex Application Traffic")                         
                 # Remember that, the future thread that will invoke this method, may be will have the resetted vars, so its role is None. 
             return "OK"
         except Exception as e:
