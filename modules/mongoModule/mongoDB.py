@@ -160,7 +160,7 @@ class MongoDB:
         import numpy as np
 
         result = self.find_all_results_by_measurement_id(msm_id=msm_id)
-        aois = result[0]["aois"]
+        aois = result["aois"]
 
 
         timestamps = np.array([aoi_data["Timestamp"] for aoi_data in aois], dtype=float)
@@ -287,6 +287,8 @@ class MongoDB:
         try:
             cursor = self.results_collection.find({"msm_id": ObjectId(msm_id)})
             result_list = list() if (cursor is None) else list(cursor)
+            if len(result_list) == 1:
+                return result_list[0]
             return result_list
         except Exception as e:
             print(f"Motivo -> {e}")

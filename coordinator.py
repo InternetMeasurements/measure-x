@@ -78,6 +78,7 @@ def main():
         registration_handler_status_callback = commands_multiplexer.add_status_callback,
         registration_handler_result_callback = commands_multiplexer.add_result_callback,
         registration_measure_preparer_callback = commands_multiplexer.add_probes_preparer_callback,
+        ask_probe_ip_mac_callback = commands_multiplexer.ask_probe_ip_mac,
         registration_measurement_stopper_callback = commands_multiplexer.add_measure_stopper_callback,
         mongo_db = mongo_db)
     

@@ -9,13 +9,12 @@ from modules.configLoader.config_loader import ConfigLoader, COEX_KEY
 from bson import ObjectId
 from modules.mongoModule.mongoDB import MongoDB, SECONDS_OLD_MEASUREMENT, ErrorModel
 from modules.mongoModule.models.measurement_model_mongo import MeasurementModelMongo, CoexistingApplicationModelMongo
-from modules.mongoModule.models.coex_result_model_mongo import CoexResultModelMongo
 
 class Coex_Coordinator:
 
     def __init__(self, mqtt_client : Mqtt_Client, 
                  registration_handler_error_callback, registration_handler_status_callback,
-                 registration_handler_result_callback, registration_measure_preparer_callback,
+                 registration_measure_preparer_callback,
                  ask_probe_ip_mac_callback, registration_measurement_stopper_callback,
                  mongo_db : MongoDB):
         self.mqtt_client = mqtt_client
@@ -37,14 +36,6 @@ class Coex_Coordinator:
                                                              handler = self.handler_received_status)
         if registration_response == "OK" :
             print(f"Coex_Coordinator: registered handler for status -> coex")
-        else:
-            print(f"Coex_Coordinator: registration handler failed. Reason -> {registration_response}")
-
-        # Requests to commands_multiplexer: handler RESULT registration
-        registration_response = registration_handler_result_callback(interested_result = "coex",
-                                                            handler = self.handler_received_result)
-        if registration_response == "OK" :
-            print(f"Coex_Coordinator: registered handler for result -> coex")
         else:
             print(f"Coex_Coordinator: registration handler failed. Reason -> {registration_response}")
 
@@ -118,17 +109,6 @@ class Coex_Coordinator:
             case _:
                 print(f"Coex_Coordinator: received unkown type message -> |{type}|")
 
-    def handler_received_result(self, probe_sender, result: json):
-        measure_id = result['msm_id'] if ('msm_id' in result) else None
-        if measure_id is None:
-            print("Coex_Coordinator: received result wihout measure_id -> IGNORED")
-            return
-        
-        if ((time.time() - result["timestamp"]) < SECONDS_OLD_MEASUREMENT):
-            if self.store_measurement_result(result = result):
-                print(f"Coex_Coordinator: complete the measurement store and update -> {measure_id}")
-        else:
-            print(f"Coex_Coordinator: ignored result. Reason: expired measurement -> {measure_id}")
 
     def handler_received_error(self, probe_sender, error_command, error_payload : json):
         print(f"Coex_Coordinator: error from {probe_sender} , command |{error_command}| payload: {error_payload}")
@@ -199,21 +179,6 @@ class Coex_Coordinator:
             }
         }
         self.mqtt_client.publish_on_command_topic(probe_id = probe_id, complete_command=json.dumps(json_coex_stop))
-
-    
-    def store_measurement_result(self, result : json) -> bool:
-        coex_result = CoexResultModelMongo()
-        result_id = str(self.mongo_db.insert_result(result = coex_result))
-        if result_id is not None:
-            msm_id = result["msm_id"]
-            print(f"Coex_Coordinator: result |{result_id}| stored in db")
-            if self.mongo_db.update_results_array_in_measurement(msm_id):
-                print(f"Coex_Coordinator: updated document linking in measure: |{msm_id}|")
-                if self.mongo_db.set_measurement_as_completed(msm_id):
-                    self.print_summary_result(measurement_result = result)
-                    return True
-        print(f"Coex_Coordinator: error while storing result |{result_id}|")
-        return False
 
 
     def probes_preparer_to_measurements(self, new_measurement : MeasurementModelMongo):
