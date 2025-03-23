@@ -129,8 +129,8 @@ class CoexController:
             "command": successed_command,
             "msm_id" : measurement_related_conf
             }
-        print(f"CoexController: sent ACK -> {successed_command} for measure -> |{measurement_related_conf}|")
         self.mqtt_client.publish_command_ACK(handler='coex', payload = json_ack)
+        print(f"CoexController: sent ACK -> {successed_command} for measure -> |{measurement_related_conf}|")
 
     def send_coex_NACK(self, failed_command, error_info, measurement_related_conf = None):
         json_nack = {
@@ -138,8 +138,8 @@ class CoexController:
             "reason" : error_info,
             "msm_id" : measurement_related_conf
             }
-        print(f"CoexController: sent NACK for |{failed_command}| , reason-> {error_info} for measure -> |{measurement_related_conf}|")
         self.mqtt_client.publish_command_NACK(handler='coex', payload = json_nack)
+        print(f"CoexController: sent NACK for |{failed_command}| , reason-> {error_info} for measure -> |{measurement_related_conf}|")
 
     def send_coex_result(self, json_coex_result : json):
         json_command_result = {
