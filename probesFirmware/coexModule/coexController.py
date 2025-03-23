@@ -11,7 +11,7 @@ DEFAULT_PCAP_FOLDER = "pcap"
 
 class CoexParamaters:
     def __init__(self, role = None, packets_size = None, packets_number = None, packets_rate = None,
-                 socker_port = None, counterpart_probe_ip = None, counterpart_probe_mac = None, trace_name = None):
+                 socker_port = None, counterpart_probe_ip = None, counterpart_probe_mac = None, trace_name = None, duration = None):
         self.role = role
         self.packets_size = packets_size
         self.packets_number = packets_number # Client paramter
@@ -20,6 +20,7 @@ class CoexParamaters:
         self.counterpart_probe_ip = counterpart_probe_ip # Client paramter
         self.counterpart_probe_mac = counterpart_probe_mac
         self.trace_name = trace_name # Client paramter
+        self.duration = duration
     
     def to_dict(self):
         return {
@@ -30,7 +31,8 @@ class CoexParamaters:
             "socker_port": self.socker_port,
             "counterpart_probe_ip": self.counterpart_probe_ip,
             "counterpart_probe_mac" : self.counterpart_probe_mac,
-            "trace_name" : self.trace_name
+            "trace_name" : self.trace_name,
+            "duration" : self.duration
         }
 
 
@@ -244,13 +246,13 @@ class CoexController:
                     tcpliveplay_cmd = ['sudo', 'tcpliveplay', self.shared_state.default_nic_name, self.last_complete_trace_path, self.last_coex_parameters.counterpart_probe_ip,
                                        self.last_coex_parameters.counterpart_probe_mac, str(self.last_coex_parameters.socker_port) ]
                     self.tcpliveplay_process = subprocess.Popen(tcpliveplay_cmd, stdout = subprocess.DEVNULL, stderr = subprocess.DEVNULL, text = True)
-                    print(f"Thread_Coex: tcpliveplay started")
+                    print(f"Thread_Coex: tcpliveplay coex traffic started")
                     
-                    #time.sleep(20)
-                    future_stopper = threading.Timer(20, self.stop_worker_socket_thread, args=(True, self.last_msm_id))
+                    future_stopper = threading.Timer(self.last_coex_parameters.duration, self.stop_worker_socket_thread, args=(True, self.last_msm_id))
                     future_stopper.start()
+
                     self.tcpliveplay_process.wait()
-                    print(f"Thread_Coex: tcpliveplay killed")
+                    print(f"Thread_Coex: tcpliveplay coex traffic finished")
                     
                 self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
                 self.shared_state.set_probe_as_ready()
@@ -297,12 +299,11 @@ class CoexController:
                                 pid = int(proc.stdout.strip())
                                 os.kill(pid, signal.SIGKILL)
                                 print("UCCISIONE CBR OK")
-                    else:
-                        print("misura diversa")
                 else:
                     self.tcpliveplay_process.terminate()                                           
-            self.shared_state.set_probe_as_ready()
-            self.reset_vars()
+                self.shared_state.set_probe_as_ready()
+                self.reset_vars()
+                # Remember that, the future thread that will invoke this method, may be will have the resetted vars, so its role is None. 
             return "OK"
         except Exception as e:
             print(f"CoexController: Role -> {self.last_coex_parameters.role} , exception while stoppping socket -> {e}")
@@ -337,6 +338,7 @@ class CoexController:
         socket_port = payload.get("socket_port")
         counterpart_probe_mac = payload.get("counterpart_probe_mac")
         msm_id = payload.get("msm_id")
+        duration = payload.get("duration", 0)
 
         if role is None:
             return "No role provided"
@@ -374,5 +376,5 @@ class CoexController:
         self.last_msm_id = msm_id
         self.last_coex_parameters = CoexParamaters(role = role, packets_size = packets_size, packets_number = packets_number,
                                                    packets_rate = packets_rate, socker_port = socket_port, counterpart_probe_ip = counterpart_probe_ip,
-                                                   counterpart_probe_mac = counterpart_probe_mac, trace_name = trace_name)
+                                                   counterpart_probe_mac = counterpart_probe_mac, trace_name = trace_name, duration=duration)
         return "OK"
