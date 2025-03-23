@@ -253,8 +253,8 @@ class CoexController:
                     print(f"Thread_Coex: tcpliveplay killed")
                     
                 self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
-                #self.shared_state.set_probe_as_ready()
-                #self.reset_vars()
+                self.shared_state.set_probe_as_ready()
+                self.reset_vars()
                 
         except socket.error as e:
             print(f"CoexController: Role: {self.last_coex_parameters.role} , Socket error -> {str(e)}")
@@ -285,7 +285,9 @@ class CoexController:
                     os.kill(pid, signal.SIGKILL)
                 """
                 if (invoked_by_timer): # If this is an automatic invocation, then we must be sure to stop the coex traffic.
+                    print("Invoked by timer")
                     if (measurement_coex_to_stop == self.last_msm_id): # May be this automatic invocation is delayed too much that fall in another measurement, so it's mandatory check the msm_id
+                        print("misure da fermare = quella del timer thread")
                         if self.tcpliveplay_process is not None:
                             self.tcpliveplay_process.terminate()
                         else:
@@ -295,6 +297,8 @@ class CoexController:
                                 pid = int(proc.stdout.strip())
                                 os.kill(pid, signal.SIGKILL)
                                 print("UCCISIONE CBR OK")
+                    else:
+                        print("misura diversa")
                 else:
                     self.tcpliveplay_process.terminate()                                           
             self.shared_state.set_probe_as_ready()
