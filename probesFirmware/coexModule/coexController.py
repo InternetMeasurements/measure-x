@@ -312,7 +312,7 @@ class CoexController:
                                 self.thread_worker_on_socket.join()
                                 print("CoexController: automatic stop of Coex Application Traffic")
                             """
-                            proc = subprocess.run(["pgrep", "-f", "tcpreplay"], capture_output=True, text=True)
+                            proc = subprocess.run(["pgrep", "tcpreplay"], capture_output=True, text=True)
                             print(f"TENTATIVO UCCISIONE-AUTOMATICO-CBR --> |{proc.stdout}|")
                             self.send_coex_ACK(successed_command="stop", measurement_related_conf=measurement_coex_to_stop)
                             #if proc.stdout:
