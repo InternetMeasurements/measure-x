@@ -239,17 +239,17 @@ class CoexController:
 
                     pkt = Ether(src=src_mac, dst=dest_mac) / IP(src=src_ip, dst=dst_ip) / UDP(sport=30000, dport=dport) / Raw(RandString(size=size))
 
-                    if self.last_coex_parameters.duration == 0:
+                    if self.last_coex_parameters.duration != 0:
                         future_stopper = threading.Timer(self.last_coex_parameters.duration, self.stop_worker_socket_thread, args=(True, self.last_msm_id))
                         future_stopper.start()
+                        d = sendpfast(pkt, mbps=rate, count=n_pkts, parse_results=True)
+                        print("Sendpfast no loop terminata")
+                    else:
                         d = sendpfast(pkt, mbps = rate, loop = 1, parse_results = True) # Send the packet forever (duration: 0)
                         print("sendpfast con loop terminata")
-                    else:
-                        d = sendpfast(pkt, mbps=rate, count=n_pkts, parse_results=True)
-                        print("Send p fast no loop terminata")
-                        self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
-                        self.shared_state.set_probe_as_ready()
-                        self.reset_vars()
+                        #self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
+                        #self.shared_state.set_probe_as_ready()
+                        #self.reset_vars()
                 else: # Else, if a trace_name has been specified, then it will be used tcpliveplay
                     # sudo tcpliveplay wlan0 tcp_out.pcap 192.168.143.211 2c:cf:67:6d:95:a3 60606
                     tcpliveplay_cmd = ['sudo', 'tcpliveplay', self.shared_state.default_nic_name, self.last_complete_trace_path, self.last_coex_parameters.counterpart_probe_ip,
@@ -337,6 +337,9 @@ class CoexController:
                             pid = int(proc.stdout.strip())
                             os.kill(pid, signal.SIGKILL)
                             print("UCCISIONE CBR OK")
+                        self.send_coex_ACK(successed_command="stop", measurement_related_conf=measurement_coex_to_stop)
+                        self.shared_state.set_probe_as_ready()
+                        self.reset_vars()
                 # Remember that, the future thread that will invoke this method, may be will have the resetted vars, so its role is None. 
             return "OK"
         except Exception as e:
