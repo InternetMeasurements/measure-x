@@ -80,10 +80,12 @@ class CoexController:
                     self.send_coex_NACK(failed_command = command, error_info = "PROBE BUSY", measurement_related_conf = msm_id)
                     self.shared_state.set_probe_as_ready()
                     return
-                # Se va a buon fine la creazione del threas Server (per adesso), manda lui l'ACK
-                self.print_coex_conf_info_message()                
-                self.thread_worker_on_socket.start()
+                
                 self.send_coex_ACK(successed_command = "conf", measurement_related_conf = self.last_msm_id)
+                self.print_coex_conf_info_message()       
+                if self.last_coex_parameters.role == "Server": # ONLY the server starts the thread at CONF COMMAND
+                    self.thread_worker_on_socket.start()
+                
 
             case 'start':
                 if self.shared_state.probe_is_ready():
