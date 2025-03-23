@@ -141,6 +141,7 @@ class Coex_Coordinator:
 
     def send_probe_coex_conf(self, probe_sender, msm_id, role, parameters : CoexistingApplicationModelMongo, 
                              counterpart_probe_mac, counterpart_probe_ip = None):
+        
         json_conf_payload = {
             "msm_id": msm_id,
             "role": role,
@@ -150,7 +151,8 @@ class Coex_Coordinator:
             "socket_port" : parameters.socket_port, #["socket_port"],
             "trace_name" : parameters.trace_name,
             "counterpart_probe_ip": counterpart_probe_ip,
-            "counterpart_probe_mac": counterpart_probe_mac
+            "counterpart_probe_mac": counterpart_probe_mac,
+            "duration": parameters.duration
         }
         
         json_coex_conf = {
@@ -313,7 +315,7 @@ class Coex_Coordinator:
                 return "OK", f"Coexistring Application traffic for {msm_id_to_stop}, -> STOPPED", None
             if stop_event_message is not None:
                 return "Error", f"Probe |{coexisting_application.source_probe}| says: |{stop_event_message}|", "May be the coex traffic is already finished."
-            return "Error", f"Can't stop the measurement -> |{msm_id_to_stop}|", f"No response from probe |{measurement_to_stop.source_probe}|"
+            return "Error", f"Can't stop the measurement -> |{msm_id_to_stop}|", f"No response from probe |{coexisting_application.source_probe}|"
         
         self.send_probe_coex_stop(probe_id = coexisting_application.source_probe, msm_id_to_stop = msm_id_to_stop, silent=True)
         #if self.mongo_db.set_measurement_as_completed(msm_id_to_stop):
@@ -335,6 +337,7 @@ class Coex_Coordinator:
         source_probe_coex = measurement_parameters.get("source_probe")
         dest_probe_coex = measurement_parameters.get("dest_probe")
         description = json_config.get("description")
+        duration = json_config.get("duration")
         if source_probe_coex is None:
             print("Coex_Coordinator: Warning --> missing coex source probe --> No Coexisting Application Traffic")
             return None
@@ -361,7 +364,7 @@ class Coex_Coordinator:
             if ('delay_start' in measurement_parameters):
                     json_overrided_config['delay_start'] = measurement_parameters['delay_start']
         description = measurement_parameters.get("description", description)
-        duration = measurement_parameters.get("duration", json_config["duration"])
+        duration = measurement_parameters.get("duration", duration)
 
         json_overrided_config['duration'] = duration
         json_overrided_config['description'] = description
