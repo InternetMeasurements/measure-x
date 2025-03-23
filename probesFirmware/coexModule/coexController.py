@@ -248,6 +248,7 @@ class CoexController:
                     
                     #time.sleep(20)
                     future_stopper = threading.Timer(20, self.stop_worker_socket_thread, args=(True,))
+                    future_stopper.start()
                     self.tcpliveplay_process.wait()
                     print(f"Thread_Coex: tcpliveplay killed")
                     
