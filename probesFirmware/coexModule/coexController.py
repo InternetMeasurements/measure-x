@@ -48,6 +48,7 @@ class CoexController:
         self.stop_thread_event = threading.Event()
         self.thread_worker_on_socket = None
         self.tcpliveplay_process = None
+        self.measure_socket = None
 
 
         # Requests to commands_demultiplexer
@@ -176,7 +177,6 @@ class CoexController:
     
             
     def body_worker_for_coex_traffic(self):
-        self.measure_socket = None
         try:
             print(f"Thread_Coex: I'm the |{self.last_coex_parameters.role}| probe of measure |{self.last_msm_id}|")
             if self.last_coex_parameters.role == "Server":
@@ -314,12 +314,13 @@ class CoexController:
                             """
                             proc = subprocess.run(["pgrep", "-f", "tcpreplay"], capture_output=True, text=True)
                             print(f"TENTATIVO UCCISIONE-AUTOMATICO-CBR --> |{proc.stdout}|")
+                            self.send_coex_ACK(successed_command="stop", measurement_related_conf=measurement_coex_to_stop)
                             if proc.stdout:
                                 pid = int(proc.stdout.strip())
                                 os.kill(pid, signal.SIGKILL)
                                 print("UCCISIONE CBR OK")
                             
-                        self.send_coex_ACK(successed_command="stop", measurement_related_conf=measurement_coex_to_stop)
+                        
                         self.shared_state.set_probe_as_ready()
                         self.reset_vars()
                 else:
