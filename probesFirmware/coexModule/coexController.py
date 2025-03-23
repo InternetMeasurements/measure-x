@@ -245,10 +245,10 @@ class CoexController:
                                        self.last_coex_parameters.counterpart_probe_mac, str(self.last_coex_parameters.socker_port) ]
                     self.tcpliveplay_process = subprocess.Popen(tcpliveplay_cmd, stdout = subprocess.DEVNULL, stderr = subprocess.DEVNULL, text = True)
                     print(f"Thread_Coex: tcpliveplay started")
-                    time.sleep(10)
-                    self.tcpliveplay_process.terminate()
-                    print(f"Thread_Coex: tcpliveplay killed")
+                    #time.sleep(10)
+                    #self.tcpliveplay_process.terminate()
                     self.tcpliveplay_process.wait()
+                    print(f"Thread_Coex: tcpliveplay killed")
                     
                 self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
                 self.shared_state.set_probe_as_ready()
