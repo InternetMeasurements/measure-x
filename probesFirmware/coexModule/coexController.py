@@ -313,10 +313,11 @@ class CoexController:
         if self.last_coex_parameters.trace_name is None:
             print(f"CoexController: conf received -> CBR traffic |rate: {str(self.last_coex_parameters.packets_rate)}| , |size: {str(self.last_coex_parameters.packets_size)}|")
             print(f" , |number: {str(self.last_coex_parameters.packets_number)}| , |port: {str(self.last_coex_parameters.socker_port)}| , |counterpart_ip: {self.last_coex_parameters.counterpart_probe_ip}|"
-                  f" , |counterpart_mac: {self.last_coex_parameters.counterpart_probe_mac}|")
+                  f" , |counterpart_mac: {self.last_coex_parameters.counterpart_probe_mac}| , duration: |{str(self.last_coex_parameters.duration)}|s")
         else:
             print(f"CoexController: conf received -> trace traffic |trace_name: {self.last_coex_parameters.trace_name}| , |port: {str(self.last_coex_parameters.socker_port)}|"
-                  f" , |counterpart_ip: {self.last_coex_parameters.counterpart_probe_ip}| , |counterpart_mac: {self.last_coex_parameters.counterpart_probe_mac}|")
+                  f" , |counterpart_ip: {self.last_coex_parameters.counterpart_probe_ip}| , |counterpart_mac: {self.last_coex_parameters.counterpart_probe_mac}|"
+                  f" , duration: |{str(self.last_coex_parameters.duration)}|s")
 
     def reset_vars(self):
         print("CoexController: variables reset")
