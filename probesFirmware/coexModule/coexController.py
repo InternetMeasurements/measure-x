@@ -245,14 +245,15 @@ class CoexController:
                                        self.last_coex_parameters.counterpart_probe_mac, str(self.last_coex_parameters.socker_port) ]
                     self.tcpliveplay_process = subprocess.Popen(tcpliveplay_cmd, stdout = subprocess.DEVNULL, stderr = subprocess.DEVNULL, text = True)
                     print(f"Thread_Coex: tcpliveplay started")
-                    time.sleep(20)
-                    self.tcpliveplay_process.terminate()
+                    
+                    #time.sleep(20)
+                    future_stopper = threading.Timer(20, self.stop_worker_socket_thread, args=(True,))
                     self.tcpliveplay_process.wait()
                     print(f"Thread_Coex: tcpliveplay killed")
                     
-                self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
-                self.shared_state.set_probe_as_ready()
-                self.reset_vars()
+                #self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
+                #self.shared_state.set_probe_as_ready()
+                #self.reset_vars()
                 
         except socket.error as e:
             print(f"CoexController: Role: {self.last_coex_parameters.role} , Socket error -> {str(e)}")
@@ -262,7 +263,7 @@ class CoexController:
                 self.reset_vars()
             
 
-    def stop_worker_socket_thread(self):
+    def stop_worker_socket_thread(self, invoked_by_timer = False):
         try:
             if self.last_coex_parameters.role == "Server":
                 self.stop_thread_event.set()
@@ -280,6 +281,10 @@ class CoexController:
                 if proc.stdout:
                     pid = int(proc.stdout.strip())
                     os.kill(pid, signal.SIGKILL)
+                if self.tcpliveplay_process is not None:
+                    self.tcpliveplay_process.terminate()
+                if invoked_by_timer:
+                    self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
             self.shared_state.set_probe_as_ready()
             self.reset_vars()
             return "OK"
