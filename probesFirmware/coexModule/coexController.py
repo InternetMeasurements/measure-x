@@ -315,10 +315,10 @@ class CoexController:
                             proc = subprocess.run(["pgrep", "-f", "tcpreplay"], capture_output=True, text=True)
                             print(f"TENTATIVO UCCISIONE-AUTOMATICO-CBR --> |{proc.stdout}|")
                             self.send_coex_ACK(successed_command="stop", measurement_related_conf=measurement_coex_to_stop)
-                            if proc.stdout:
-                                pid = int(proc.stdout.strip())
-                                os.kill(pid, signal.SIGKILL)
-                                print("UCCISIONE CBR OK")
+                            #if proc.stdout:
+                                #pid = int(proc.stdout.strip())
+                                #os.kill(pid, signal.SIGKILL)
+                                #print("UCCISIONE CBR OK")
                             
                         
                         self.shared_state.set_probe_as_ready()
