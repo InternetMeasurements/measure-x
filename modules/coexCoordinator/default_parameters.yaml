@@ -5,3 +5,4 @@ coex:
   socket_port: 60606
   trace_name: null
   delay_start: 0
+  duration: 0

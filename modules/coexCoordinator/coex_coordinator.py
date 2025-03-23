@@ -23,6 +23,7 @@ class Coex_Coordinator:
         self.events_received_ack_from_probe_sender = {}
         self.events_stop_probe_ack = {}
         self.queued_measurements = {}
+        self.coex_stop_ack_number = {} # IF it is received an ACK or NACK, also the other probe is stopped
 
         registration_response = registration_handler_error_callback( interested_error = "coex",
                                                              handler = self.handler_received_error)
@@ -77,11 +78,14 @@ class Coex_Coordinator:
                             print(f"Coex_Coordinator: received |stop| ACK of measurement not stored in DB -> |{msm_id}|")
                             return
                         self.queued_measurements[msm_id] = measurement_from_mongo
-                    
+                    if msm_id not in self.coex_stop_ack_number:
+                        self.coex_stop_ack_number[msm_id] = 0
+                        
                     # If the measurement is not completed AND the probe sender is the probe client, then i will stop also the server probe
                     if (self.queued_measurements[msm_id].state == "started") and (self.queued_measurements[msm_id].coexisting_application["source_probe"] == probe_sender):
                         print(f"Coex_Coordinator: received |stop| ACK from |{probe_sender}|. Stopping the server probe |{self.queued_measurements[msm_id].coexisting_application['dest_probe']}|")
                         self.send_probe_coex_stop(probe_id=self.queued_measurements[msm_id].coexisting_application["dest_probe"], msm_id_to_stop=msm_id, silent = True)
+                    self.coex_stop_ack_number[msm_id] += 1
                     if msm_id in self.events_stop_probe_ack:
                         self.events_stop_probe_ack[msm_id][1] = "OK"
                         self.events_stop_probe_ack[msm_id][0].set()
@@ -105,7 +109,6 @@ class Coex_Coordinator:
                     if msm_id in self.events_stop_probe_ack:
                         self.events_stop_probe_ack[msm_id][1] = reason
                         self.events_stop_probe_ack[msm_id][0].set()
-            
             case _:
                 print(f"Coex_Coordinator: received unkown type message -> |{type}|")
 
@@ -192,19 +195,19 @@ class Coex_Coordinator:
             return None, None, None
         coexisting_application = CoexistingApplicationModelMongo.cast_dict_in_CoexistingApplicationModelMongo(coex_parameters.copy())
 
-        if coexisting_application.delay_start != 0:
-            print(f"Coex_Coordinator: coex traffic delayed of {str(coexisting_application.delay_start)}s")
-            time.sleep(coexisting_application.delay_start) # I can do this, because all of this code is run by another thread respect to the main
-
         source_coex_probe_ip, source_coex_probe_mac = self.ask_probe_ip_mac(coexisting_application.source_probe)
         if (source_coex_probe_ip is None):
-            print(f"Coex_Coordinator: No response from client probe: {coexisting_application.source_probe}")
+            print(f"Coex_Coordinator: Warning -> No response from coex client probe: {coexisting_application.source_probe}. -> NO COEXISTING APPLICATION TRAFFIC")
             return "Error", f"No response from client probe: {coexisting_application.source_probe}", "Reponse Timeout"
         
         dest_coex_probe_ip, dest_coex_probe_mac = self.ask_probe_ip_mac(coexisting_application.dest_probe)
         if dest_coex_probe_ip is None:
-            print(f"Coex_Coordinator: No response from server probe: {coexisting_application.dest_probe}")
+            print(f"Coex_Coordinator: No response from coex server probe: {coexisting_application.dest_probe}. -> NO COEXISTING APPLICATION TRAFFIC")
             return "Error", f"No response from server probe: {new_measurement.dest_probe}", "Reponse Timeout"
+        
+        if coexisting_application.delay_start != 0: # IF HAS BEEN SETTED A DELAY_START... then, we must wait
+            print(f"Coex_Coordinator: coex traffic delayed of {str(coexisting_application.delay_start)}s")
+            time.sleep(coexisting_application.delay_start) # I can do this, because all of this code is run by another thread respect to the main
         
         coexisting_application.source_probe_ip = source_coex_probe_ip
         coexisting_application.dest_probe_ip = dest_coex_probe_ip
@@ -280,7 +283,14 @@ class Coex_Coordinator:
                 return "Error", measure_from_db.error_description, measure_from_db.error_cause
             self.queued_measurements[msm_id_to_stop] = measure_from_db
 
+        if self.coex_stop_ack_number.get(msm_id_to_stop, 0) == 2: # This return "OK" in case the coex traffic is automatic ended
+            return "OK", f"Coexistring Application traffic for {msm_id_to_stop}, -> STOPPED", None
+        
         measurement_to_stop : MeasurementModelMongo = self.queued_measurements[msm_id_to_stop]
+        coex_params = measurement_to_stop.coexisting_application
+
+        if ('source_probe_ip' not in coex_params) or ('dest_probe_ip' not in coex_params):
+            return None, None, None
 
         coexisting_application = CoexistingApplicationModelMongo.cast_dict_in_CoexistingApplicationModelMongo(measurement_to_stop.coexisting_application)
 
@@ -291,10 +301,11 @@ class Coex_Coordinator:
         stop_event_message = self.events_stop_probe_ack[msm_id_to_stop][1]
         if stop_event_message == "OK":
             self.events_stop_probe_ack[msm_id_to_stop] = [threading.Event(), None]
-            self.send_probe_coex_stop(probe_id = coexisting_application.source_probe, msm_id_to_stop = msm_id_to_stop)
+            already_received_stop_ack_from_source_probe = self.coex_stop_ack_number.get(msm_id_to_stop, False)
+            self.send_probe_coex_stop(probe_id = coexisting_application.source_probe, msm_id_to_stop = msm_id_to_stop, silent = already_received_stop_ack_from_source_probe)
             self.events_stop_probe_ack[msm_id_to_stop][0].wait(5)
             stop_event_message = self.events_stop_probe_ack[msm_id_to_stop][1]
-            if stop_event_message == "OK":
+            if (stop_event_message == "OK") or (self.coex_stop_ack_number.get(msm_id_to_stop, False)):
                 #if self.mongo_db.set_measurement_as_completed(msm_id_to_stop):
                 #    print(f"Coex_Coordinator: measurement |{msm_id_to_stop}| setted as completed")
                 #else:
@@ -323,12 +334,14 @@ class Coex_Coordinator:
         json_overrided_config = json_config.copy()
         source_probe_coex = measurement_parameters.get("source_probe")
         dest_probe_coex = measurement_parameters.get("dest_probe")
+        description = json_config.get("description")
         if source_probe_coex is None:
             print("Coex_Coordinator: Warning --> missing coex source probe --> No Coexisting Application Traffic")
             return None
         if dest_probe_coex is None:
             print("Coex_Coordinator: Warning --> missing coex dest probe --> No Coexisting Application Traffic")
             return None
+
         if (measurement_parameters is not None) and (isinstance(measurement_parameters, dict)):
             if ("trace_name" in measurement_parameters) and (measurement_parameters["trace_name"] is not None):
                 json_overrided_config["trace_name"] = measurement_parameters["trace_name"]
@@ -347,6 +360,11 @@ class Coex_Coordinator:
                     json_overrided_config['socket_port'] = measurement_parameters['socket_port']
             if ('delay_start' in measurement_parameters):
                     json_overrided_config['delay_start'] = measurement_parameters['delay_start']
+        description = measurement_parameters.get("description", description)
+        duration = measurement_parameters.get("duration", json_config["duration"])
+
+        json_overrided_config['duration'] = duration
+        json_overrided_config['description'] = description
         json_overrided_config['source_probe'] = source_probe_coex
         json_overrided_config['dest_probe'] = dest_probe_coex
         return json_overrided_config
