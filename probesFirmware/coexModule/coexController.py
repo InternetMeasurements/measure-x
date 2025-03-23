@@ -1,6 +1,5 @@
 import os, signal
 import json
-import multiprocessing
 from pathlib import Path
 from mqttModule.mqttClient import ProbeMqttClient
 from shared_resources import SharedState
@@ -165,7 +164,7 @@ class CoexController:
 
     def submit_thread_for_coex_traffic(self):
         try:
-            self.thread_worker_on_socket = multiprocessing.Process(target=self.body_worker_for_coex_traffic) #threading.Thread(target=self.body_worker_for_coex_traffic, name = DEFAULT_THREAD_NAME , args=())
+            self.thread_worker_on_socket = threading.Thread(target=self.body_worker_for_coex_traffic, name = DEFAULT_THREAD_NAME , args=())
             return "OK"
         except socket.error as e:
             print(f"CoexController: Socket error -> {str(e)}")
@@ -304,7 +303,12 @@ class CoexController:
                     if (measurement_coex_to_stop == self.last_msm_id): # May be this automatic invocation is delayed too much that fall in another measurement, so it's mandatory check the msm_id
                         print("misure da fermare = quella del timer thread")
                         if self.tcpliveplay_process is not None:
-                            self.tcpliveplay_process.terminate()
+                            proc = subprocess.run(["sudo", "pgrep", "tcpliveplay"], capture_output=True, text=True)
+                            if proc.stdout:
+                                pid = int(proc.stdout.strip())
+                                os.kill(pid, signal.SIGKILL)
+                                print("UCCISIONE auto tcpliveplay OK")
+                            #self.tcpliveplay_process.terminate()
                         else:
                             """
                             if self.thread_worker_on_socket is not None:
@@ -312,7 +316,7 @@ class CoexController:
                                 self.thread_worker_on_socket.join()
                                 print("CoexController: automatic stop of Coex Application Traffic")
                             """
-                            proc = subprocess.run(["pgrep", "tcpreplay"], capture_output=True, text=True)
+                            proc = subprocess.run(["sudo", "pgrep", "tcpreplay"], capture_output=True, text=True)
                             print(f"TENTATIVO UCCISIONE-AUTOMATICO-CBR --> |{proc.stdout}|")
                             self.send_coex_ACK(successed_command="stop", measurement_related_conf=measurement_coex_to_stop)
                             #if proc.stdout:
@@ -325,7 +329,12 @@ class CoexController:
                         self.reset_vars()
                 else:
                     if self.tcpliveplay_process is not None:
-                        self.tcpliveplay_process.terminate()      
+                        proc = subprocess.run(["sudo", "pgrep", "tcpliveplay"], capture_output=True, text=True)
+                        if proc.stdout:
+                            pid = int(proc.stdout.strip())
+                            os.kill(pid, signal.SIGKILL)
+                            print("UCCISIONE manuale tcpliveplay OK")
+                        #self.tcpliveplay_process.terminate()      
                     else:
                         """
                         if self.thread_worker_on_socket is not None:
@@ -333,7 +342,7 @@ class CoexController:
                             self.thread_worker_on_socket.join()
                         """
                         print("CoexController: manual stop of Coex Application Traffic")
-                        proc = subprocess.run(["pgrep", "-f", "tcpreplay"], capture_output=True, text=True)
+                        proc = subprocess.run(["sudo", "pgrep", "-f", "tcpreplay"], capture_output=True, text=True)
                         if proc.stdout:
                             pid = int(proc.stdout.strip())
                             os.kill(pid, signal.SIGKILL)
