@@ -126,8 +126,8 @@ class CoexController:
             "command": successed_command,
             "msm_id" : measurement_related_conf
             }
-        self.mqtt_client.publish_command_ACK(handler='coex', payload = json_ack)
         print(f"CoexController: sent ACK -> {successed_command} for measure -> |{measurement_related_conf}|")
+        self.mqtt_client.publish_command_ACK(handler='coex', payload = json_ack)
 
     def send_coex_NACK(self, failed_command, error_info, measurement_related_conf = None):
         json_nack = {
@@ -135,8 +135,8 @@ class CoexController:
             "reason" : error_info,
             "msm_id" : measurement_related_conf
             }
+        print(f"CoexController: sent NACK for |{failed_command}| , reason-> {error_info} for measure -> |{measurement_related_conf}|")
         self.mqtt_client.publish_command_NACK(handler='coex', payload = json_nack)
-        print(f"CoexController: sent NACK, reason-> {error_info} for measure -> |{measurement_related_conf}|")
 
     def send_coex_result(self, json_coex_result : json):
         json_command_result = {
@@ -247,7 +247,7 @@ class CoexController:
                     print(f"Thread_Coex: tcpliveplay started")
                     
                     #time.sleep(20)
-                    future_stopper = threading.Timer(20, self.stop_worker_socket_thread, args=(True,))
+                    future_stopper = threading.Timer(20, self.stop_worker_socket_thread, args=(True, self.last_msm_id))
                     future_stopper.start()
                     self.tcpliveplay_process.wait()
                     print(f"Thread_Coex: tcpliveplay killed")
@@ -264,7 +264,7 @@ class CoexController:
                 self.reset_vars()
             
 
-    def stop_worker_socket_thread(self, invoked_by_timer = False):
+    def stop_worker_socket_thread(self, invoked_by_timer = False, measurement_coex_to_stop = ""):
         try:
             if self.last_coex_parameters.role == "Server":
                 self.stop_thread_event.set()
@@ -278,14 +278,27 @@ class CoexController:
                     self.thread_worker_on_socket.join()
                 self.stop_thread_event.clear()
             elif self.last_coex_parameters.role == "Client":
+                """
                 proc = subprocess.run(["pgrep", "-f", DEFAULT_THREAD_NAME], capture_output=True, text=True)
                 if proc.stdout:
                     pid = int(proc.stdout.strip())
                     os.kill(pid, signal.SIGKILL)
-                if self.tcpliveplay_process is not None:
-                    self.tcpliveplay_process.terminate()
-                if invoked_by_timer:
-                    self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
+                """
+                if (invoked_by_timer): # If this is an automatic invocation, then we must be sure to stop the coex traffic.
+                    if (measurement_coex_to_stop == self.last_msm_id): # May be this automatic invocation is delayed too much that fall in another measurement, so it's mandatory check the msm_id
+                        if self.tcpliveplay_process is not None:
+                            self.tcpliveplay_process.terminate()
+                            # The ACK must sent only here. Indeed if this invocation is made by coordinator, the ACK is sent by the caller.
+                            self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
+                        else:
+                            print("TENTATIVO UCCISIONE CBR")
+                            proc = subprocess.run(["pgrep", "-f", DEFAULT_THREAD_NAME], capture_output=True, text=True)
+                            if proc.stdout:
+                                pid = int(proc.stdout.strip())
+                                os.kill(pid, signal.SIGKILL)
+                                print("UCCISIONE CBR OK")
+                else:
+                    self.tcpliveplay_process.terminate()                                           
             self.shared_state.set_probe_as_ready()
             self.reset_vars()
             return "OK"
