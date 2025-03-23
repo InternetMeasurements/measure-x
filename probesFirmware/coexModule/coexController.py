@@ -111,7 +111,7 @@ class CoexController:
                 
                 if (self.last_msm_id is not None) and (msm_id != self.last_msm_id):
                     self.send_coex_NACK(failed_command=command, 
-                                        error_info="Measure_ID Mismatch: The provided measure_id does not correspond to the ongoing measurement",
+                                        error_info=f"Measure_ID Mismatch: The provided measure_id does not correspond to the ongoing measurement. Busy for |{self.last_msm_id}|",
                                         measurement_related_conf = msm_id)
                     return
 
@@ -337,7 +337,7 @@ class CoexController:
                             pid = int(proc.stdout.strip())
                             os.kill(pid, signal.SIGKILL)
                             print("UCCISIONE CBR OK")
-                        self.send_coex_ACK(successed_command="stop", measurement_related_conf=measurement_coex_to_stop)
+                        self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
                         self.shared_state.set_probe_as_ready()
                         self.reset_vars()
                 # Remember that, the future thread that will invoke this method, may be will have the resetted vars, so its role is None. 
