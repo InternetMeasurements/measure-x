@@ -243,14 +243,17 @@ class CoexController:
                     if self.last_coex_parameters.duration != 0:
                         future_stopper = threading.Timer(self.last_coex_parameters.duration, self.stop_worker_socket_thread, args=(True, self.last_msm_id))
                         future_stopper.start()
-
-                    d = sendpfast(pkt, mbps=rate, count=n_pkts, parse_results=True, loop = loop_parameter)
-
+                        d = sendpfast(pkt, mbps = rate, loop = 1, parse_results = True) # Send the packet forever (duration: 0)
+                    else:
+                        d = sendpfast(pkt, mbps=rate, count=n_pkts, parse_results=True)
+                        self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
+                        self.shared_state.set_probe_as_ready()
+                        self.reset_vars()
                 else: # Else, if a trace_name has been specified, then it will be used tcpliveplay
                     # sudo tcpliveplay wlan0 tcp_out.pcap 192.168.143.211 2c:cf:67:6d:95:a3 60606
                     tcpliveplay_cmd = ['sudo', 'tcpliveplay', self.shared_state.default_nic_name, self.last_complete_trace_path, self.last_coex_parameters.counterpart_probe_ip,
                                        self.last_coex_parameters.counterpart_probe_mac, str(self.last_coex_parameters.socker_port) ]
-                    self.tcpliveplay_process = subprocess.Popen(tcpliveplay_cmd, stdout = subprocess.DEVNULL, stderr = subprocess.DEVNULL, text = True)
+                    self.tcpliveplay_process = subprocess.Popen(tcpliveplay_cmd, stdout = subprocess.DEVNULL, stderr = subprocess.DEVNULL, text = True) # the tcpliveplay stdout is huge!
                     print(f"Thread_Coex: tcpliveplay coex traffic started")
                     
                     # If the duration is 0, this means that the traffic generation will go forever
@@ -258,12 +261,13 @@ class CoexController:
                         future_stopper = threading.Timer(self.last_coex_parameters.duration, self.stop_worker_socket_thread, args=(True, self.last_msm_id))
                         future_stopper.start()
 
+                    # BLOCKING
                     self.tcpliveplay_process.wait()
                     print(f"Thread_Coex: tcpliveplay coex traffic finished")
                 #if self.last_msm_id is not None: # This is usefull because there will be a sort of Critical race between this thread and the stopper thread (future stopper)
-                self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
-                self.shared_state.set_probe_as_ready()
-                self.reset_vars()
+                    self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
+                    self.shared_state.set_probe_as_ready()
+                    self.reset_vars()
                 
         except socket.error as e:
             print(f"CoexController: Role: {self.last_coex_parameters.role} , Socket error -> {str(e)}")
@@ -302,13 +306,24 @@ class CoexController:
                             self.tcpliveplay_process.terminate()
                         else:
                             proc = subprocess.run(["pgrep", "-f", DEFAULT_THREAD_NAME], capture_output=True, text=True)
-                            print(f"TENTATIVO UCCISIONE CBR --> |{proc.stdout}|")
+                            print(f"TENTATIVO UCCISIONE-AUTOMATICO-CBR --> |{proc.stdout}|")
                             if proc.stdout:
                                 pid = int(proc.stdout.strip())
                                 os.kill(pid, signal.SIGKILL)
                                 print("UCCISIONE CBR OK")
+                        self.send_coex_ACK(successed_command="stop", measurement_related_conf=measurement_coex_to_stop)
+                        self.shared_state.set_probe_as_ready()
+                        self.reset_vars()
                 else:
-                    self.tcpliveplay_process.terminate()                                           
+                    if self.tcpliveplay_process is not None:
+                        self.tcpliveplay_process.terminate()      
+                    else:
+                        proc = subprocess.run(["pgrep", "-f", DEFAULT_THREAD_NAME], capture_output=True, text=True)
+                        print(f"TENTATIVO UCCISIONE-MANUALE- CBR --> |{proc.stdout}|")
+                        if proc.stdout:
+                            pid = int(proc.stdout.strip())
+                            os.kill(pid, signal.SIGKILL)
+                            print("UCCISIONE CBR OK")                                     
                 # Remember that, the future thread that will invoke this method, may be will have the resetted vars, so its role is None. 
             return "OK"
         except Exception as e:
