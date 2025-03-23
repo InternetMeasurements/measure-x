@@ -240,7 +240,7 @@ class CoexController:
                     pkt = Ether(src=src_mac, dst=dest_mac) / IP(src=src_ip, dst=dst_ip) / UDP(sport=30000, dport=dport) / Raw(RandString(size=size))
 
                     if self.last_coex_parameters.duration != 0:
-                        future_stopper = threading.Timer(self.last_coex_parameters.duration, self.stop_worker_socket_thread, args=(True, self.last_msm_id))
+                        future_stopper = threading.Timer(self.last_coex_parameters.duration, self.stop_worker_socket_thread, args=(True, self.last_msm_id,))
                         future_stopper.start()
                         d = sendpfast(pkt, mbps=rate, count=n_pkts, parse_results=True)
                         print("Sendpfast no loop terminata")
@@ -259,7 +259,7 @@ class CoexController:
                     
                     # If the duration is 0, this means that the traffic generation will go forever
                     if self.last_coex_parameters.duration != 0:
-                        future_stopper = threading.Timer(self.last_coex_parameters.duration, self.stop_worker_socket_thread, args=(True, self.last_msm_id))
+                        future_stopper = threading.Timer(self.last_coex_parameters.duration, self.stop_worker_socket_thread, args=(True, self.last_msm_id,))
                         future_stopper.start()
 
                     # BLOCKING
