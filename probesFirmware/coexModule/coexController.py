@@ -238,9 +238,8 @@ class CoexController:
                     dport = self.last_coex_parameters.socker_port
 
                     pkt = Ether(src=src_mac, dst=dest_mac) / IP(src=src_ip, dst=dst_ip) / UDP(sport=30000, dport=dport) / Raw(RandString(size=size))
-                    loop_parameter = 1 if (self.last_coex_parameters.duration == 0) else 0
 
-                    if self.last_coex_parameters.duration != 0:
+                    if self.last_coex_parameters.duration == 0:
                         future_stopper = threading.Timer(self.last_coex_parameters.duration, self.stop_worker_socket_thread, args=(True, self.last_msm_id))
                         future_stopper.start()
                         d = sendpfast(pkt, mbps = rate, loop = 1, parse_results = True) # Send the packet forever (duration: 0)
@@ -307,18 +306,19 @@ class CoexController:
                         if self.tcpliveplay_process is not None:
                             self.tcpliveplay_process.terminate()
                         else:
+                            """
                             if self.thread_worker_on_socket is not None:
                                 self.thread_worker_on_socket.terminate()
                                 self.thread_worker_on_socket.join()
                                 print("CoexController: automatic stop of Coex Application Traffic")
                             """
-                            proc = subprocess.run(["pgrep", "-f", DEFAULT_THREAD_NAME], capture_output=True, text=True)
+                            proc = subprocess.run(["pgrep", "-f", "tcpreplay"], capture_output=True, text=True)
                             print(f"TENTATIVO UCCISIONE-AUTOMATICO-CBR --> |{proc.stdout}|")
                             if proc.stdout:
                                 pid = int(proc.stdout.strip())
                                 os.kill(pid, signal.SIGKILL)
-                                print("UCCISIONE CBR OK")"
-                            """
+                                print("UCCISIONE CBR OK")
+                            
                         self.send_coex_ACK(successed_command="stop", measurement_related_conf=measurement_coex_to_stop)
                         self.shared_state.set_probe_as_ready()
                         self.reset_vars()
@@ -326,10 +326,17 @@ class CoexController:
                     if self.tcpliveplay_process is not None:
                         self.tcpliveplay_process.terminate()      
                     else:
+                        """
                         if self.thread_worker_on_socket is not None:
                             self.thread_worker_on_socket.terminate()
                             self.thread_worker_on_socket.join()
-                            print("CoexController: manual stop of Coex Application Traffic")                         
+                        """
+                        print("CoexController: manual stop of Coex Application Traffic")
+                        proc = subprocess.run(["pgrep", "-f", "tcpreplay"], capture_output=True, text=True)
+                        if proc.stdout:
+                            pid = int(proc.stdout.strip())
+                            os.kill(pid, signal.SIGKILL)
+                            print("UCCISIONE CBR OK")
                 # Remember that, the future thread that will invoke this method, may be will have the resetted vars, so its role is None. 
             return "OK"
         except Exception as e:
