@@ -252,7 +252,7 @@ class CoexController:
                     self.tcpliveplay_process.wait()
                     print(f"Thread_Coex: tcpliveplay killed")
                     
-                #self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
+                self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
                 #self.shared_state.set_probe_as_ready()
                 #self.reset_vars()
                 
@@ -288,8 +288,6 @@ class CoexController:
                     if (measurement_coex_to_stop == self.last_msm_id): # May be this automatic invocation is delayed too much that fall in another measurement, so it's mandatory check the msm_id
                         if self.tcpliveplay_process is not None:
                             self.tcpliveplay_process.terminate()
-                            # The ACK must sent only here. Indeed if this invocation is made by coordinator, the ACK is sent by the caller.
-                            self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
                         else:
                             print("TENTATIVO UCCISIONE CBR")
                             proc = subprocess.run(["pgrep", "-f", DEFAULT_THREAD_NAME], capture_output=True, text=True)
