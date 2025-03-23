@@ -261,7 +261,7 @@ class CoexController:
 
                     self.tcpliveplay_process.wait()
                     print(f"Thread_Coex: tcpliveplay coex traffic finished")
-                    
+                #if self.last_msm_id is not None: # This is usefull because there will be a sort of Critical race between this thread and the stopper thread (future stopper)
                 self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
                 self.shared_state.set_probe_as_ready()
                 self.reset_vars()
@@ -309,8 +309,6 @@ class CoexController:
                                 print("UCCISIONE CBR OK")
                 else:
                     self.tcpliveplay_process.terminate()                                           
-                self.shared_state.set_probe_as_ready()
-                self.reset_vars()
                 # Remember that, the future thread that will invoke this method, may be will have the resetted vars, so its role is None. 
             return "OK"
         except Exception as e:
@@ -347,7 +345,7 @@ class CoexController:
         socket_port = payload.get("socket_port")
         counterpart_probe_mac = payload.get("counterpart_probe_mac")
         msm_id = payload.get("msm_id")
-        duration = payload.get("duration", 0)
+        duration = payload.get("duration")
 
         if role is None:
             return "No role provided"
