@@ -48,7 +48,6 @@ class CoexController:
         self.stop_thread_event = threading.Event()
         self.thread_worker_on_socket = None
         self.tcpliveplay_process = None
-        self.measure_socket = None
 
 
         # Requests to commands_demultiplexer
@@ -177,6 +176,7 @@ class CoexController:
     
             
     def body_worker_for_coex_traffic(self):
+        self.measure_socket = None
         try:
             print(f"Thread_Coex: I'm the |{self.last_coex_parameters.role}| probe of measure |{self.last_msm_id}|")
             if self.last_coex_parameters.role == "Server":
