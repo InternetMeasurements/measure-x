@@ -239,9 +239,9 @@ class CoexController:
                     pkt = Ether(src=src_mac, dst=dest_mac) / IP(src=src_ip, dst=dst_ip) / UDP(sport=30000, dport=dport) / Raw(RandString(size=size))
 
                     if self.last_coex_parameters.duration != 0:
+                        print(f"Thread_Coex: starting sendpfast. Future-kill scheduled to terminate after {self.last_coex_parameters.duration} seconds.")
                         future_stopper = threading.Timer(self.last_coex_parameters.duration, self.stop_worker_socket_thread, args=(True, self.last_msm_id,))
                         future_stopper.start()
-                        print(f"Thread_Coex: starting sendpfast. Future-kill scheduled to terminate after {self.last_coex_parameters.duration} seconds.")
                         d = sendpfast(pkt, mbps=rate, count=n_pkts, parse_results=True)
                         
                         if self.last_msm_id is not None:
@@ -265,12 +265,13 @@ class CoexController:
                     
                     # If the duration is 0, this means that the traffic generation will go forever
                     if self.last_coex_parameters.duration != 0:
+                        print(f"Thread_Coex: tcpliveplay future-kill scheduled to terminate after {self.last_coex_parameters.duration} seconds.")
                         future_stopper = threading.Timer(self.last_coex_parameters.duration, self.stop_worker_socket_thread, args=(True, self.last_msm_id,))
                         future_stopper.start()
 
                     # BLOCKING
                     self.tcpliveplay_subprocess.wait()
-                    print(f"Thread_Coex: tcpliveplay coex traffic finished")
+                    print(f"Thread_Coex: tcpliveplay stop confirmed")
                 #if self.last_msm_id is not None: # This is usefull because there will be a sort of Critical race between this thread and the stopper thread (future stopper)
                     self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
                     
