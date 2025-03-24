@@ -345,7 +345,7 @@ class CoexController:
                             self.thread_worker_on_socket.join()
                         """
                         print("CoexController: manual stop of Coex Application Traffic")
-                        proc = subprocess.run(["sudo", "pgrep", "-f", "tcpreplay"], capture_output=True, text=True)
+                        proc = subprocess.run(["sudo", "pgrep", "tcpreplay"], capture_output=True, text=True)
                         if proc.stdout:
                             pid = int(proc.stdout.strip())
                             os.kill(pid, signal.SIGKILL)
