@@ -46,7 +46,7 @@ class CoexController:
         self.last_complete_trace_path = None
         self.stop_thread_event = threading.Event()
         self.thread_worker_on_socket = None
-        self.tcpliveplay_process = None
+        self.tcpliveplay_subprocess = None
         self.measure_socket = None
 
 
@@ -253,7 +253,7 @@ class CoexController:
                     # sudo tcpliveplay wlan0 tcp_out.pcap 192.168.143.211 2c:cf:67:6d:95:a3 60606
                     tcpliveplay_cmd = ['sudo', 'tcpliveplay', self.shared_state.default_nic_name, self.last_complete_trace_path, self.last_coex_parameters.counterpart_probe_ip,
                                        self.last_coex_parameters.counterpart_probe_mac, str(self.last_coex_parameters.socker_port) ]
-                    self.tcpliveplay_process = subprocess.Popen(tcpliveplay_cmd, stdout = subprocess.DEVNULL, stderr = subprocess.DEVNULL, text = True) # the tcpliveplay stdout is huge!
+                    self.tcpliveplay_subprocess = subprocess.Popen(tcpliveplay_cmd, stdout = subprocess.DEVNULL, stderr = subprocess.DEVNULL, text = True) # the tcpliveplay stdout is huge!
                     print(f"Thread_Coex: tcpliveplay coex traffic started")
                     
                     # If the duration is 0, this means that the traffic generation will go forever
@@ -262,12 +262,11 @@ class CoexController:
                         future_stopper.start()
 
                     # BLOCKING
-                    self.tcpliveplay_process.wait()
+                    self.tcpliveplay_subprocess.wait()
                     print(f"Thread_Coex: tcpliveplay coex traffic finished")
                 #if self.last_msm_id is not None: # This is usefull because there will be a sort of Critical race between this thread and the stopper thread (future stopper)
                     self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
-                    self.shared_state.set_probe_as_ready()
-                    self.reset_vars()
+                    
                 
         except socket.error as e:
             print(f"CoexController: Role: {self.last_coex_parameters.role} , Socket error -> {str(e)}")
@@ -275,6 +274,9 @@ class CoexController:
                 self.send_coex_error(command_error = "socket", msm_id = self.last_msm_id, reason = str(e))
                 self.shared_state.set_probe_as_ready()
                 self.reset_vars()
+        
+        self.shared_state.set_probe_as_ready()
+        self.reset_vars()
             
 
     def stop_worker_socket_thread(self, invoked_by_timer = False, measurement_coex_to_stop = ""):
@@ -302,7 +304,7 @@ class CoexController:
                     print("Invoked by timer")
                     if (measurement_coex_to_stop == self.last_msm_id): # May be this automatic invocation is delayed too much that fall in another measurement, so it's mandatory check the msm_id
                         print("misure da fermare = quella del timer thread")
-                        if self.tcpliveplay_process is not None:
+                        if self.tcpliveplay_subprocess is not None:
                             proc = subprocess.run(["sudo", "pgrep", "tcpliveplay"], capture_output=True, text=True)
                             if proc.stdout:
                                 pid = int(proc.stdout.strip())
@@ -318,17 +320,18 @@ class CoexController:
                             """
                             proc = subprocess.run(["sudo", "pgrep", "tcpreplay"], capture_output=True, text=True)
                             print(f"TENTATIVO UCCISIONE-AUTOMATICO-CBR --> |{proc.stdout}|")
-                            self.send_coex_ACK(successed_command="stop", measurement_related_conf=measurement_coex_to_stop)
+                            
                             #if proc.stdout:
                                 #pid = int(proc.stdout.strip())
                                 #os.kill(pid, signal.SIGKILL)
                                 #print("UCCISIONE CBR OK")
                             
-                        
-                        self.shared_state.set_probe_as_ready()
-                        self.reset_vars()
+                            #Capire se queste 3 vanno bene qui per il CBR
+                            self.send_coex_ACK(successed_command="stop", measurement_related_conf=measurement_coex_to_stop)
+                            self.shared_state.set_probe_as_ready()
+                            self.reset_vars()
                 else:
-                    if self.tcpliveplay_process is not None:
+                    if self.tcpliveplay_subprocess is not None:
                         proc = subprocess.run(["sudo", "pgrep", "tcpliveplay"], capture_output=True, text=True)
                         if proc.stdout:
                             pid = int(proc.stdout.strip())
@@ -371,7 +374,7 @@ class CoexController:
         self.last_msm_id = None
         self.last_coex_parameters = CoexParamaters()
         self.thread_worker_on_socket = None
-        self.tcpliveplay_process = None
+        self.tcpliveplay_subprocess = None
         self.last_complete_trace_path = None
         self.stop_thread_event.clear()
 
