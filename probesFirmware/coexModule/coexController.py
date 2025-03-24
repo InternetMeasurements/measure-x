@@ -241,16 +241,18 @@ class CoexController:
                     if self.last_coex_parameters.duration != 0:
                         future_stopper = threading.Timer(self.last_coex_parameters.duration, self.stop_worker_socket_thread, args=(True, self.last_msm_id,))
                         future_stopper.start()
+                        print(f"Thread_Coex: starting sendpfast. Future-kill scheduled to terminate after {self.last_coex_parameters.duration} seconds.")
                         d = sendpfast(pkt, mbps=rate, count=n_pkts, parse_results=True)
-                        print("Sendpfast no loop terminata")
+                        
                         if self.last_msm_id is not None:
                             future_stopper.cancel()
+                            print("Thread_Coex: sendpfast has sent all packets. Deleted future-kill")
                             self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
                             self.shared_state.set_probe_as_ready()
                             self.reset_vars()
                     else:
                         d = sendpfast(pkt, mbps = rate, loop = 1, parse_results = True) # Send the packet forever (duration: 0)
-                        print("sendpfast con loop terminata")
+                        print("Thread_Coex: sendpfast killed from stop")
                         #self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
                         #self.shared_state.set_probe_as_ready()
                         #self.reset_vars()
@@ -299,65 +301,39 @@ class CoexController:
                 self.shared_state.set_probe_as_ready()
                 self.reset_vars()
             elif self.last_coex_parameters.role == "Client":
-                """
-                proc = subprocess.run(["pgrep", "-f", DEFAULT_THREAD_NAME], capture_output=True, text=True)
-                if proc.stdout:
-                    pid = int(proc.stdout.strip())
-                    os.kill(pid, signal.SIGKILL)
-                """
                 if (invoked_by_timer): # If this is an automatic invocation, then we must be sure to stop the coex traffic.
-                    print("Invoked by timer")
                     if (measurement_coex_to_stop == self.last_msm_id): # May be this automatic invocation is delayed too much that fall in another measurement, so it's mandatory check the msm_id
-                        print("misure da fermare = quella del timer thread")
                         if self.tcpliveplay_subprocess is not None:
                             proc = subprocess.run(["sudo", "pgrep", "tcpliveplay"], capture_output=True, text=True)
                             if proc.stdout:
                                 pid = int(proc.stdout.strip())
                                 os.kill(pid, signal.SIGKILL)
-                                print("UCCISIONE auto tcpliveplay OK")
-                            #self.tcpliveplay_process.terminate()
+                                print("Scheduled-kill: tcpliveplay stopped")
                         else:
-                            """
-                            if self.thread_worker_on_socket is not None:
-                                self.thread_worker_on_socket.terminate()
-                                self.thread_worker_on_socket.join()
-                                print("CoexController: automatic stop of Coex Application Traffic")
-                            """
                             proc = subprocess.run(["sudo", "pgrep", "tcpreplay"], capture_output=True, text=True)
-                            print(f"TENTATIVO UCCISIONE-AUTOMATICO-CBR --> |{proc.stdout}|")
                             if proc.stdout:
                                 pid = int(proc.stdout.strip())
                                 os.kill(pid, signal.SIGKILL)
-                                print("UCCISIONE CBR OK")
-                            
-                            #Capire se queste 3 vanno bene qui per il CBR
+                                print("Scheduled-kill: sendpfast stopped by killing tcpreplay")
                             self.send_coex_ACK(successed_command="stop", measurement_related_conf=measurement_coex_to_stop)
-                            self.shared_state.set_probe_as_ready()
                             self.reset_vars()
+                            self.shared_state.set_probe_as_ready()
                 else:
                     if self.tcpliveplay_subprocess is not None:
                         proc = subprocess.run(["sudo", "pgrep", "tcpliveplay"], capture_output=True, text=True)
                         if proc.stdout:
                             pid = int(proc.stdout.strip())
                             os.kill(pid, signal.SIGKILL)
-                            print("UCCISIONE manuale tcpliveplay OK")
-                        #self.tcpliveplay_process.terminate()      
+                            print("Manual-kill: tcpliveplay stopped")
                     else:
-                        """
-                        if self.thread_worker_on_socket is not None:
-                            self.thread_worker_on_socket.terminate()
-                            self.thread_worker_on_socket.join()
-                        """
-                        print("CoexController: manual stop of Coex Application Traffic")
                         proc = subprocess.run(["sudo", "pgrep", "tcpreplay"], capture_output=True, text=True)
                         if proc.stdout:
                             pid = int(proc.stdout.strip())
                             os.kill(pid, signal.SIGKILL)
-                            print("UCCISIONE CBR OK")
+                            print("Manual-kill: sendpfast stopped by killing tcpreplay")
                         self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
                         self.shared_state.set_probe_as_ready()
                         self.reset_vars()
-                # Remember that, the future thread that will invoke this method, may be will have the resetted vars, so its role is None. 
             return "OK"
         except Exception as e:
             print(f"CoexController: Role -> {self.last_coex_parameters.role} , exception while closing socket -> {e}")
