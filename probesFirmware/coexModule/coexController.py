@@ -243,6 +243,11 @@ class CoexController:
                         future_stopper.start()
                         d = sendpfast(pkt, mbps=rate, count=n_pkts, parse_results=True)
                         print("Sendpfast no loop terminata")
+                        if self.last_msm_id is not None:
+                            future_stopper.cancel()
+                            self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
+                            self.shared_state.set_probe_as_ready()
+                            self.reset_vars()
                     else:
                         d = sendpfast(pkt, mbps = rate, loop = 1, parse_results = True) # Send the packet forever (duration: 0)
                         print("sendpfast con loop terminata")
