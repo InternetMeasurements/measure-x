@@ -260,7 +260,7 @@ class CoexController:
                     # sudo tcpliveplay wlan0 tcp_traffic.pcap 192.168.43.152 2c:cf:67:6d:9c:ab 60606
                     tcpliveplay_cmd = ['tcpliveplay', self.shared_state.default_nic_name, self.last_complete_trace_path, self.last_coex_parameters.counterpart_probe_ip,
                                        self.last_coex_parameters.counterpart_probe_mac, str(self.last_coex_parameters.socker_port) ]
-                    self.tcpliveplay_subprocess = subprocess.Popen(tcpliveplay_cmd, stdout = subprocess.DEVNULL, stderr = subprocess.PIPE, text = True) # the tcpliveplay stdout is huge!
+                    self.tcpliveplay_subprocess = subprocess.Popen(tcpliveplay_cmd, stdout = subprocess.PIPE, stderr = subprocess.PIPE, text = True) # the tcpliveplay stdout is huge!
                     print(f"Thread_Coex: tcpliveplay coex traffic started")
 
                     _, _ = self.tcpliveplay_subprocess.communicate()
