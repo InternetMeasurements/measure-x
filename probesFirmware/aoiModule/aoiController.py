@@ -362,8 +362,8 @@ class AgeOfInformationController:
         aoi_min = df["AoI"].min()
         aoi_max = df["AoI"].max()
 
-        aoi_min = None if (pd.isna(aoi_min)) else (aoi_min * 1000) # unit in mS
-        aoi_max = None if (pd.isna(aoi_max)) else (aoi_max * 1000) # unit in mS
+        aoi_min = None if (pd.isna(aoi_min)) else aoi_min # unit in mS
+        aoi_max = None if (pd.isna(aoi_max)) else aoi_max # unit in mS
 
         # MEASURE RESULT MESSAGE
         json_aoi_result = {
