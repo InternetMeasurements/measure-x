@@ -353,16 +353,17 @@ class AgeOfInformationController:
         base_path = Path(__file__).parent
         aoi_measurement_file_path = os.path.join(base_path, DEFAULT_AoI_MEASUREMENT_FOLDER, msm_id + ".csv")
         df = pd.read_csv(aoi_measurement_file_path)
-
+        df["AoI"] *= 1000 # unit in mS
         # MEASURE AoI-TIMESERIES COMPRESSION
         aois = df.to_dict(orient='records')
+
         compressed_aois = cbor2.dumps(aois)
         c_aois_b64 = base64.b64encode(compressed_aois).decode("utf-8")
         aoi_min = df["AoI"].min()
         aoi_max = df["AoI"].max()
 
-        aoi_min = None if (pd.isna(aoi_min)) else aoi_min
-        aoi_max = None if (pd.isna(aoi_max)) else aoi_max
+        aoi_min = None if (pd.isna(aoi_min)) else (aoi_min * 1000) # unit in mS
+        aoi_max = None if (pd.isna(aoi_max)) else (aoi_max * 1000) # unit in mS
 
         # MEASURE RESULT MESSAGE
         json_aoi_result = {
