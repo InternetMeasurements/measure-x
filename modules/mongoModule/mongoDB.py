@@ -155,30 +155,36 @@ class MongoDB:
                             })
         return replace_result.modified_count
     
-    def find_and_plot(self, msm_id):
+    def find_and_plot(self, msm_id, start_coex, stop_coex, series_name, time_field, value_field):
         import matplotlib.pyplot as plt
         import numpy as np
 
         result = self.find_all_results_by_measurement_id(msm_id=msm_id)
-        aois = result["aois"]
+        aois = result[series_name]
 
 
-        timestamps = np.array([aoi_data["Timestamp"] for aoi_data in aois], dtype=float)
-        aoi_values = np.array([aoi_data["AoI"] for aoi_data in aois], dtype=float)
+        timestamps = np.array([aoi_data[time_field] for aoi_data in aois], dtype=float)
+        aoi_values = np.array([aoi_data[value_field] for aoi_data in aois], dtype=float)
 
         timestamps -= timestamps[0]
 
-
+        plot_name = "Energy" if value_field == "Current" else "AoI"
         plt.figure(figsize=(10, 6))
-        plt.plot(timestamps, aoi_values, marker='o', linestyle='-', color='b', label="AoI")
+
+        plt.plot(timestamps, aoi_values, marker='o', linestyle='-', color='#B85450', label=value_field)
         plt.xlabel("Timestamp (s)", fontsize=16)
-        plt.ylabel("AoI (s)", fontsize=16)
-        plt.axvspan(xmin=5, xmax=15, color='red', alpha=0.3, label="Iperf measurement")
+
+        ylabel = "AoI (s)" if plot_name == "AoI" else "Current (A)"
+        plt.ylabel(ylabel, fontsize=16)
+
+        if plot_name == "AoI":
+            plt.axvspan(xmin=start_coex, xmax=stop_coex, color='#82B366', alpha=0.3, label="Coexisting Application")
+
         plt.rcParams['font.size'] = 14
-        plt.xticks(fontsize=16)
+        plt.xticks(np.arange(0, timestamps[-1], 2), fontsize=16)
         plt.yticks(fontsize=16)
 
-        plt.title("AoI and Throughput measurements",  fontsize=16)
+        plt.title("Measuring " + plot_name + ("" if plot_name == "Energy" else " with Coexisting Application traffic"),  fontsize=16)
         plt.grid(axis='x')
         plt.legend()
         plt.show()
