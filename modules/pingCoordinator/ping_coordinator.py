@@ -130,7 +130,7 @@ class Ping_Coordinator:
             rtt_avg = result["rtt_avg"],
             rtt_max = result["rtt_max"],
             rtt_min = result["rtt_min"],
-            rtt_mdev = result["rtt_mdev"],
+            rtt_mdev = result["rtt_mdev"], # The mean deviation of the RTT values.
             packets_sent = result["packet_transmit"],
             packets_received = result["packet_receive"],
             packets_loss_count = result["packet_loss_count"],

@@ -217,7 +217,7 @@ class Iperf_Coordinator:
             destination_port = result["destination_port"],
             bytes_received = result["bytes_received"],
             duration = result["duration"],
-            avg_speed = result["avg_speed"],
+            avg_speed = result["avg_speed"] / 10**6, # Speed in Mbps
             full_result = full_result
         )
 
