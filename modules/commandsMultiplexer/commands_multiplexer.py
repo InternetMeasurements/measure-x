@@ -214,6 +214,11 @@ class CommandsMultiplexer:
         elif measure_from_db.state == FAILED_STATE:
             return "Error", "Measurement was failed", "Wrong id?"
         elif measure_from_db.state == COMPLETED_STATE:
+            if measure_from_db.coexisting_application is not None:
+                stop_coex_resul, stop_coex_message, stop_coex_error = self.measurement_stopper_callback['coex'](msm_id_to_stop)
+                if stop_coex_resul == "OK":
+                    return "OK", "Coex traffic stopped (The primary measurement was already completed).", None
+                return stop_coex_resul, stop_coex_message, stop_coex_error
             return "Error", "Measurement already completed", "Wrong id?"
         else:
             return "Error", f"The measurement has an unknown state -> |{measure_from_db.state}|", "Unkown measure state"        
