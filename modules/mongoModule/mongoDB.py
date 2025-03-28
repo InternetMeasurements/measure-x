@@ -160,29 +160,34 @@ class MongoDB:
         import numpy as np
 
         result = self.find_all_results_by_measurement_id(msm_id=msm_id)
-        aois = result[series_name]
+        aois = result[0][series_name]
 
 
         timestamps = np.array([aoi_data[time_field] for aoi_data in aois], dtype=float)
-        aoi_values = np.array([aoi_data[value_field] for aoi_data in aois], dtype=float)
+        values = np.array([aoi_data[value_field] for aoi_data in aois], dtype=float)
 
         timestamps -= timestamps[0]
 
         plot_name = "Energy" if value_field == "Current" else "AoI"
         plt.figure(figsize=(10, 6))
 
-        plt.plot(timestamps, aoi_values, marker='o', linestyle='-', color='#B85450', label=value_field)
+        plt.plot(timestamps, values, marker='o', linestyle='-', color='#B85450', label=value_field)
         plt.xlabel("Timestamp (s)", fontsize=16)
 
-        ylabel = "AoI (s)" if plot_name == "AoI" else "Current (A)"
+        ylabel = "AoI (mS)" if plot_name == "AoI" else "Current (A)"
         plt.ylabel(ylabel, fontsize=16)
 
         if plot_name == "AoI":
             plt.axvspan(xmin=start_coex, xmax=stop_coex, color='#82B366', alpha=0.3, label="Coexisting Application")
 
         plt.rcParams['font.size'] = 14
+        value_max = values.max()
         plt.xticks(np.arange(0, timestamps[-1], 2), fontsize=16)
-        plt.yticks(fontsize=16)
+        if plot_name == "AoI":
+            plt.yticks(np.arange(0, value_max, 20), fontsize=16)
+        else:
+            plt.yticks(np.arange(0, value_max, 10/1000), fontsize=16)
+
 
         plt.title("Measuring " + plot_name + ("" if plot_name == "Energy" else " with Coexisting Application traffic"),  fontsize=16)
         plt.grid(axis='x')
@@ -293,12 +298,10 @@ class MongoDB:
         try:
             cursor = self.results_collection.find({"msm_id": ObjectId(msm_id)})
             result_list = list() if (cursor is None) else list(cursor)
-            if len(result_list) == 1:
-                return result_list[0]
             return result_list
         except Exception as e:
-            print(f"Motivo -> {e}")
-            find_result = ErrorModel(object_ref_id=msm_id, object_ref_type="list of results", 
+            print(f"MongoDB: exception handled for find_all_result. Reason: {e}")
+            find_result = ErrorModel(object_ref_id=msm_id, object_ref_type="results", 
                                      error_description="It must be a 12-byte input or a 24-character hex string",
                                      error_cause="measurement_id NOT VALID")
         return (find_result.to_dict())
