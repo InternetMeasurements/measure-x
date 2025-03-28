@@ -135,10 +135,10 @@ def get_result_by_measurement_id(measurement_id):  # noqa: E501
     """
     mongo_instance : MongoDB = current_app.config.get(KEY_FOR_RETRIEVE_MONGO_INSTANCE)
     
-    result_list_as_dic = mongo_instance.find_all_results_by_measurement_id(msm_id = measurement_id)
-    if isinstance(result_list_as_dic, ErrorModel): #"error_cause" in measurement_readed:
-        return result_list_as_dic, 500
-    return jsonify(results=json.loads(json.dumps(result_list_as_dic, default=json_serial))), 200
+    result_list_as_dict = mongo_instance.find_all_results_by_measurement_id(msm_id = measurement_id)
+    if isinstance(result_list_as_dict, dict): #"error_cause" in measurement_readed:
+        return result_list_as_dict, 400
+    return jsonify(results=json.loads(json.dumps(result_list_as_dict, default=json_serial))), 200
 
 
 def stop_measurement_by_id(measurement_id):  # noqa: E501
