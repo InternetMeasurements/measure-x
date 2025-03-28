@@ -1,0 +1,85 @@
+---
+- name: Clonare e compilare udp-ping
+  hosts: probes
+  become: yes
+  vars_files:
+    - vault.yml
+  vars:
+    user_account: "{{ ansible_user }}"
+    repo_path: "/home/{{ user_account }}/measureX/probesFirmware/udppingModule/repo_clone"
+    executables_path: "/home/{{ user_account }}/measureX/probesFirmware/udppingModule"
+
+  tasks:
+    - name: Verificare se il repository esiste già
+      stat:
+        path: "{{ repo_path }}"
+      register: repo_clone_stat
+
+    - name: Clonare udp-ping repository se non esiste
+      git:
+        repo: 'https://github.com/francescoB1997/udp-ping'
+        dest: "{{ repo_path }}"
+        version: main
+      when: repo_clone_stat.stat.exists == false
+
+    - name: Eseguire il git pull se il repository esiste già
+      git:
+        repo: 'https://github.com/francescoB1997/udp-ping'
+        dest: "{{ repo_path }}"
+        version: main
+      when: repo_clone_stat.stat.exists == true
+
+    - name: Rileggere lo stato della repo dopo il clone
+      stat:
+        path: "{{ repo_path }}"
+      register: repo_clone_stat
+
+    - name: Installare le dipendenze necessarie per la compilazione
+      apt:
+        name:
+          - build-essential
+          - libboost-program-options-dev
+          - g++
+        state: present
+      become: yes
+
+    - name: Compilare udpServer
+      command: g++ -o udpServer udpServer.cpp -lboost_program_options
+      args:
+        chdir: "/home/{{ ansible_user }}/measureX/probesFirmware/udppingModule/repo_clone"
+
+    - name: Compilare udpClient
+      command: g++ -o udpClient udpClient.cpp -lboost_program_options
+      args:
+        chdir: "/home/{{ ansible_user }}/measureX/probesFirmware/udppingModule/repo_clone"
+
+    - name: Modificare la proprietà della directory udp-ping
+      ansible.builtin.file:
+        path: "/home/{{ ansible_user }}/measureX/probesFirmware/udppingModule/repo_clone"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        recurse: yes
+
+    - name: Spostare l'eseguibile udpServer nella cartella finale
+      command: mv {{repo_path}}/udpServer {{executables_path}}
+      when: repo_clone_stat.stat.exists == true
+
+    - name: Spostare l'eseguibile udpClient nella cartella finale
+      command: mv {{repo_path}}/udpClient {{executables_path}}
+      when: repo_clone_stat.stat.exists == true
+
+    - name: Aggiungere permessi di esecuzione su udpServer
+      ansible.builtin.file:
+        path: "{{ executables_path }}/udpServer"
+        mode: 'u+x'
+      when: repo_clone_stat.stat.exists == true
+
+    - name: Aggiungere permessi di esecuzione su udpClient
+      ansible.builtin.file:
+        path: "{{ executables_path }}/udpClient"
+        mode: 'u+x'
+      when: repo_clone_stat.stat.exists == true
+
+    - name: Eliminazione cartella contente la repo, tanto servono solo gli esegubili
+      command: rm -r {{repo_path}}
+      when: repo_clone_stat.stat.exists == true
