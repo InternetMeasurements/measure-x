@@ -23,7 +23,7 @@ class RestServer:
         self.server_thread = None
 
     def body_thread(self):
-        self.app.run(port=8080)
+        self.app.run(port=8085)
 
     def start_REST_API_server(self):
         self.server_thread = threading.Thread(target = self.body_thread)
