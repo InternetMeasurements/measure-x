@@ -241,10 +241,11 @@ class CoexController:
                     if n_pkts == 0: # Then, the traffic will continue unitl "duration" seconds
                         future_stopper = None
                         if self.last_coex_parameters.duration != 0:
+                            print(f"Thread_Coex: starting sendpfast. Future-kill scheduled to terminate after {self.last_coex_parameters.duration} seconds.")
                             future_stopper = threading.Timer(self.last_coex_parameters.duration, self.stop_worker_socket_thread, args=(True, self.last_msm_id,))
                             future_stopper.start()
                         d = sendpfast(pkt, mbps = rate, loop = 1, parse_results = True)
-
+                        print("Wakedup")
                         if (self.last_msm_id is not None) and (future_stopper is not None):
                             future_stopper.cancel()
                             print("Thread_Coex: sendpfast premature stop. Deleted future-kill")
