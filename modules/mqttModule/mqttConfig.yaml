@@ -7,7 +7,7 @@ mqtt_client:
 
   broker:
     host: 131.114.72.254 # 192.168.1.51
-    port: 8080 # This port is beacause the opened ports on the prof's VM are 80, 22 and 8080 only.
+    port: 8080 # This port is beacause the opened ports on the prof's VM are 22 and 8080 only.
     keep_alive: 60 # Every 60 seconds, the paho-mqtt client automatically send a keep-alive-msg to the broker
     login: True # per l'utilizzo delle credenziali, metti a True. L'ESP32 non supporta le credenziali!
 
