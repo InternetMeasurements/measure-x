@@ -271,16 +271,42 @@ class CoexController:
                     self.tcpliveplay_subprocess = subprocess.Popen(tcpliveplay_cmd, stdout = subprocess.DEVNULL, stderr = subprocess.DEVNULL, text = True) # the tcpliveplay stdout is huge!
                     print(f"Thread_Coex: tcpliveplay coex traffic started")
                     """
+                    
+                    """
+                    last_rewrited_trace = "last_trace.pcap"
+                    tcprewrite_cmd = ["sudo", "tcprewrite", "--infile", , "--outfile", last_rewrited_trace, "--dstipmap", f"{old_dst_ip}:{new_dst_ip}",
+                                        "--srcipmap", f"{old_src_ip}:{new_src_ip}", "--dstmac", f"{old_dst_mac}:{new_dst_mac}", "--srcmac", f"{old_src_mac}:{new_src_mac}",
+                                        "--fixcsums" ]
+                    
+                    tcprewrite_cmd = [
+                        "tcprewrite",
+                        "--infile", self.last_complete_trace_path,
+                        "--outfile", last_rewrited_trace,
+                        "--enet-smac", self.shared_state.get_probe_mac(),
+                        "--enet-dmac", self.last_coex_parameters.counterpart_probe_mac,
+                        "--srcipmap", f"0.0.0.0/0:{self.shared_state.get_probe_ip()}",
+                        "--dstipmap", f"0.0.0.0/0:{self.last_coex_parameters.counterpart_probe_ip}",
+                        "--fixcsums"
+                    ]
+                    
+
+                    subprocess.run(tcprewrite_cmd, check=True)
+                    """
                     packets = rdpcap(self.last_complete_trace_path)
-                    changed = 0
                     for pkt in packets:
                         pkt[Ether].src = self.shared_state.get_probe_mac()
                         pkt[Ether].dst = self.last_coex_parameters.counterpart_probe_mac
                         pkt[Ether][IP].src = self.shared_state.get_probe_ip()
                         pkt[Ether][IP].dst = self.last_coex_parameters.counterpart_probe_ip
+
+                        if TCP in pkt:
+                            pkt[TCP].dport = self.last_coex_parameters.socker_port
+                            del pkt[TCP].chksum
+                        elif UDP in pkt:
+                            pkt[UDP].dport = self.last_coex_parameters.socker_port
+                            del pkt[UDP].chksum
+                        
                         del pkt[IP].chksum
-                        changed += 1
-                    print(f"Changed {changed} packets")
                     
                     if self.last_coex_parameters.duration != 0: # If the duration is 0, this means that the traffic generation will go forever (until you stop the primary measure)
                         print(f"Thread_Coex: sendpfast future-kill scheduled to terminate after {self.last_coex_parameters.duration} seconds.")
@@ -292,7 +318,7 @@ class CoexController:
 
                     if (self.last_msm_id is not None) and (self.future_stopper is not None):
                         self.future_stopper.cancel()
-                    print("Thread_Coex: sendpfast has sent all packets. Deleted future-kill")
+                    print("Thread_Coex: sendpfast ended")
                     self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
                     self.shared_state.set_probe_as_ready()
                     self.reset_vars()
