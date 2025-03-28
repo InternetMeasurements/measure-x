@@ -239,11 +239,13 @@ class CoexController:
                     pkt = Ether(src=src_mac, dst=dest_mac) / IP(src=src_ip, dst=dst_ip) / UDP(sport=30000, dport=dport) / Raw(RandString(size=size))
 
                     if n_pkts == 0: # Then, the traffic will continue unitl "duration" seconds
-                        future_stopper = threading.Timer(self.last_coex_parameters.duration, self.stop_worker_socket_thread, args=(True, self.last_msm_id,))
-                        future_stopper.start()
+                        future_stopper = None
+                        if self.last_coex_parameters.duration != 0:
+                            future_stopper = threading.Timer(self.last_coex_parameters.duration, self.stop_worker_socket_thread, args=(True, self.last_msm_id,))
+                            future_stopper.start()
                         d = sendpfast(pkt, mbps = rate, loop = 1, parse_results = True)
 
-                        if self.last_msm_id is not None:
+                        if (self.last_msm_id is not None) and (future_stopper is not None):
                             future_stopper.cancel()
                             print("Thread_Coex: sendpfast premature stop. Deleted future-kill")
                             self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
@@ -332,13 +334,13 @@ class CoexController:
                             self.reset_vars()
                             self.shared_state.set_probe_as_ready()
                 else:
-                    if self.tcpliveplay_subprocess is not None:
+                    if self.tcpliveplay_subprocess is not None: # If you go in this if, then it means: MANUAL KILL OF TRACE BASED TRAFFIC
                         proc = subprocess.run(["sudo", "pgrep", "tcpliveplay"], capture_output=True, text=True)
                         if proc.stdout:
                             pid = int(proc.stdout.strip())
                             os.kill(pid, signal.SIGKILL)
                             print("Manual-kill: tcpliveplay stopped")
-                    else:
+                    else: # If you go in this else, then it means: MANUAL KILL OF CBR BASED TRAFFIC
                         proc = subprocess.run(["sudo", "pgrep", "tcpreplay"], capture_output=True, text=True)
                         if proc.stdout:
                             pid = int(proc.stdout.strip())

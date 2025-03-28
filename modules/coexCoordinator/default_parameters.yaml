@@ -1,8 +1,8 @@
 coex:
-  packets_number: 3000
+  packets_number: 0 # This value means that the CBR traffic duration will be on "duration" value 
   packets_size: 100 # bytes. All BIT to trasmit are: 3000*100*8, that is: 2 400 000 bit
   packets_rate: 0.24 # 0.24Mbps. That is: 240 000 bitps. So the tramission's duration is: 2 400 000 / 240 000 -> 10seconds
   socket_port: 60606
   trace_name: null
-  delay_start: 0
-  duration: 0
+  delay_start: 0 # This value is the gap from the primary measure and the coex traffic beginning
+  duration: 0 # If this value is 0, the duration is infinite, otherwise the value is the duration it self.
