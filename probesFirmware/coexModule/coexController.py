@@ -287,18 +287,17 @@ class CoexController:
                     print("Thread_Coex: staring sendpfast for trace-based coex traffic")
                     d = sendpfast(packets, realtime=True, file_cache=True, parse_results=True)
 
-                    if self.last_msm_id is not None:
+                    if (self.last_msm_id is not None) and (self.future_stopper is not None):
                         self.future_stopper.cancel()
-                        print("Thread_Coex: sendpfast has sent all packets. Deleted future-kill")
-                        self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
-                        self.shared_state.set_probe_as_ready()
-                        self.reset_vars()
+                    print("Thread_Coex: sendpfast has sent all packets. Deleted future-kill")
+                    self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
+                    self.shared_state.set_probe_as_ready()
+                    self.reset_vars()
 
                     # BLOCKING
                     #self.tcpliveplay_subprocess.wait()
-                    print(f"Thread_Coex: tcpliveplay stop confirmed")
                 #if self.last_msm_id is not None: # This is usefull because there will be a sort of Critical race between this thread and the stopper thread (future stopper)
-                    self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
+                    #self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
                     
                 
         except socket.error as e:
