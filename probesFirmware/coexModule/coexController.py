@@ -48,6 +48,7 @@ class CoexController:
         self.thread_worker_on_socket = None
         self.tcpliveplay_subprocess = None
         self.measure_socket = None
+        self.future_stopper = None
 
 
         # Requests to commands_demultiplexer
@@ -239,28 +240,27 @@ class CoexController:
                     pkt = Ether(src=src_mac, dst=dest_mac) / IP(src=src_ip, dst=dst_ip) / UDP(sport=30000, dport=dport) / Raw(RandString(size=size))
 
                     if n_pkts == 0: # Then, the traffic will continue unitl "duration" seconds
-                        future_stopper = None
                         if self.last_coex_parameters.duration != 0:
                             print(f"Thread_Coex: starting sendpfast. Future-kill scheduled to terminate after {self.last_coex_parameters.duration} seconds.")
-                            future_stopper = threading.Timer(self.last_coex_parameters.duration, self.stop_worker_socket_thread, args=(True, self.last_msm_id,))
-                            future_stopper.start()
+                            self.future_stopper = threading.Timer(self.last_coex_parameters.duration, self.stop_worker_socket_thread, args=(True, self.last_msm_id,))
+                            self.future_stopper.start()
                         d = sendpfast(pkt, mbps = rate, loop = 1, parse_results = True)
                         print("Wakedup")
-                        if (self.last_msm_id is not None) and (future_stopper is not None):
-                            future_stopper.cancel()
-                            print("Thread_Coex: sendpfast premature stop. Deleted future-kill")
-                            self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
-                            self.shared_state.set_probe_as_ready()
-                            self.reset_vars()
+                        #if (self.last_msm_id is not None) and (future_stopper is not None):
+                        #    future_stopper.cancel()
+                        #    print("Thread_Coex: sendpfast premature stop. Deleted future-kill")
+                        #    self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
+                        #    self.shared_state.set_probe_as_ready()
+                        #    self.reset_vars()
                     else:
                         if self.last_coex_parameters.duration != 0:
                             print(f"Thread_Coex: starting sendpfast. Future-kill scheduled to terminate after {self.last_coex_parameters.duration} seconds.")
-                            future_stopper = threading.Timer(self.last_coex_parameters.duration, self.stop_worker_socket_thread, args=(True, self.last_msm_id,))
-                            future_stopper.start()
+                            self.future_stopper = threading.Timer(self.last_coex_parameters.duration, self.stop_worker_socket_thread, args=(True, self.last_msm_id,))
+                            self.future_stopper.start()
                             d = sendpfast(pkt, mbps=rate, count=n_pkts, parse_results=True)
                             
                             if self.last_msm_id is not None:
-                                future_stopper.cancel()
+                                self.future_stopper.cancel()
                                 print("Thread_Coex: sendpfast has sent all packets. Deleted future-kill")
                                 self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
                                 self.shared_state.set_probe_as_ready()
@@ -342,11 +342,13 @@ class CoexController:
                             os.kill(pid, signal.SIGKILL)
                             print("Manual-kill: tcpliveplay stopped")
                     else: # If you go in this else, then it means: MANUAL KILL OF CBR BASED TRAFFIC
+                        if self.future_stopper:
+                            self.future_stopper.cancel()
                         proc = subprocess.run(["sudo", "pgrep", "tcpreplay"], capture_output=True, text=True)
                         if proc.stdout:
                             pid = int(proc.stdout.strip())
                             os.kill(pid, signal.SIGKILL)
-                            print("Manual-kill: sendpfast stopped by killing tcpreplay")
+                            print("Manual-kill: sendpfast stopped by killing tcpreplay. Deleted scheduled-kill")
                         self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
                         self.shared_state.set_probe_as_ready()
                         self.reset_vars()
@@ -373,6 +375,9 @@ class CoexController:
         self.tcpliveplay_subprocess = None
         self.last_complete_trace_path = None
         self.stop_thread_event.clear()
+        if self.future_stopper is not None:
+            self.future_stopper.cancel()
+        self.future_stopper = None
 
 
     def check_all_parameters(self, payload : dict) -> str:
