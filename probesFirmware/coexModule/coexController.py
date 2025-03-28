@@ -238,24 +238,36 @@ class CoexController:
 
                     pkt = Ether(src=src_mac, dst=dest_mac) / IP(src=src_ip, dst=dst_ip) / UDP(sport=30000, dport=dport) / Raw(RandString(size=size))
 
-                    if self.last_coex_parameters.duration != 0:
-                        print(f"Thread_Coex: starting sendpfast. Future-kill scheduled to terminate after {self.last_coex_parameters.duration} seconds.")
+                    if n_pkts == 0: # Then, the traffic will continue unitl "duration" seconds
                         future_stopper = threading.Timer(self.last_coex_parameters.duration, self.stop_worker_socket_thread, args=(True, self.last_msm_id,))
                         future_stopper.start()
-                        d = sendpfast(pkt, mbps=rate, count=n_pkts, parse_results=True)
-                        
+                        d = sendpfast(pkt, mbps = rate, loop = 1, parse_results = True)
+
                         if self.last_msm_id is not None:
                             future_stopper.cancel()
-                            print("Thread_Coex: sendpfast has sent all packets. Deleted future-kill")
+                            print("Thread_Coex: sendpfast premature stop. Deleted future-kill")
                             self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
                             self.shared_state.set_probe_as_ready()
                             self.reset_vars()
                     else:
-                        d = sendpfast(pkt, mbps = rate, loop = 1, parse_results = True) # Send the packet forever (duration: 0)
-                        print("Thread_Coex: sendpfast killed from stop")
-                        #self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
-                        #self.shared_state.set_probe_as_ready()
-                        #self.reset_vars()
+                        if self.last_coex_parameters.duration != 0:
+                            print(f"Thread_Coex: starting sendpfast. Future-kill scheduled to terminate after {self.last_coex_parameters.duration} seconds.")
+                            future_stopper = threading.Timer(self.last_coex_parameters.duration, self.stop_worker_socket_thread, args=(True, self.last_msm_id,))
+                            future_stopper.start()
+                            d = sendpfast(pkt, mbps=rate, count=n_pkts, parse_results=True)
+                            
+                            if self.last_msm_id is not None:
+                                future_stopper.cancel()
+                                print("Thread_Coex: sendpfast has sent all packets. Deleted future-kill")
+                                self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
+                                self.shared_state.set_probe_as_ready()
+                                self.reset_vars()
+                        else:
+                            d = sendpfast(pkt, mbps = rate, loop = 1, parse_results = True) # Send the packet forever (duration: 0)
+                            print("Thread_Coex: sendpfast killed from stop")
+                            #self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
+                            #self.shared_state.set_probe_as_ready()
+                            #self.reset_vars()
                 else: # Else, if a trace_name has been specified, then it will be used tcpliveplay
                     # sudo tcpliveplay wlan0 tcp_traffic.pcap 192.168.43.152 2c:cf:67:6d:9c:ab 60606
                     tcpliveplay_cmd = ['sudo', 'tcpliveplay', self.shared_state.default_nic_name, self.last_complete_trace_path, self.last_coex_parameters.counterpart_probe_ip,
