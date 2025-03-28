@@ -15,8 +15,6 @@ from modules.coexCoordinator.coex_coordinator import Coex_Coordinator
 
 from modules.restAPIModule.swagger_server.rest_server import RestServer
 
-from scapy.all import rdpcap, sendp, IP
-
 # Thread body for the check failed measurements
 def update_measurements_collection_thread_body(mongo_db : MongoDB):
     while(True):
@@ -116,7 +114,7 @@ def main():
     #mongo_db.calculate_time_differences(seconds_diff=10)
     # Thesis chart -> 67db3d346c29ca74b4be3144 67e043029aefeb88fb06b589
     # STOP OK: 67e14ce90a83f39e8b2768e8
-    #mongo_db.find_and_plot("67e2c75d19427863ec1f0dde", start_coex=6, stop_coex=18, 
+    #mongo_db.find_and_plot("67e684673869e3dbc171d992", start_coex=6, stop_coex=18, 
     #                       series_name = "aois", time_field = "Timestamp", value_field = "AoI") # 67dea759dedafef56f68c380 #67d3317d5a32ab6171d3bf63
     #67e043029aefeb88fb06b589
 
@@ -125,6 +123,15 @@ def main():
 
     
     #commands_multiplexer.add_status_handler('probe_state', online_status_handler)
+
+
+    """
+        Da vedere
+        67e6c7b30b606a84fa9b04b6 RATE 5
+        67e6c7f80b606a84fa9b04b8 RATE 10
+        67e6c8300b606a84fa9b04ba RATE 20
+        67e6c8620b606a84fa9b04bc RATE 50
+    """
 
     rest_server = RestServer(mongo_instance = mongo_db,
                              commands_multiplexer_instance = commands_multiplexer)
