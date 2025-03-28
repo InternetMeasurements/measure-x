@@ -1,7 +1,6 @@
 #Configuration file for the Probe MQTT module
 
 mqtt_client:
-  probe_id: probe5
   clean_session: True # Auto-eliminazione delle subscriptions
   mosquitto_certificate_path: mosquitto_certificate/mosquitto.crt
 
