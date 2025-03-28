@@ -107,14 +107,23 @@ def main():
     coex_coordinator = Coex_Coordinator(
         mqtt_client = coordinator_mqtt,
         registration_handler_error_callback = commands_multiplexer.add_error_callback,
-        registration_handler_result_callback = commands_multiplexer.add_result_callback, 
         registration_handler_status_callback = commands_multiplexer.add_status_callback,
         registration_measure_preparer_callback = commands_multiplexer.add_probes_preparer_callback,
         ask_probe_ip_mac_callback = commands_multiplexer.ask_probe_ip_mac,
         registration_measurement_stopper_callback = commands_multiplexer.add_measure_stopper_callback,
         mongo_db = mongo_db)
     
+    #mongo_db.calculate_time_differences(seconds_diff=10)
+    # Thesis chart -> 67db3d346c29ca74b4be3144 67e043029aefeb88fb06b589
+    # STOP OK: 67e14ce90a83f39e8b2768e8
+    #mongo_db.find_and_plot("67e2c75d19427863ec1f0dde", start_coex=6, stop_coex=18, 
+    #                       series_name = "aois", time_field = "Timestamp", value_field = "AoI") # 67dea759dedafef56f68c380 #67d3317d5a32ab6171d3bf63
+    #67e043029aefeb88fb06b589
 
+    #mongo_db.find_and_plot("67e264f958d3227f235c1f62", start_coex=6, stop_coex=18, 
+    #                       series_name = "timeseries", time_field = "Timestamp", value_field = "Current") # 67dea759dedafef56f68c380 #67d3317d5a32ab6171d3bf63
+
+    
     #commands_multiplexer.add_status_handler('probe_state', online_status_handler)
 
     rest_server = RestServer(mongo_instance = mongo_db,
@@ -126,8 +135,48 @@ def main():
         command = input()
         if command == "0":
             break
-
+        # Measure OK 67e178d7c280c68b62dfcbad
     coordinator_mqtt.disconnect()
 
 if __name__ == "__main__":
     main()
+
+    """
+    JSON MISURA CHE TESTIMONIA IL MOTIVO PER CUI LO STOP CON DURATION E' LATO PROBES
+    {
+        _id: ObjectId('67e043029aefeb88fb06b589'),
+        description: 'Prova misura',
+        type: 'aoi',
+        state: 'completed',
+        start_time: 1742750467.6435952,
+        source_probe: 'probe1',
+        dest_probe: 'probe3',
+        source_probe_ip: '192.168.43.211',
+        dest_probe_ip: '192.168.43.131',
+        gps_source_probe: null,
+        gps_dest_probe: null,
+        coexisting_application: {
+            description: 'Coex traffic from tcp_big.pcap',
+            source_probe: 'probe4',
+            dest_probe: 'probe2',
+            source_probe_ip: '192.168.43.152',
+            dest_probe_ip: '192.168.43.210',
+            packets_size: null,
+            packets_number: null,
+            packets_rate: null,
+            socket_port: 60606,
+            trace_name: 'tcp_big',
+            delay_start: 6,
+            duration: 12
+        },
+        stop_time: 1742750490.1498997,
+        results: [
+            ObjectId('67e0431a9aefeb88fb06b58a')
+        ],
+        parameters: {
+            socket_port: 50505,
+            packets_rate: 25,
+            payload_size: 32
+        }
+    }
+    """
