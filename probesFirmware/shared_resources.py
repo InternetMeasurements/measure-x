@@ -87,7 +87,7 @@ class SharedState:
                     #my_ip_for_sync = "DEBUG"
                     self.probe_ip_for_clock_sync = my_ip_for_sync
                     print(f"SharedState: my ip for clock sync -> |{self.probe_ip_for_clock_sync}|")
-                except KeyError as k:
+                except Exception as k:
                     print(f"SharedState: exception in retrieve my ip for sync -> {k} ")
                     self.probe_ip_for_clock_sync = "0.0.0.0"
             return self.probe_ip_for_clock_sync
