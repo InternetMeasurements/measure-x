@@ -272,12 +272,15 @@ class CoexController:
                     print(f"Thread_Coex: tcpliveplay coex traffic started")
                     """
                     packets = rdpcap(self.last_complete_trace_path)
+                    changed = 0
                     for pkt in packets:
                         pkt[Ether].src = self.shared_state.get_probe_mac()
                         pkt[Ether].dst = self.last_coex_parameters.counterpart_probe_mac
                         pkt[Ether][IP].src = self.shared_state.get_probe_ip()
                         pkt[Ether][IP].dst = self.last_coex_parameters.counterpart_probe_ip
                         del pkt[IP].chksum
+                        changed += 1
+                    print(f"Changed {changed} packets")
                     
                     if self.last_coex_parameters.duration != 0: # If the duration is 0, this means that the traffic generation will go forever (until you stop the primary measure)
                         print(f"Thread_Coex: sendpfast future-kill scheduled to terminate after {self.last_coex_parameters.duration} seconds.")
