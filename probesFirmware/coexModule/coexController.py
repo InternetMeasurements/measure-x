@@ -292,7 +292,9 @@ class CoexController:
 
                     subprocess.run(tcprewrite_cmd, check=True)
                     """
+
                     packets = rdpcap(self.last_complete_trace_path)
+                    """
                     for pkt in packets:
                         pkt[Ether].src = self.shared_state.get_probe_mac()
                         pkt[Ether].dst = self.last_coex_parameters.counterpart_probe_mac
@@ -308,7 +310,7 @@ class CoexController:
                             pkt[UDP].sport = self.last_coex_parameters.socker_port
                             del pkt[UDP].chksum
                         del pkt[IP].chksum
-
+                    """
                     """
                         PERFETTO, mi trovo con il grafico della misura 67e71df29bf739098c564855 AoI con Coex test.pcap.
                         Scapy rispetta il timing, quindi basterebbe catturare qualcosa di più pesante.
