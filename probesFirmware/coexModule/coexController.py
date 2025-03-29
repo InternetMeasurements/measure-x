@@ -303,7 +303,7 @@ class CoexController:
                             #self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
                         elif self.closed_by_scheduled_stop.is_set():
                             self.closed_by_scheduled_stop.clear()
-                            print(f"Thread_Coex: tcpreplay SCHEDULED stopped.")
+                            #print(f"Thread_Coex: tcpreplay SCHEDULED stopped.")
                             #self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
                         else:
                             print(f"Thread_Coex: tcpreplay exception with error -> {e}")
