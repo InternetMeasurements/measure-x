@@ -380,6 +380,8 @@ class CoexController:
                     self.measure_socket.close()
                 else:
                     self.thread_worker_on_socket.join()
+                if not invoked_by_timer:
+                    self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
                 self.shared_state.set_probe_as_ready()
                 self.reset_vars()
             elif self.last_coex_parameters.role == "Client":
