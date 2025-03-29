@@ -51,6 +51,7 @@ class CoexController:
         self.future_stopper = None
         self.closed_by_manual_stop = threading.Event()
         self.closed_by_scheduled_stop = threading.Event()
+        self.last_complete_trace_rewrited = None
 
 
         # Requests to commands_demultiplexer
@@ -266,41 +267,48 @@ class CoexController:
                             print("Thread_Coex: sendpfast killed from stop")
  
                 else: # Else, if a trace_name has been specified, then it will be used tcpliveplay
-                    tcprewrite_cmd = [ "sudo", "tcprewrite",
-                                        "--infile=iperf3.pcap", "--outfile=iperf3_r.pcap",
-                                        "--srcipmap=0.0.0.0/0:192.168.43.131", "--dstipmap=0.0.0.0/0:192.168.43.211",
-                                        "--enet-smac=2c:cf:67:6d:a1:6a", "--enet-dmac=2c:cf:67:6d:95:a3",
-                                        "--portmap=60607:60607" ]
-                    result = subprocess.run(tcprewrite_cmd, check=True)
-                    if result.returncode == 0: # If the tcprewrite is succesful...
-                        print(f"Thread_Coex: tcprewrite OK")
-                        if self.last_coex_parameters.duration != 0: # If the duration is 0, this means that the traffic generation will go forever (until you stop the primary measure)
-                            print(f"Thread_Coex: tcpreplay future-kill scheduled to terminate after {self.last_coex_parameters.duration} seconds.")
-                            self.future_stopper = threading.Timer(self.last_coex_parameters.duration, self.stop_worker_socket_thread, args=(True, self.last_msm_id,))
-                            self.future_stopper.start()
 
-                        print(f"Thread_Coex: tcpreplay started")
-                        tcpreplay_cmd = ["sudo", "tcpreplay", "-i", self.shared_state.default_nic_name ,"iperf3_r.pcap"]
-                        result = subprocess.run(tcpreplay_cmd, check=True)
-                        if result == 0:
-                            print(f"Thread_Coex: tcpreplay ended. All packets have been sent.")
-                            self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
-                        else:
-                            if self.closed_by_manual_stop.is_set():
-                                print(f"Thread_Coex: tcpreplay MANUALLY ended.")
-                                self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
-                            elif self.closed_by_scheduled_stop.is_set():
-                                print(f"Thread_Coex: tcpreplay SCHEDULED ended.")
+                    tcprewrite_cmd = [ "sudo", "tcprewrite",
+                                        "--infile=" , self.last_complete_trace_path, "--outfile=", self.last_complete_trace_path,
+                                        "--srcipmap=0.0.0.0/0:", self.shared_state.get_probe_ip() , "--dstipmap=0.0.0.0/0:" , self.last_coex_parameters.counterpart_probe_ip,
+                                        "--enet-smac=", self.shared_state.get_probe_mac() , "--enet-dmac=", self.last_coex_parameters.counterpart_probe_mac ,
+                                        "--portmap=", str(self.last_coex_parameters.socker_port), ":", str(self.last_coex_parameters.socker_port)]
+                    print(f"trcprewite comd-> {tcprewrite_cmd}")
+                    try:
+                        result = subprocess.run(tcprewrite_cmd, check=True)
+                        if result.returncode == 0: # If the tcprewrite is succesful...
+                            print(f"Thread_Coex: tcprewrite OK")
+                            if self.last_coex_parameters.duration != 0: # If the duration is 0, this means that the traffic generation will go forever (until you stop the primary measure)
+                                print(f"Thread_Coex: tcpreplay future-kill scheduled to terminate after {self.last_coex_parameters.duration} seconds.")
+                                self.future_stopper = threading.Timer(self.last_coex_parameters.duration, self.stop_worker_socket_thread, args=(True, self.last_msm_id,))
+                                self.future_stopper.start()
+
+                            print(f"Thread_Coex: tcpreplay started")
+                            tcpreplay_cmd = ["sudo", "tcpreplay", "-i", self.shared_state.default_nic_name ,"iperf3_r.pcap"]
+                            result = subprocess.run(tcpreplay_cmd, check=True)
+                            if result == 0:
+                                print(f"Thread_Coex: tcpreplay ended. All packets have been sent.")
                                 self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
                             else:
-                                print(f"Thread_Coex: tcpreplay ended with error -> {result.stderr.decode('utf-8')}")
-                                self.send_coex_NACK(successed_command="start", measurement_related_conf=self.last_msm_id, error_info=result.stderr.decode('utf-8'))
-                    else:
-                        print(f"Thread_Coex: tcprewrite error -> {result.stderr.decode('utf-8')}")
-                        self.send_coex_NACK(successed_command="start", measurement_related_conf=self.last_msm_id, error_info=result.stderr.decode('utf-8'))    
-                    self.shared_state.set_probe_as_ready()
-                    self.reset_vars()
-
+                                if self.closed_by_manual_stop.is_set():
+                                    print(f"Thread_Coex: tcpreplay MANUALLY ended.")
+                                    self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
+                                elif self.closed_by_scheduled_stop.is_set():
+                                    print(f"Thread_Coex: tcpreplay SCHEDULED ended.")
+                                    self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
+                                else:
+                                    print(f"Thread_Coex: tcpreplay ended with error -> {result.stderr.decode('utf-8')}")
+                                    self.send_coex_NACK(successed_command="start", measurement_related_conf=self.last_msm_id, error_info=result.stderr.decode('utf-8'))
+                        else:
+                            print(f"Thread_Coex: tcprewrite error -> {result.stderr.decode('utf-8')}")
+                            self.send_coex_NACK(successed_command="start", measurement_related_conf=self.last_msm_id, error_info=result.stderr.decode('utf-8'))    
+                        self.shared_state.set_probe_as_ready()
+                        self.reset_vars()
+                    except Exception as e:
+                        print(f"Thread_Coex: exception in starting coex traffic -> |{e}|")
+                        self.send_coex_NACK(successed_command="start", measurement_related_conf=self.last_msm_id, error_info={e})    
+                        self.shared_state.set_probe_as_ready()
+                        self.reset_vars()
                     """
                     packets = rdpcap(self.last_complete_trace_path)
                     for pkt in packets:
@@ -430,6 +438,7 @@ class CoexController:
         if self.future_stopper is not None:
             self.future_stopper.cancel()
         self.future_stopper = None
+        self.last_complete_trace_rewrited = None
 
 
     def check_all_parameters(self, payload : dict) -> str:
@@ -448,16 +457,20 @@ class CoexController:
             return "No role provided"
         elif role == "Client":            
             if trace_name is not None: # Checking if pcap file exists
+                trace_name_rewrited = trace_name.replace(".pcap", "_r.pcap") if (trace_name.endswith(".pcap")) else (trace_name + "_r.pcap")
                 trace_name += ".pcap" if (not trace_name.endswith(".pcap")) else ""
-                trace_path = os.path.join(Path(__file__).parent, DEFAULT_PCAP_FOLDER, trace_name)
+                trace_directory = os.path.join(Path(__file__).parent, DEFAULT_PCAP_FOLDER)
+                trace_path = os.path.join(trace_directory , trace_name)
                 print(f"First path: {trace_path}")
                 if not Path(trace_path).exists(): # If the pcap file is not present in the coex module path, the probe will check in its home dir
+                    trace_directory = os.path.join("/", "home", os.getlogin(), DEFAULT_PCAP_FOLDER) # This change the "base path" of the rewrited trace path
                     trace_path = os.path.join("/", "home", os.getlogin(), DEFAULT_PCAP_FOLDER, trace_name)
                     print(f"Second path: {trace_path}")
                     
                     if not Path(trace_path).exists():
                         return f"Trace file |{trace_name}| not found!"
                 self.last_complete_trace_path = trace_path
+                self.last_complete_trace_rewrited = os.path.join(trace_directory , trace_name_rewrited)
             else:          
                 if packets_rate is None:
                     return "No packets rate provided"
