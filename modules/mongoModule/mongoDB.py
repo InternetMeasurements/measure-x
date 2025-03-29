@@ -155,7 +155,7 @@ class MongoDB:
                             })
         return replace_result.modified_count
     
-    def find_and_plot(self, msm_id, start_coex, stop_coex, series_name, time_field, value_field):
+    def find_and_plot(self, msm_id, start_coex, stop_coex, series_name, time_field, value_field, granularity):
         import matplotlib.pyplot as plt
         import numpy as np
 
@@ -167,7 +167,7 @@ class MongoDB:
         values = np.array([aoi_data[value_field] for aoi_data in aois], dtype=float)
 
         timestamps -= timestamps[0]
-
+        max_value = timestamps[-1]
         plot_name = "Energy" if value_field == "Current" else "AoI"
         plt.figure(figsize=(10, 6))
 
@@ -194,6 +194,50 @@ class MongoDB:
         plt.legend()
         plt.show()
 
+
+    def plot_smoothed(self, msm_id, series_name, time_field, value_field, granularity, with_original, with_smoothed, start_coex = None, stop_coex = None):
+        import matplotlib.pyplot as plt
+        import numpy as np
+        import pandas as pd
+        from scipy.ndimage import gaussian_filter1d
+
+        result = self.find_all_results_by_measurement_id(msm_id=msm_id)
+        aois = result[0][series_name]
+
+
+        timestamps = np.array([aoi_data[time_field] for aoi_data in aois], dtype=float)
+        values = np.array([aoi_data[value_field] for aoi_data in aois], dtype=float)
+        #timestamps -=timestamps[0]  # NON NECESSARIO PERCHE' USO to_datetime dopo
+
+        df = pd.DataFrame({time_field: timestamps, value_field: values})
+
+        df[time_field] = pd.to_datetime(df[time_field], unit='s')
+        #df[time_field] = df[time_field] - df[time_field].iloc[0]
+        df.set_index(time_field, inplace=True)
+
+        df_resampled = df.resample(granularity).mean().interpolate()
+
+        smoothed_values = gaussian_filter1d(df_resampled[value_field], sigma=2)
+
+        plt.figure(figsize=(10, 6))
+
+        if with_original:
+            plt.plot(df.index, df[value_field], label="Original Data", linestyle='-', marker='o', color='b')
+            #plt.plot(df_resampled.index, df_resampled[value_field], label="Original Data", alpha=0.5, linestyle='-', marker='o')
+
+        if with_smoothed:
+            plt.plot(df_resampled.index, smoothed_values, label="Smoothed Data", color='red', linewidth=2, linestyle='-', marker='o')
+
+        plt.xlabel("Timestamp")
+        plt.ylabel(value_field + " (s)")
+        plt.legend()
+        plt.title("Smoothed Time Series")
+        plt.grid(True)
+
+        if (start_coex is not None) and (stop_coex is not None):
+            plt.axvspan(xmin=start_coex, xmax=stop_coex, color='#82B366', alpha=0.3, label="Coexisting Application")
+
+        plt.show()
 
 
 
