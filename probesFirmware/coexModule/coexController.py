@@ -217,6 +217,7 @@ class CoexController:
                         try:
                             result = subprocess.run(cmd_to_delete_rule_for_RST_packets_suppression, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                             print(f"Thread_Coex: deleted rule for RST packets suppression for [{self.shared_state.get_probe_ip()}:{socket_port}]")
+                            self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id) # Remember that in the stop_thread there a JOIN of this thread
                         except subprocess.CalledProcessError as e:
                             print(f"Thread_Coex: error while deleting suppression rule. Exception -> {e}")
                     except subprocess.CalledProcessError as e:
@@ -269,7 +270,7 @@ class CoexController:
                 else: # Else, if a trace_name has been specified, then it will be used tcpliveplay
 
                     tcprewrite_cmd = [ "sudo", "tcprewrite",
-                                        "--infile=" , self.last_complete_trace_path, "--outfile=", self.last_complete_trace_path,
+                                        "--infile=" , self.last_complete_trace_path, "--outfile=", self.last_complete_trace_rewrited,
                                         "--srcipmap=0.0.0.0/0:", self.shared_state.get_probe_ip() , "--dstipmap=0.0.0.0/0:" , self.last_coex_parameters.counterpart_probe_ip,
                                         "--enet-smac=", self.shared_state.get_probe_mac() , "--enet-dmac=", self.last_coex_parameters.counterpart_probe_mac ,
                                         "--portmap=", str(self.last_coex_parameters.socker_port), ":", str(self.last_coex_parameters.socker_port)]
@@ -376,7 +377,6 @@ class CoexController:
                     self.measure_socket.close()
                 else:
                     self.thread_worker_on_socket.join()
-                self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
                 self.shared_state.set_probe_as_ready()
                 self.reset_vars()
             elif self.last_coex_parameters.role == "Client":
