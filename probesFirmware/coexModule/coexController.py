@@ -288,28 +288,35 @@ class CoexController:
                             tcpreplay_cmd = ["sudo", "tcpreplay", "-i", self.shared_state.default_nic_name , self.last_complete_trace_rewrited]
                             result = subprocess.run(tcpreplay_cmd, check=True)
                             if result == 0:
-                                print(f"Thread_Coex: tcpreplay ended. All packets have been sent.")
+                                deleted_future_stopper_msg = "."
+                                if self.future_stopper:
+                                    self.future_stopper.cancel()
+                                    deleted_future_stopper_msg = " Deleted scheduled-kill."
+                                print(f"Thread_Coex: tcpreplay ended. All packets have been sent{deleted_future_stopper_msg}")
                                 self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
-                            
+                                self.shared_state.set_probe_as_ready()
+                                self.reset_vars()
                         else:
                             raise Exception(f"Thread_Coex: tcprewrite error -> {result.stderr.decode('utf-8')}")
                             #self.send_coex_NACK(successed_command="start", measurement_related_conf=self.last_msm_id, error_info=result.stderr.decode('utf-8'))    
-                        self.shared_state.set_probe_as_ready()
-                        self.reset_vars()
+                        
                     except Exception as e:
+                        # ONLY in case of neither manully or scheduled stop, the NACK and others must me invoked.
                         if self.closed_by_manual_stop.is_set():
                             self.closed_by_manual_stop.clear()
-                            print(f"Thread_Coex: tcpreplay MANUALLY stopped.")
+                            #print(f"Thread_Coex: tcpreplay MANUALLY stopped.")
+                            return
                             #self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
                         elif self.closed_by_scheduled_stop.is_set():
                             self.closed_by_scheduled_stop.clear()
+                            return
                             #print(f"Thread_Coex: tcpreplay SCHEDULED stopped.")
                             #self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
                         else:
                             print(f"Thread_Coex: tcpreplay exception with error -> {e}")
                             self.send_coex_NACK(failed_command="start", measurement_related_conf=self.last_msm_id, error_info=str(e))
-                        self.shared_state.set_probe_as_ready()
-                        self.reset_vars()
+                            self.shared_state.set_probe_as_ready()
+                            self.reset_vars()
                     """
                     packets = rdpcap(self.last_complete_trace_path)
                     for pkt in packets:
@@ -388,32 +395,24 @@ class CoexController:
                         if proc.stdout:
                             pid = int(proc.stdout.strip())
                             os.kill(pid, signal.SIGKILL)
-                            print("Scheduled-kill: sendpfast stopped by killing tcpreplay")
-                        self.send_coex_ACK(successed_command="stop", measurement_related_conf=measurement_coex_to_stop)
-                        self.reset_vars()
-                        self.shared_state.set_probe_as_ready()
+                            print("CoexController: Scheduled-kill of tcpreplay")
+                        #self.send_coex_ACK(successed_command="stop", measurement_related_conf=measurement_coex_to_stop)
+                        #self.reset_vars()
+                        #self.shared_state.set_probe_as_ready()
                 else:
-                    """
-                    if self.tcpliveplay_subprocess is not None: # If you go in this if, then it means: MANUAL KILL OF TRACE BASED TRAFFIC
-                        proc = subprocess.run(["sudo", "pgrep", "tcpliveplay"], capture_output=True, text=True)
-                        if proc.stdout:
-                            pid = int(proc.stdout.strip())
-                            os.kill(pid, signal.SIGKILL)
-                            print("Manual-kill: tcpliveplay stopped")
-                    else: # If you go in this else, then it means: MANUAL KILL OF CBR BASED TRAFFIC"
-                    """
-                        # Questo blocco era nell'else
+                    deleted_future_stopper_msg = "."
                     if self.future_stopper:
                         self.future_stopper.cancel()
+                        deleted_future_stopper_msg = " Deleted scheduled-kill."
                     self.closed_by_manual_stop.set()
                     proc = subprocess.run(["sudo", "pgrep", "tcpreplay"], capture_output=True, text=True)
                     if proc.stdout:
                         pid = int(proc.stdout.strip())
                         os.kill(pid, signal.SIGKILL)
-                        print("Manual-kill: sendpfast stopped by killing tcpreplay. Deleted scheduled-kill")
-                    #self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
-                    #self.shared_state.set_probe_as_ready()
-                    #self.reset_vars()
+                        print(f"CoexController: Manual-kill of tcpreplay{deleted_future_stopper_msg}")
+                self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
+                self.shared_state.set_probe_as_ready()
+                self.reset_vars()
             return "OK"
         except Exception as e:
             print(f"CoexController: Role -> {self.last_coex_parameters.role} , exception while closing socket -> {e}")
