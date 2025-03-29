@@ -192,6 +192,7 @@ class CoexController:
                         data, addr = self.measure_socket.recvfrom(self.last_coex_parameters.packets_size)
                         print(f"Thread_Coex: Received data from |{addr}|. Data size: {len(data)} byte")
                     self.measure_socket.close()
+                    self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
                     print("Thread_Coex: socket closed")
                 else: # IF THE COEXITING TRAFFIC COMES FROM A PCAP...
                     cmd_to_add_rule_for_RST_packets_suppression = ["sudo", "iptables", "-A", "OUTPUT", "-p", "tcp", "--tcp-flags", "RST", 
@@ -371,7 +372,7 @@ class CoexController:
         print(f"stop_worker_socket_thread invoked_by_timer = {invoked_by_timer} , msm_id = {measurement_coex_to_stop}")
         try:
             if self.last_coex_parameters.role == "Server":
-                self.stop_thread_event.set()
+                self.stop_thread_event.set() # Setting the stop event for thread_worker_on_socket executed as Server 
                 if self.last_coex_parameters.trace_name is None:
                     #print(f"Sending |{self.last_coex_parameters.packets_size}| byte to myself:{self.last_coex_parameters.socker_port}")
                     # Sending self.last_coex_parameters.packets_size BYTE to myself to wakeUp the thread blocked in recv. I won't use the SOCKET_TIMEOUT.
@@ -380,8 +381,6 @@ class CoexController:
                     self.measure_socket.close()
                 else:
                     self.thread_worker_on_socket.join()
-                if not invoked_by_timer:
-                    self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
                 self.shared_state.set_probe_as_ready()
                 self.reset_vars()
             elif self.last_coex_parameters.role == "Client":
