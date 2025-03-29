@@ -307,7 +307,7 @@ class CoexController:
                         self.reset_vars()
                     except Exception as e:
                         print(f"Thread_Coex: exception in starting coex traffic -> |{e}|")
-                        self.send_coex_NACK(failed_command="start", measurement_related_conf=self.last_msm_id, error_info={e})    
+                        self.send_coex_NACK(failed_command="start", measurement_related_conf=self.last_msm_id, error_info=str(e))    
                         self.shared_state.set_probe_as_ready()
                         self.reset_vars()
                     """
