@@ -292,20 +292,22 @@ class CoexController:
                                 self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
                             
                         else:
-                            print(f"Thread_Coex: tcprewrite error -> {result.stderr.decode('utf-8')}")
-                            self.send_coex_NACK(successed_command="start", measurement_related_conf=self.last_msm_id, error_info=result.stderr.decode('utf-8'))    
+                            raise Exception(f"Thread_Coex: tcprewrite error -> {result.stderr.decode('utf-8')}")
+                            #self.send_coex_NACK(successed_command="start", measurement_related_conf=self.last_msm_id, error_info=result.stderr.decode('utf-8'))    
                         self.shared_state.set_probe_as_ready()
                         self.reset_vars()
                     except Exception as e:
                         if self.closed_by_manual_stop.is_set():
+                            self.closed_by_manual_stop.clear()
                             print(f"Thread_Coex: tcpreplay MANUALLY stopped.")
-                            self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
+                            #self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
                         elif self.closed_by_scheduled_stop.is_set():
+                            self.closed_by_scheduled_stop.clear()
                             print(f"Thread_Coex: tcpreplay SCHEDULED stopped.")
-                            self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
+                            #self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
                         else:
                             print(f"Thread_Coex: tcpreplay exception with error -> {e}")
-                            self.send_coex_NACK(successed_command="start", measurement_related_conf=self.last_msm_id, error_info=str(e))
+                            self.send_coex_NACK(failed_command="start", measurement_related_conf=self.last_msm_id, error_info=str(e))
                         self.shared_state.set_probe_as_ready()
                         self.reset_vars()
                     """
@@ -439,8 +441,6 @@ class CoexController:
             self.future_stopper.cancel()
         self.future_stopper = None
         self.last_complete_trace_rewrited = None
-        self.closed_by_manual_stop.clear()
-        self.closed_by_scheduled_stop.clear()
 
 
     def check_all_parameters(self, payload : dict) -> str:
