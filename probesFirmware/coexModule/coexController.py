@@ -301,12 +301,18 @@ class CoexController:
 
                         if TCP in pkt:
                             pkt[TCP].dport = self.last_coex_parameters.socker_port
+                            pkt[TCP].sport = self.last_coex_parameters.socker_port
                             del pkt[TCP].chksum
                         elif UDP in pkt:
                             pkt[UDP].dport = self.last_coex_parameters.socker_port
+                            pkt[UDP].sport = self.last_coex_parameters.socker_port
                             del pkt[UDP].chksum
-                        
                         del pkt[IP].chksum
+
+                    """
+                        PERFETTO, mi trovo con il grafico della misura 67e71df29bf739098c564855 AoI con Coex test.pcap.
+                        Scapy rispetta il timing, quindi basterebbe catturare qualcosa di più pesante.
+                    """
                     
                     if self.last_coex_parameters.duration != 0: # If the duration is 0, this means that the traffic generation will go forever (until you stop the primary measure)
                         print(f"Thread_Coex: sendpfast future-kill scheduled to terminate after {self.last_coex_parameters.duration} seconds.")
