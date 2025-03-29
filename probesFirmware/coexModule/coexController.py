@@ -395,7 +395,7 @@ class CoexController:
                         if proc.stdout:
                             pid = int(proc.stdout.strip())
                             os.kill(pid, signal.SIGKILL)
-                            print("CoexController: Scheduled-kill of tcpreplay")
+                            print("CoexController: Scheduled-kill of tcpreplay", flush=True)
                         #self.send_coex_ACK(successed_command="stop", measurement_related_conf=measurement_coex_to_stop)
                         #self.reset_vars()
                         #self.shared_state.set_probe_as_ready()
