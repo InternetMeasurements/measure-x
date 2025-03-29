@@ -269,7 +269,7 @@ class CoexController:
                 else: # Else, if a trace_name has been specified, then it will be used tcpliveplay
 
                     tcprewrite_cmd = [ "sudo", "tcprewrite",
-                                        "--infile=" +self.last_complete_trace_path, "--outfile= "+ self.last_complete_trace_rewrited,
+                                        "--infile=" +self.last_complete_trace_path, "--outfile="+ self.last_complete_trace_rewrited,
                                         "--srcipmap=0.0.0.0/0:" + self.shared_state.get_probe_ip() , "--dstipmap=0.0.0.0/0:" + self.last_coex_parameters.counterpart_probe_ip,
                                         "--enet-smac=" + self.shared_state.get_probe_mac() , "--enet-dmac=" + self.last_coex_parameters.counterpart_probe_mac ,
                                         "--portmap=" + str(self.last_coex_parameters.socker_port) + ":" + str(self.last_coex_parameters.socker_port)]
