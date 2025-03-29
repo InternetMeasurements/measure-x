@@ -304,7 +304,7 @@ class CoexController:
                             print(f"Thread_Coex: tcpreplay SCHEDULED stopped.")
                             self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
                         else:
-                            print(f"Thread_Coex: tcpreplay exception with error -> {result.stderr.decode('utf-8')}")
+                            print(f"Thread_Coex: tcpreplay exception with error -> {e}")
                             self.send_coex_NACK(successed_command="start", measurement_related_conf=self.last_msm_id, error_info=result.stderr.decode('utf-8'))
                         self.shared_state.set_probe_as_ready()
                         self.reset_vars()
@@ -381,6 +381,7 @@ class CoexController:
                 if (invoked_by_timer): # If this is an automatic invocation, then we must be sure to stop the coex traffic.
                     if (measurement_coex_to_stop == self.last_msm_id): # May be this automatic invocation is delayed too much that fall in another measurement, so it's mandatory check the msm_id
                         self.closed_by_scheduled_stop.set()
+
                         proc = subprocess.run(["sudo", "pgrep", "tcpreplay"], capture_output=True, text=True)
                         if proc.stdout:
                             pid = int(proc.stdout.strip())
