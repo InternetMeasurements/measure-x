@@ -105,6 +105,11 @@ class Coex_Coordinator:
                     if msm_id in self.events_received_ack_from_probe_sender:
                         self.events_received_ack_from_probe_sender[msm_id][1] = reason
                         self.events_received_ack_from_probe_sender[msm_id][0].set()
+                    else:
+                        if msm_id in self.queued_measurements: # If the coordinator has been rebooted in the while...
+                            source_probe = self.queued_measurements[msm_id].source_probe
+                            if probe_sender == source_probe:
+                                self.send_probe_coex_stop(probe_id=self.queued_measurements[msm_id].dest_probe, msm_id_to_stop=msm_id)
                 elif command == "stop":
                     if msm_id in self.events_stop_probe_ack:
                         self.events_stop_probe_ack[msm_id][1] = reason
