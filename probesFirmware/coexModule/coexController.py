@@ -285,7 +285,7 @@ class CoexController:
 
                             print(f"Thread_Coex: tcpreplay started")
                             self.send_coex_ACK(successed_command = "start", measurement_related_conf = self.last_msm_id)
-                            tcpreplay_cmd = ["sudo", "tcpreplay", "-i", self.shared_state.default_nic_name ,"iperf3_r.pcap"]
+                            tcpreplay_cmd = ["sudo", "tcpreplay", "-i", self.shared_state.default_nic_name , self.last_complete_trace_rewrited]
                             result = subprocess.run(tcpreplay_cmd, check=True)
                             if result == 0:
                                 print(f"Thread_Coex: tcpreplay ended. All packets have been sent.")
