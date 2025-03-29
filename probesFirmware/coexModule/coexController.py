@@ -459,21 +459,19 @@ class CoexController:
         elif role == "Client":            
             if trace_name is not None: # Checking if pcap file exists
                 trace_name_rewrited = trace_name.replace(".pcap", "_r.pcap") if (trace_name.endswith(".pcap")) else (trace_name + "_r.pcap")
-                print(f"Rewrited file-> {trace_name_rewrited}")
                 trace_name += ".pcap" if (not trace_name.endswith(".pcap")) else ""
                 trace_directory = os.path.join(Path(__file__).parent, DEFAULT_PCAP_FOLDER)
                 trace_path = os.path.join(trace_directory , trace_name)
-                print(f"First path: {trace_path}")
                 if not Path(trace_path).exists(): # If the pcap file is not present in the coex module path, the probe will check in its home dir
                     trace_directory = os.path.join("/", "home", os.getlogin(), DEFAULT_PCAP_FOLDER) # This change the "base path" of the rewrited trace path
                     trace_path = os.path.join("/", "home", os.getlogin(), DEFAULT_PCAP_FOLDER, trace_name)
-                    print(f"Second path: {trace_path}")
-                    
                     if not Path(trace_path).exists():
                         return f"Trace file |{trace_name}| not found!"
+                    print(f"CoexController: file {trace_name} found in alternative folder")
+                else:
+                    print(f"CoexController: file {trace_name} found in Coex Module folder")
                 self.last_complete_trace_path = trace_path
                 self.last_complete_trace_rewrited = os.path.join(trace_directory , trace_name_rewrited)
-                print(f"Cmplete Rewrited file-> {self.last_complete_trace_rewrited}")
             else:          
                 if packets_rate is None:
                     return "No packets rate provided"
