@@ -102,8 +102,6 @@ class CoexController:
                 
                 if self.last_coex_parameters.role == "Client":
                     self.thread_worker_on_socket.start()
-                    self.send_coex_ACK(successed_command = "start", measurement_related_conf = msm_id)
-
 
             case 'stop':
                 if self.shared_state.probe_is_ready():
@@ -285,6 +283,7 @@ class CoexController:
                                 self.future_stopper.start()
 
                             print(f"Thread_Coex: tcpreplay started")
+                            self.send_coex_ACK(successed_command = "start", measurement_related_conf = self.last_msm_id)
                             tcpreplay_cmd = ["sudo", "tcpreplay", "-i", self.shared_state.default_nic_name ,"iperf3_r.pcap"]
                             result = subprocess.run(tcpreplay_cmd, check=True)
                             if result == 0:
