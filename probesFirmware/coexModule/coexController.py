@@ -84,7 +84,7 @@ class CoexController:
                     self.shared_state.set_probe_as_ready()
                     return
                 
-                if self.last_coex_parameters.role == "Client": # THE SERVER WILL SEND conf ACK AFTER ADDING SUPPRESION RULE!
+                if self.last_coex_parameters.role == "Client": # THE SERVER WILL SEND conf ACK in body_worker_for_coex_traffic
                     self.send_coex_ACK(successed_command = "conf", measurement_related_conf = self.last_msm_id)
                 self.print_coex_conf_info_message()       
                 if self.last_coex_parameters.role == "Server": # ONLY the server starts the thread at CONF COMMAND
@@ -185,6 +185,7 @@ class CoexController:
                 if self.last_coex_parameters.trace_name is None: # This means that there will be a Custom Traffic (UDP)
                     self.measure_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                     self.measure_socket.bind((self.shared_state.get_probe_ip(), self.last_coex_parameters.socker_port))
+                    self.send_coex_ACK(successed_command="conf", measurement_related_conf=self.last_msm_id)
                     print(f"Thread_Coex: Opened socket on IP: |{self.shared_state.get_probe_ip()}| , port: |{self.last_coex_parameters.socker_port}|")
                     print(f"Thread_Coex: Listening for {self.last_coex_parameters.packets_size} byte ...")
                     while(not self.stop_thread_event.is_set()):
@@ -358,10 +359,10 @@ class CoexController:
                     #self.tcpliveplay_subprocess.wait()
                 #if self.last_msm_id is not None: # This is usefull because there will be a sort of Critical race between this thread and the stopper thread (future stopper)
                     #self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
-        except socket.error as e:
-            print(f"CoexController: Role: {self.last_coex_parameters.role} , Socket error -> {str(e)}")
+        except Exception as e:
+            print(f"CoexController: Role: {self.last_coex_parameters.role} , Exception -> |{str(e)}| , msm_id: |{self.last_msm_id}|")
             if (self.last_coex_parameters.role == "Server") and (not self.stop_thread_event.is_set()):
-                self.send_coex_error(command_error = "socket", msm_id = self.last_msm_id, reason = str(e))
+                self.send_coex_NACK(failed_command="conf", measurement_related_conf= self.last_msm_id, error_info = str(e))
                 self.shared_state.set_probe_as_ready()
                 self.reset_vars()
             
@@ -398,7 +399,7 @@ class CoexController:
                     deleted_future_stopper_msg = "."
                     if self.future_stopper:
                         self.future_stopper.cancel()
-                        deleted_future_stopper_msg = " Deleted scheduled-kill."
+                        deleted_future_stopper_msg = ". Deleted scheduled-kill."
                     self.closed_by_manual_stop.set()
                     proc = subprocess.run(["sudo", "pgrep", "tcpreplay"], capture_output=True, text=True)
                     if proc.stdout:
