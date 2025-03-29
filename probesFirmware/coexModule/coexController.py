@@ -305,7 +305,7 @@ class CoexController:
                             self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
                         else:
                             print(f"Thread_Coex: tcpreplay exception with error -> {e}")
-                            self.send_coex_NACK(successed_command="start", measurement_related_conf=self.last_msm_id, error_info=result.stderr.decode('utf-8'))
+                            self.send_coex_NACK(successed_command="start", measurement_related_conf=self.last_msm_id, error_info=str(e))
                         self.shared_state.set_probe_as_ready()
                         self.reset_vars()
                     """
