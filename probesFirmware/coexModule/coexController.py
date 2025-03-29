@@ -84,7 +84,8 @@ class CoexController:
                     self.shared_state.set_probe_as_ready()
                     return
                 
-                self.send_coex_ACK(successed_command = "conf", measurement_related_conf = self.last_msm_id)
+                if self.last_coex_parameters.role == "Client": # THE SERVER WILL SEND conf ACK AFTER ADDING SUPPRESION RULE!
+                    self.send_coex_ACK(successed_command = "conf", measurement_related_conf = self.last_msm_id)
                 self.print_coex_conf_info_message()       
                 if self.last_coex_parameters.role == "Server": # ONLY the server starts the thread at CONF COMMAND
                     self.thread_worker_on_socket.start()
