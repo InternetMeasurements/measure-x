@@ -306,7 +306,7 @@ class CoexController:
                         self.reset_vars()
                     except Exception as e:
                         print(f"Thread_Coex: exception in starting coex traffic -> |{e}|")
-                        self.send_coex_NACK(successed_command="start", measurement_related_conf=self.last_msm_id, error_info={e})    
+                        self.send_coex_NACK(failed_command="start", measurement_related_conf=self.last_msm_id, error_info={e})    
                         self.shared_state.set_probe_as_ready()
                         self.reset_vars()
                     """
@@ -376,6 +376,7 @@ class CoexController:
                     self.measure_socket.close()
                 else:
                     self.thread_worker_on_socket.join()
+                self.send_coex_ACK(successed_command="stop", measurement_related_conf=self.last_msm_id)
                 self.shared_state.set_probe_as_ready()
                 self.reset_vars()
             elif self.last_coex_parameters.role == "Client":
@@ -458,6 +459,7 @@ class CoexController:
         elif role == "Client":            
             if trace_name is not None: # Checking if pcap file exists
                 trace_name_rewrited = trace_name.replace(".pcap", "_r.pcap") if (trace_name.endswith(".pcap")) else (trace_name + "_r.pcap")
+                print(f"Rewrited file-> {trace_name_rewrited}")
                 trace_name += ".pcap" if (not trace_name.endswith(".pcap")) else ""
                 trace_directory = os.path.join(Path(__file__).parent, DEFAULT_PCAP_FOLDER)
                 trace_path = os.path.join(trace_directory , trace_name)
@@ -471,6 +473,7 @@ class CoexController:
                         return f"Trace file |{trace_name}| not found!"
                 self.last_complete_trace_path = trace_path
                 self.last_complete_trace_rewrited = os.path.join(trace_directory , trace_name_rewrited)
+                print(f"Cmplete Rewrited file-> {self.last_complete_trace_rewrited}")
             else:          
                 if packets_rate is None:
                     return "No packets rate provided"
