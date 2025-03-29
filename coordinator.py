@@ -114,9 +114,9 @@ def main():
     #mongo_db.calculate_time_differences(seconds_diff=10)
     # Thesis chart -> 67db3d346c29ca74b4be3144 67e043029aefeb88fb06b589
     # STOP OK: 67e14ce90a83f39e8b2768e8
-    #mongo_db.find_and_plot("67e684673869e3dbc171d992", start_coex=6, stop_coex=18, 
-    #                       series_name = "aois", time_field = "Timestamp", value_field = "AoI") # 67dea759dedafef56f68c380 #67d3317d5a32ab6171d3bf63
-    #67e043029aefeb88fb06b589
+    
+    #mongo_db.plot_smoothed("67e80e46d934162362cab543", series_name = "aois", time_field = "Timestamp", value_field = "AoI",
+    #                       with_original = True, with_smoothed = True, granularity = "100ms")
 
     #mongo_db.find_and_plot("67e264f958d3227f235c1f62", start_coex=6, stop_coex=18, 
     #                       series_name = "timeseries", time_field = "Timestamp", value_field = "Current") # 67dea759dedafef56f68c380 #67d3317d5a32ab6171d3bf63
