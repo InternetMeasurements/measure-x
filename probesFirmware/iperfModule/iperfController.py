@@ -162,14 +162,14 @@ class IperfController:
         repetition_count = 0
         execution_return_code = -2
         while (repetition_count < self.repetitions):
-            time.sleep(0.5)
+            time.sleep(2.5)
             print(f"\n*************** Repetition: {repetition_count + 1} ***************")
             execution_return_code = self.run_iperf_execution()
             if execution_return_code != 0: # 0 is the correct execution code
                 break
             self.publish_last_output_iperf(repetition = repetition_count, last_result=((repetition_count + 1) == self.repetitions))
             repetition_count += 1
-            time.sleep(0.5)
+            time.sleep(2.5)
 
         if (execution_return_code != 0) and (execution_return_code != signal.SIGTERM):
             self.send_iperf_NACK(failed_command="start", error_info=self.last_error, msm_id=self.last_measurement_id)
