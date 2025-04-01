@@ -189,9 +189,11 @@ class IperfController:
 
             if self.transport_protocol != "TCP":
                 command.append("-u")
-                command.append("-b 1000M")
+                command.append("-b")
+                command.append("1000M")
             else:
-                command.append("--bandwidth 1000M")
+                command.append("--bandwidth")
+                command.append("1000M")
             if self.reverse_function:
                 command.append("-R")
             if self.verbose_function:
