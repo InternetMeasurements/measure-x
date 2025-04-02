@@ -322,14 +322,21 @@ class Age_of_Information_Coordinator:
             aoi_max = result["aoi_max"]
         )
 
-        result_id = str(self.mongo_db.insert_result(result = mongo_aoi_result))
+        result_id = self.mongo_db.insert_result(result = mongo_aoi_result)
+
+        if isinstance(result_id, dict):
+            if self.mongo_db.update_results_array_in_measurement(msm_id=msm_id, result_id=result_id["_id"]):
+                print(f"AoI_Coordinator: updated document linking in measure: |{msm_id}| FORCED")
+        else:
+            if self.mongo_db.update_results_array_in_measurement(msm_id=msm_id):
+                print(f"AoI_Coordinator: updated document linking in measure: |{msm_id}|")
+        """
         if result_id is not None:
             print(f"AoI_Coordinator: result |{result_id}| stored in db")
         else:
             print(f"AoI_Coordinator: error while storing result |{result_id}|")
-
-        if self.mongo_db.update_results_array_in_measurement(msm_id=msm_id):
-            print(f"AoI_Coordinator: updated document linking in measure: |{msm_id}|")
+        """     
+        
         if self.mongo_db.set_measurement_as_completed(msm_id):
             print(f"AoI_Coordinator: measurement |{msm_id}| completed ")
         self.send_enable_ntp_service(probe_sender=self.queued_measurements[msm_id].source_probe, msm_id=msm_id, role="Client")
