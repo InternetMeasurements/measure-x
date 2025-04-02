@@ -245,7 +245,7 @@ class Coex_Coordinator:
                 self.queued_measurements[measurement_id] = new_measurement
                 self.events_received_ack_from_probe_sender[measurement_id] = [threading.Event(), None]
                 self.send_probe_coex_start(probe_id = coexisting_application.source_probe, msm_id = measurement_id)
-                self.events_received_ack_from_probe_sender[measurement_id][0].wait(timeout = 5)
+                self.events_received_ack_from_probe_sender[measurement_id][0].wait(timeout = 60)
                 # ------------------------------- YOU MUST WAIT (AT MOST 5s) FOR AN ACK/NACK START FROM SOURCE_PROBE (COEX INITIATOR)
                 probe_client_start_message = self.events_received_ack_from_probe_sender[measurement_id][1]
                 if probe_client_start_message == "OK":
