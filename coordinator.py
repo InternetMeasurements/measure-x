@@ -115,15 +115,31 @@ def main():
     # Thesis chart -> 67db3d346c29ca74b4be3144 67e043029aefeb88fb06b589
     # STOP OK: 67e14ce90a83f39e8b2768e8
     
-    #mongo_db.plot_smoothed("67e80e46d934162362cab543", series_name = "aois", time_field = "Timestamp", value_field = "AoI",
-    #                       with_original = True, with_smoothed = True, granularity = "100ms")
+    #mongo_db.plot_smoothed("67e959a728a26890f39b2161", series_name = "aois", time_field = "Timestamp", value_field = "AoI",
+    #                       with_original = True, with_smoothed = True, granularity = "200ms")
 
     #mongo_db.find_and_plot("67e264f958d3227f235c1f62", start_coex=6, stop_coex=18, 
     #                       series_name = "timeseries", time_field = "Timestamp", value_field = "Current") # 67dea759dedafef56f68c380 #67d3317d5a32ab6171d3bf63
 
     
     #commands_multiplexer.add_status_handler('probe_state', online_status_handler)
+    # Intermittent: 67e71df29bf739098c564855 not iperf
+    # Intermittent: 67e7b95722acb508a7682d2e with iperf SOCKET TCP NOT OPENED
+    # Intermittent; 67e7bb6efcde19e50fc8c57a with iperf SOCKET TCP OPENED
+    # Intermittent; 67e7c0790a41ab34a202c4a8 with iperf (captured on probe4), traffic incoming
+    # Intermittent; 67e7c1690e1bc5bb5f023d74 with iperf (captured on probe4), traffic outgoing
 
+    # AoI senza Coex. Fra probe3 e probe1 lanciato manualmente tcpreplay per vedere se rispetta automatic. il timing -> 67e7cb63f09f698aa49f28ed (Sembra di SI)
+    # AoI senza Coex. Fra probe3 e probe1 lanciato manualmente tcpreplay per vedere se rispetta automatic. il timing -> 67e7ce8ea473e07b219e2680 (CONFERMA. SI)
+
+    # tcprewrite + tcpreplay -> AoI con stesso coex di prima con scapy. No delay aggiuntivo --> 67e7e3e24da3a89c886451c2
+    # tcprewrite + tcpreplay -> AoI con stesso coex di prima con scapy. No delay aggiuntivo --> 67e7e7ba08cf95aa11481e6f
+    # tcprewrite + tcpreplay -> AoI con stesso coex di prima con scapy. No delay aggiuntivo --> 67e7e91517f99032015f1744
+
+    # tcprewrite + tcpreplay -> AoI con stesso coex di prima con scapy. No delay aggiuntivo --> 67e80d9d018e4ff055213fb2 (Perfect) 30 pkts/s
+    # tcprewrite + tcpreplay -> AoI con stesso coex di prima con scapy. No delay aggiuntivo --> 67e80e46d934162362cab543 (Perfect) 300 pkts/s
+    
+    
 
     """
         Da vedere
