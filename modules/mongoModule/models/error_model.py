@@ -8,7 +8,7 @@ class ErrorModel():
 
     def to_dict(self):
         return {
-            "object_ref_id": self.object_ref_id,
+            "object_ref_id": str(self.object_ref_id),
             "object_ref_type": self.object_ref_type,
             "error_description": self.error_description,
             "error_cause": self.error_cause}
