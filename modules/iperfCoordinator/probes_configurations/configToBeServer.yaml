@@ -1,6 +1,4 @@
 #Configuration file for the IPERF module
 iperf_server:
   listen_port: 5201
-  transport_protocol: TCP
-  reverse: False
-  verbose: True
+  verbose: False

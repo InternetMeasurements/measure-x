@@ -1,10 +1,11 @@
 
 
 class PingResultModelMongo:
-    def __init__(self, measure_reference, start_timestamp, rtt_avg, rtt_max, rtt_min, rtt_mdev, packets_sent, packets_received, packets_loss_count, packets_loss_rate, icmp_replies) -> None:
+    def __init__(self, msm_id, timestamp, rtt_avg, rtt_max, rtt_min, rtt_mdev,
+                packets_sent, packets_received, packets_loss_count, packets_loss_rate, icmp_replies):
         self._id = None
-        self.measure_reference = measure_reference
-        self.start_timestamp = start_timestamp
+        self.msm_id = msm_id
+        self.timestamp = timestamp
         self.rtt_avg = rtt_avg
         self.rtt_max = rtt_max
         self.rtt_min = rtt_min
@@ -19,8 +20,8 @@ class PingResultModelMongo:
 
     def to_dict(self) -> dict:
         return {
-            'measure_reference': self.measure_reference,
-            'start_timestamp': self.start_timestamp,
+            'msm_id': self.msm_id,
+            'timestamp': self.timestamp, # start timestamp
             'rtt_avg': self.rtt_avg,
             'rtt_max': self.rtt_max,
             'rtt_min': self.rtt_min,

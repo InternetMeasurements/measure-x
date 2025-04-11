@@ -1,0 +1,466 @@
+openapi: 3.0.0
+info:
+  description: This API represents the MeasureX interface to compute performance 5G measurements.
+  version: 1.0.0
+  title: MeasureX RestAPI
+  contact:
+    email: mymail@mail.it
+  license:
+    name: Apache 2.0
+    url: 'http://www.apache.org/licenses/LICENSE-2.0.html'
+paths:
+  /measureX:
+    get:
+      summary: Get MeasureX system info
+      description: This endpoint returns info about the MeasureX tool.
+      operationId: get_measurex_general_info
+      responses:
+        "200":
+          description: Get Info MeasureX
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/inline_response_200'
+        "404":
+          description: Info measureX not found
+        "500":
+          description: Error Get info measureX
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorModel'
+      x-openapi-router-controller: swagger_server.controllers.default_controller
+  /measurements/{measurement_id}:
+    get:
+      summary: Retrieve a specific measurement by ID.
+      description: "Returns the JSON object representing the measurement with the\
+        \ specified ID.\r\nIf the ID does not exist, a 500 error is returned."
+      operationId: get_measurement_by_id
+      parameters:
+      - name: measurement_id
+        in: path
+        description: The parameter measurement_id is the ID of the measurement to
+          retrieve from mongoDB server.
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Measurement retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeasurementModelMongo'
+        "500":
+          description: Error Get info measureX
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorModel'
+      x-openapi-router-controller: swagger_server.controllers.default_controller
+    delete:
+      summary: Stop a measurement by ID.
+      description: Stops an active measurement with the given ID. Returns an error
+        if the measurement does not exist or is already stopped.
+      operationId: stop_measurement_by_id
+      parameters:
+      - name: measurement_id
+        in: path
+        description: The ID of the measurement to stop.
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Measurement stopped successfully.
+        "500":
+          description: Error Get info measureX
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorModel'
+      x-openapi-router-controller: swagger_server.controllers.default_controller
+  /measurements/{measurement_id}/results:
+    get:
+      summary: Retrieve all the measurement results
+      description: "Returns the list of JSON objects representing the results related\
+        \ to the specified measurement.\r\nIf the specified measurement does not have\
+        \ any results, it will be returned an empty list. Otherwise, if the specified\
+        \ ID does not exist or is not valid, an error will be returned."
+      operationId: get_measurement_results_by_measurement_id
+      parameters:
+      - name: measurement_id
+        in: path
+        description: "The parameter measurement_id is the ID of the measurement to\
+          \ retrieve its results, if any, from mongoDB server."
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Measurement results retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  oneOf:
+                  - $ref: '#/components/schemas/IperfResultModelMongo'
+                  - $ref: '#/components/schemas/PingResultModelMongo'
+                  - $ref: '#/components/schemas/EnergyResultModelMongo'
+                  - $ref: '#/components/schemas/AoIResultModelMongo'
+                x-content-type: application/json
+        "500":
+          description: Error Get info measureX
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorModel'
+      x-openapi-router-controller: swagger_server.controllers.default_controller
+  /measurements:
+    get:
+      summary: Retrieve all measurements.
+      description: Returns a list of all measurements in the database.
+      operationId: get_all_measurements
+      responses:
+        "200":
+          description: Measurements retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MeasurementModelMongo'
+                x-content-type: application/json
+        "500":
+          description: Error Get info measureX
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorModel'
+      x-openapi-router-controller: swagger_server.controllers.default_controller
+    post:
+      summary: Create a new measurement.
+      description: "With this enpoint, you can create a the measurement in the payload.\
+        \ \r\nBeware of required measurement fields.\r\nReturns an error if required\
+        \ fields are missing."
+      operationId: create_measurement
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MeasurementModelMongo'
+        required: true
+      responses:
+        "200":
+          description: Measurement created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeasurementModelMongo'
+        "500":
+          description: Invalid JSON payload or missing required fields.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorModel'
+      x-openapi-router-controller: swagger_server.controllers.default_controller
+  /results/{measurement_id}:
+    get:
+      summary: Retrieve all the results related to measurement with specific ID.
+      description: "Returns the list of JSON object representing all the results related\
+        \ to that measurement.\r\nIf the ID does not exist, or is not valid one, a\
+        \ 500 error is returned."
+      operationId: get_result_by_measurement_id
+      parameters:
+      - name: measurement_id
+        in: path
+        description: The measuremnt_id of which you want the results.
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Results retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  oneOf:
+                  - $ref: '#/components/schemas/IperfResultModelMongo'
+                  - $ref: '#/components/schemas/PingResultModelMongo'
+                  - $ref: '#/components/schemas/EnergyResultModelMongo'
+                  - $ref: '#/components/schemas/AoIResultModelMongo'
+                x-content-type: application/json
+        "500":
+          description: Results not found.
+      x-openapi-router-controller: swagger_server.controllers.default_controller
+  /results:
+    get:
+      summary: Retrieve all results.
+      description: Returns a list of all results in the database.
+      operationId: get_all_results
+      responses:
+        "200":
+          description: Results retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  oneOf:
+                  - $ref: '#/components/schemas/IperfResultModelMongo'
+                  - $ref: '#/components/schemas/PingResultModelMongo'
+                  - $ref: '#/components/schemas/EnergyResultModelMongo'
+                  - $ref: '#/components/schemas/AoIResultModelMongo'
+                x-content-type: application/json
+      x-openapi-router-controller: swagger_server.controllers.default_controller
+components:
+  schemas:
+    MeasurementModelMongo:
+      required:
+      # - dest_probe -> NOW i set this to NOT REQUIRED beacuse i'm using one collection to store all measurement types.
+      - dest_probe_ip
+      - source_probe
+      - source_probe_ip
+      - type
+      type: object
+      properties:
+        _id:
+          type: string
+          description: Unique MongoID for the measurement (auto-generated by the MongoDB).
+        description:
+          type: string
+          description: Description of the measurement.
+        type:
+          type: string
+          description: "Type of the measurement (e.g., latency, throughput...)."
+        state:
+          type: string
+          description: "Current state of the measurement (e.g., STARTED, STOPPED...)."
+        start_time:
+          type: string
+          description: The time the measurement started.
+          format: date-time
+        source_probe:
+          type: string
+          description: Identifier for the source probe.
+        dest_probe:
+          type: string
+          description: Identifier for the destination probe.
+        source_probe_ip:
+          type: string
+          description: IP address of the source probe.
+          format: ipv4
+        dest_probe_ip:
+          type: string
+          description: IP address of the destination probe.
+          format: ipv4
+        gps_source_probe:
+          type: string
+          description: GPS coordinates for the source probe.
+        gps_dest_probe:
+          type: string
+          description: GPS coordinates for the destination probe.
+        coexisting_application:
+          $ref: '#/components/schemas/CoexistingApplication'
+        stop_time:
+          type: string
+          description: The time the measurement stopped (if available).
+          format: date-time
+      description: Measurement model stored on mongoDB
+      example:
+        stop_time: 2000-01-23T04:56:07.000+00:00
+        dest_probe_ip: dest_probe_ip
+        gps_dest_probe: gps_dest_probe
+        description: description
+        source_probe: source_probe
+        source_probe_ip: source_probe_ip
+        type: type
+        start_time: 2000-01-23T04:56:07.000+00:00
+        dest_probe: dest_probe
+        gps_source_probe: gps_source_probe
+        coexisting_application:
+          _id: _id
+        _id: _id
+        state: state
+    IperfResultModelMongo:
+      type: object
+      properties:
+        _id:
+          type: string
+          description: Unique MongoID for the measurement result
+        measure_reference:
+          type: string
+          description: Reference ID to the associated measurement
+        measurement_type:
+          type: string
+          description: Measurement related type
+        repetition_number:
+          type: integer
+          description: Number of the repetition for this measurement
+        transport_protocol:
+          type: string
+          description: "Transport protocol used (e.g., TCP, UDP)"
+          example: TCP
+        start_timestamp:
+          type: string
+          description: Timestamp when the measurement started
+          format: date-time
+        source_ip:
+          type: string
+          description: Source IP address for the measurement
+          format: ipv4
+        source_port:
+          type: integer
+          description: Source port for the measurement
+          example: 8080
+        destination_ip:
+          type: string
+          description: Destination IP address for the measurement
+          format: ipv4
+        destination_port:
+          type: integer
+          description: Destination port for the measurement
+          example: 8080
+        bytes_received:
+          type: integer
+          description: Total number of bytes received during the measurement
+        duration:
+          type: number
+          description: Duration of the measurement in seconds
+          format: float
+        avg_speed:
+          type: number
+          description: Average speed during the measurement in bytes per second
+          format: float
+      example:
+        _id: 64db3ad8b8591e001c1a1f3c
+        measure_reference: measurement-123
+        repetition_number: 1
+        transport_protocol: TCP
+        start_timestamp: 2025-01-17T10:00:00Z
+        source_ip: 192.168.1.1
+        source_port: 8080
+        destination_ip: 192.168.1.2
+        destination_port: 80
+        bytes_received: 1048576
+        duration: 12.5
+        avg_speed: 83886.4
+    PingResultModelMongo:
+      type: object
+      properties:
+        _id:
+          type: string
+          description: Unique MongoID for the result
+        measure_reference:
+          type: string
+          description: A measureID reference to the measurement to which the ping
+            result is related.
+        measurement_type:
+          type: string
+          description: Measurement related type
+        start_timestamp:
+          type: string
+          description: Timestamp when the ping test started.
+          format: date-time
+        rtt_avg:
+          type: number
+          description: The average round-trip time (RTT) in milliseconds.
+          format: float
+        rtt_max:
+          type: number
+          description: The maximum RTT observed during the test.
+          format: float
+        rtt_min:
+          type: number
+          description: The minimum RTT observed during the test.
+          format: float
+        rtt_mdev:
+          type: number
+          description: The mean deviation of the RTT values.
+          format: float
+        packets_sent:
+          type: integer
+          description: The number of packets sent during the ping test.
+        packets_received:
+          type: integer
+          description: The number of packets received during the ping test.
+        packets_loss_count:
+          type: integer
+          description: The number of packets lost during the ping test.
+        packets_loss_rate:
+          type: number
+          description: The packet loss rate expressed as a percentage.
+          format: float
+        icmp_replies:
+          type: array
+          description: List of ICMP replies received during the ping test.
+          items:
+            type: object
+    AoIResultModelMongo:
+      type: object
+      properties:
+        _id:
+          type: string
+          description: Unique MongoID for the Age of Information result
+    EnergyResultModelMongo:
+      type: object
+      properties:
+        _id:
+          type: string
+          description: Unique MongoID for the Energy result
+    CoexistingApplication:
+      required:
+      - _id
+      type: object
+      properties:
+        _id:
+          type: string
+          description: Unique id of the coexisting application description
+      description: Coexisting Application defines the background traffic to simulate
+        a coexsting application
+      example:
+        _id: _id
+    ErrorModel:
+      required:
+      - error_cause
+      - error_description
+      - object_ref_id
+      - object_ref_type
+      type: object
+      properties:
+        object_ref_id:
+          type: string
+          description: This field is the object id  referred to occurred error
+        object_ref_type:
+          type: string
+          description: This field is the object type referred to the occurred error
+        error_description:
+          type: string
+          description: The field is the occurred error description
+        error_cause:
+          type: string
+          description: The field is the occurred error cause
+      description: ErrorModel describes an object to have more info about error
+    inline_response_200:
+      type: object
+      properties:
+        msg:
+          type: string
+          example: "Measure X is a tool that helps you to perform 5G measurements,\
+            \ including latency, throughput, jitter, Age of Information, and Power\
+            \ Consumption analysis."
+      example:
+        msg: "Measure X is a tool that helps you to perform 5G measurements, including\
+          \ latency, throughput, jitter, Age of Information, and Power Consumption\
+          \ analysis."

@@ -1,6 +1,6 @@
 ---
 - name: Setup virtual environment and install dependencies
-  hosts: probes
+  hosts: probe4
   become: yes
   vars:
     path_base: "/home/{{ inventory_hostname }}/measureX/probesFirmware"  # Cambia con il percorso corretto
@@ -17,6 +17,13 @@
       command:
         cmd: python3 -m venv /home/{{ inventory_hostname }}/measurex_venv
         creates: /home/{{ inventory_hostname }}/measurex_venv
+    - name: Set the priviledge higher level the measurex_venv
+      ansible.builtin.file:
+        path: /home/{{ inventory_hostname }}/measurex_venv
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        recurse: yes
+        state: directory
     - name: Iperf3 installation
       apt:
         name: iperf3

@@ -1,0 +1,7 @@
+---
+udpping:
+  packets_size: 50     # byte -> DEFAULT VALUE of udpping tool
+  packets_number: 5000 # DEFAULT VALUE of udpping tool
+  packets_interval: 20 # mS -> DEFAULT VALUE of udpping tool
+  live_mode : False    # DEFAULT VALUE of udpping tool
+  listen_port: 1234    # DEFAULT VALUE of udpping tool

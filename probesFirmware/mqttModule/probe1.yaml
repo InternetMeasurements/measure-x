@@ -1,8 +1,8 @@
 #Configuration file for the Probe MQTT module
 
 mqtt_client:
-  probe_id: probe1
   clean_session: True # Auto-eliminazione delle subscriptions
+  mosquitto_certificate_path: mosquitto_certificate/mosquitto.crt
 
   broker:
     host: 131.114.72.254 # 192.168.1.51
@@ -21,5 +21,5 @@ mqtt_client:
     status_topic: "probes/PROBE_ID/status"
     results_topic: "probes/PROBE_ID/results"
     error_topic: "probes/PROBE_ID/errors"
-    qos: 0
+    qos: 1
     retain: False

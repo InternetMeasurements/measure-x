@@ -1,29 +1,27 @@
 import yaml
 import json
-import socket
-import netifaces
 from pathlib import Path
 import os
+import psutil
 import paho.mqtt.client as mqtt
+from shared_resources import SharedState
 
 """
-    ******************************************************* Classe MQTT PER LE PROBES *******************************************************
+    ******************************************************* Classe MQTT FOR THE PROBES *******************************************************
 """
-INTERFACE_NAME = 'wlan0' # su macchina virtuale --> 'eth0'
+
 VERBOSE = False
 
 class ProbeMqttClient(mqtt.Client):
 
-    def __init__(self, probe_id, msg_received_handler):
+    def __init__(self, probe_id, msg_received_handler_callback):
         self.config = None
-        self.probes_command_topic = None
-        self.probes_role_topic = None
         self.probe_id = None
+        self.mosquitto_certificate_path = None
         self.status_topic = None
         self.results_topic = None
-        self.role = None
         self.connected_to_broker = False
-        self.external_mqtt_msg_handler = msg_received_handler
+        self.external_mqtt_msg_handler = msg_received_handler_callback
 
         base_path = Path(__file__).parent
         yaml_path = os.path.join(base_path, probe_id + ".yaml")
@@ -31,13 +29,19 @@ class ProbeMqttClient(mqtt.Client):
             self.config = yaml.safe_load(file)
 
         self.config = self.config['mqtt_client']
-        self.probe_id = self.config['probe_id']
+        self.probe_id = probe_id
+        cert_path = self.config['mosquitto_certificate_path']
+        self.mosquitto_certificate_path = os.path.join(base_path, cert_path)
         clean_session = self.config['clean_session']
         broker_ip = self.config['broker']['host']
         broker_port = self.config['broker']['port']
         keep_alive = self.config['broker']['keep_alive']
+
+        """ ******************************************************* PROBE TOPICS *******************************************************"""
         self.status_topic = str(self.config['publishing']['status_topic']).replace('PROBE_ID', self.probe_id)
         self.results_topic = str(self.config['publishing']['results_topic']).replace('PROBE_ID', self.probe_id)
+        self.error_topic = str(self.config['publishing']['error_topic']).replace('PROBE_ID', self.probe_id)
+        """ ****************************************************************************************************************************"""
 
         super().__init__(client_id = self.probe_id, clean_session = clean_session)
 
@@ -47,6 +51,9 @@ class ProbeMqttClient(mqtt.Client):
             self.username_pw_set(
                 self.config['credentials']['username'],
                 self.config['credentials']['password'])
+        
+        self.tls_set( ca_certs = self.mosquitto_certificate_path,
+                       tls_version=mqtt.ssl.PROTOCOL_TLSv1_2)
         
         self.connect(broker_ip, broker_port, keep_alive)
         self.loop_start()
@@ -65,7 +72,7 @@ class ProbeMqttClient(mqtt.Client):
                 print(f"{self.probe_id}: Subscription to topic --> [{topic}]")
 
     def message_rcvd_event_handler(self, client, userdata, message):
-        # Invoked when a new message has arrived from the broker     
+        # Invoked when a new message has arrived from the broker. The handler is CommandsDemultiplexer   
         if VERBOSE: 
             print(f"MQTT {self.probe_id}: Received msg on topic -> | {message.topic} | {message.payload.decode('utf-8')} |")
         self.external_mqtt_msg_handler(message.payload.decode('utf-8'))
@@ -92,24 +99,31 @@ class ProbeMqttClient(mqtt.Client):
             retain = self.config['publishing']['retain'] )
         if VERBOSE:
             print(f"MqttClient: sent on topic |{self.results_topic}| -> {result}")
+
+    def publish_on_error_topic(self, error_msg):
+        self.publish(
+            topic = self.error_topic,
+            payload = error_msg,
+            qos = self.config['publishing']['qos'],
+            retain = self.config['publishing']['retain'] )
+        if VERBOSE:
+            print(f"MqttClient: sent on topic |{self.error_topic}| -> {error_msg}")
         
     def publish_command_ACK(self, handler, payload):
         json_ACK = {
-            "handler": handler, #'iperf'
-            "type" : "ACK", #'ACK'
+            "handler": handler,
+            "type" : "ACK",
             "payload": payload
         }
         self.publish_on_status_topic(json.dumps(json_ACK))
-        self.last_error = None
 
     def publish_command_NACK(self, handler, payload):
         json_NACK = {
-            "handler": handler, #'iperf'
-            "type" : "NACK", #NACK'
+            "handler": handler,
+            "type" : "NACK",
             "payload": payload
         }
         self.publish_on_status_topic(json.dumps(json_NACK))
-        self.last_error = None
 
     def check_return_code(self, rc):
         match rc:
@@ -130,23 +144,27 @@ class ProbeMqttClient(mqtt.Client):
         self.connected_to_broker = False
         return False
     
-    def publish_probe_state(self, state):        
+    def publish_probe_state(self, state):
+        shared_state = SharedState.get_instance()   
         json_status = {
-            "handler": "probe_state",
+            "handler": "root_service",
             "type": "state",
             "payload": {
                 "state" : state
             }
         }
         if (state == "ONLINE") or (state == "UPDATE"):
-            hostname = socket.gethostname()
-            my_ip = socket.gethostbyname(hostname)
-            if my_ip == "127.0.1.1":
-                my_ip = netifaces.ifaddresses(INTERFACE_NAME)[netifaces.AF_INET][0]['addr']
-            #my_ip = netifaces.ifaddresses(netifaces.interfaces()[0])[netifaces.AF_INET][0]['addr']
-            json_status["payload"]["ip"] = my_ip
+            json_status["payload"]["ip"] = shared_state.get_probe_ip()
+            json_status["payload"]["clock_sync_ip"] = shared_state.get_probe_ip_for_clock_sync()
+            json_status["payload"]["mac"] = shared_state.get_probe_mac()
         self.publish_on_status_topic(json.dumps(json_status))
 
+    def publish_error(self, handler, payload):
+        json_error = {
+            "handler": handler,
+            "payload": payload
+        }
+        self.publish_on_error_topic(json.dumps(json_error))
 
     def disconnect(self):
         # Invoked to inform the broker to release the allocated resources

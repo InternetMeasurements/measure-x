@@ -2,27 +2,18 @@ import threading
 import time
 from pathlib import Path
 from datetime import datetime
-from modules.configLoader.config_loader import ConfigLoader
+from modules.configLoader.config_loader import ConfigLoader, MONGO_KEY
 from modules.mqttModule.mqtt_client import Mqtt_Client
 from modules.commandsMultiplexer.commands_multiplexer import CommandsMultiplexer
 from modules.iperfCoordinator.iperf_coordinator import Iperf_Coordinator
 from modules.pingCoordinator.ping_coordinator import Ping_Coordinator 
-from modules.mongoModule.mongoDB import MongoDB, SECONDS_OLD_MEASUREMENT, MeasurementModelMongo
+from modules.mongoModule.mongoDB import MongoDB, SECONDS_OLD_MEASUREMENT
+from modules.energyCoordinator.energy_coordinator import EnergyCoordinator
+from modules.aoiCoordinator.aoi_coordinator import Age_of_Information_Coordinator
+from modules.udppingCoordinator.udpping_coordinator import UDPPing_Coordinator
+from modules.coexCoordinator.coex_coordinator import Coex_Coordinator
 
-from scapy.all import rdpcap, sendp, IP
-
-probe_ip = {} # Here, i will save the couples {"probe_id": "probe_ip"}
-
-# Default handler for the status probe message reception
-def online_status_handler(probe_sender, type, payload):
-    global probe_ip
-    if type == "state":
-        if payload["state"] == "ONLINE" or payload["state"] == "UPDATE":
-            probe_ip[probe_sender] = payload["ip"]
-            print(f"probe_sender [{probe_sender}] -> state [{payload['state']}] -> ip [{probe_ip[probe_sender]}]")
-        elif payload["state"] == "OFFLINE":
-            probe_ip.pop(probe_sender, None)
-            print(f"probe_sender [{probe_sender}] -> state [{payload['state']}]")
+from modules.restAPIModule.swagger_server.rest_server import RestServer
 
 # Thread body for the check failed measurements
 def update_measurements_collection_thread_body(mongo_db : MongoDB):
@@ -31,130 +22,184 @@ def update_measurements_collection_thread_body(mongo_db : MongoDB):
         print(f"Periodic Thread: Setted {updated_as_failed_measurements} measurements as failed. Next check --> {datetime.fromtimestamp(time.time() + SECONDS_OLD_MEASUREMENT/2)}")
         time.sleep(SECONDS_OLD_MEASUREMENT / 2)
 
-    
 
 def main():
-    global probe_ip
     try:
-        cl = ConfigLoader(base_path = Path(__file__).parent, file_name="coordinatorConfig.yaml")
-        mongo_db = MongoDB(mongo_config = cl.mongo_config)
+        cl = ConfigLoader(base_path = Path(__file__).parent, file_name="coordinatorConfig.yaml", KEY = MONGO_KEY)
+        mongo_db = MongoDB(mongo_config = cl.config)
     except Exception as e:
         print(f"Coordinator: connection failed to mongo. -> Exception info: \n{e}")
         return
     
+    """
+    # Codice DEBUG per l'inserimento di una misurazione test
+    measure_test = MeasurementModelMongo(description="test measurement", type="test",
+                                         source_probe="probe_test", dest_probe="probe_test",
+                                         source_probe_ip="192.168.1.1", dest_probe_ip="192.168.1.2")
+    measurement_test_id = mongo_db.insert_measurement(measure=measure_test)
+    print(f"Stored test measurement: {measurement_test_id}")
+    """
+
     measurement_collection_update_thread = threading.Thread(target=update_measurements_collection_thread_body, args=(mongo_db,))
     measurement_collection_update_thread.daemon = True
     measurement_collection_update_thread.start()
 
-    commands_multiplexer = CommandsMultiplexer()
+    commands_multiplexer = CommandsMultiplexer(mongo_db)
     coordinator_mqtt = Mqtt_Client(
-        external_status_handler = commands_multiplexer.status_multiplexer, 
-        external_results_handler = commands_multiplexer.result_multiplexer)
+        status_handler_callback = commands_multiplexer.status_multiplexer, 
+        results_handler_callback = commands_multiplexer.result_multiplexer,
+        errors_handler_callback = commands_multiplexer.errors_multiplexer)
+    commands_multiplexer.set_mqtt_client(coordinator_mqtt)
+
+    commands_multiplexer.add_status_callback(interested_status="root_service", handler=commands_multiplexer.root_service_default_handler)
     
     iperf_coordinator = Iperf_Coordinator(
         mqtt = coordinator_mqtt,
-        registration_handler_result=commands_multiplexer.add_result_handler,
-        registration_handler_status=commands_multiplexer.add_status_handler,
-        mongo_db=mongo_db)
+        registration_handler_result_callback = commands_multiplexer.add_result_callback,
+        registration_handler_status_callback = commands_multiplexer.add_status_callback,
+        registration_measure_preparer_callback = commands_multiplexer.add_probes_preparer_callback,
+        ask_probe_ip_mac_callback = commands_multiplexer.ask_probe_ip_mac,
+        registration_measurement_stopper_callback = commands_multiplexer.add_measure_stopper_callback,
+        mongo_db = mongo_db)
     
     ping_coordinator = Ping_Coordinator(
+        mqtt_client = coordinator_mqtt,
+        registration_handler_result_callback = commands_multiplexer.add_result_callback, 
+        registration_handler_status_callback = commands_multiplexer.add_status_callback,
+        registration_measure_preparer_callback = commands_multiplexer.add_probes_preparer_callback,
+        ask_probe_ip_mac_callback = commands_multiplexer.ask_probe_ip_mac,
+        registration_measurement_stopper_callback = commands_multiplexer.add_measure_stopper_callback,
+        mongo_db = mongo_db)
+    
+    energy_coordinator = EnergyCoordinator(
         mqtt_client=coordinator_mqtt,
-        registration_handler_result=commands_multiplexer.add_result_handler, 
-        registration_handler_status=commands_multiplexer.add_status_handler,
-        mongo_db=mongo_db)
+        registration_handler_status_callback = commands_multiplexer.add_status_callback,
+        registration_handler_result_callback = commands_multiplexer.add_result_callback,
+        registration_measure_preparer_callback = commands_multiplexer.add_probes_preparer_callback,
+        ask_probe_ip_mac_callback = commands_multiplexer.ask_probe_ip_mac,
+        registration_measurement_stopper_callback = commands_multiplexer.add_measure_stopper_callback,
+        mongo_db = mongo_db)
+    
+    aoi_coordinator = Age_of_Information_Coordinator(
+        mqtt_client=coordinator_mqtt,
+        registration_handler_error_callback = commands_multiplexer.add_error_callback,
+        registration_handler_status_callback = commands_multiplexer.add_status_callback,
+        registration_handler_result_callback = commands_multiplexer.add_result_callback,
+        registration_measure_preparer_callback = commands_multiplexer.add_probes_preparer_callback,
+        ask_probe_ip_mac_callback = commands_multiplexer.ask_probe_ip_mac,
+        registration_measurement_stopper_callback = commands_multiplexer.add_measure_stopper_callback,
+        mongo_db = mongo_db
+    )
 
-    commands_multiplexer.add_status_handler('probe_state', online_status_handler)
+    udpping_coordinator = UDPPing_Coordinator(
+        mqtt_client=coordinator_mqtt,
+        registration_handler_error_callback = commands_multiplexer.add_error_callback,
+        registration_handler_status_callback = commands_multiplexer.add_status_callback,
+        registration_handler_result_callback = commands_multiplexer.add_result_callback,
+        registration_measure_preparer_callback = commands_multiplexer.add_probes_preparer_callback,
+        ask_probe_ip_mac_callback = commands_multiplexer.ask_probe_ip_mac,
+        registration_measurement_stopper_callback = commands_multiplexer.add_measure_stopper_callback,
+        mongo_db = mongo_db
+    )
 
+    coex_coordinator = Coex_Coordinator(
+        mqtt_client = coordinator_mqtt,
+        registration_handler_error_callback = commands_multiplexer.add_error_callback,
+        registration_handler_status_callback = commands_multiplexer.add_status_callback,
+        registration_measure_preparer_callback = commands_multiplexer.add_probes_preparer_callback,
+        ask_probe_ip_mac_callback = commands_multiplexer.ask_probe_ip_mac,
+        registration_measurement_stopper_callback = commands_multiplexer.add_measure_stopper_callback,
+        mongo_db = mongo_db)
+    
+    #mongo_db.calculate_time_differences(seconds_diff=10)
+    # Thesis chart -> 67db3d346c29ca74b4be3144 67e043029aefeb88fb06b589
+    # STOP OK: 67e14ce90a83f39e8b2768e8
+    
+    #mongo_db.plot_smoothed("67e959a728a26890f39b2161", series_name = "aois", time_field = "Timestamp", value_field = "AoI",
+    #                       with_original = True, with_smoothed = True, granularity = "200ms")
 
+    #mongo_db.find_and_plot("67e264f958d3227f235c1f62", start_coex=6, stop_coex=18, 
+    #                       series_name = "timeseries", time_field = "Timestamp", value_field = "Current") # 67dea759dedafef56f68c380 #67d3317d5a32ab6171d3bf63
 
+    
+    #commands_multiplexer.add_status_handler('probe_state', online_status_handler)
+    # Intermittent: 67e71df29bf739098c564855 not iperf
+    # Intermittent: 67e7b95722acb508a7682d2e with iperf SOCKET TCP NOT OPENED
+    # Intermittent; 67e7bb6efcde19e50fc8c57a with iperf SOCKET TCP OPENED
+    # Intermittent; 67e7c0790a41ab34a202c4a8 with iperf (captured on probe4), traffic incoming
+    # Intermittent; 67e7c1690e1bc5bb5f023d74 with iperf (captured on probe4), traffic outgoing
 
+    # AoI senza Coex. Fra probe3 e probe1 lanciato manualmente tcpreplay per vedere se rispetta automatic. il timing -> 67e7cb63f09f698aa49f28ed (Sembra di SI)
+    # AoI senza Coex. Fra probe3 e probe1 lanciato manualmente tcpreplay per vedere se rispetta automatic. il timing -> 67e7ce8ea473e07b219e2680 (CONFERMA. SI)
+
+    # tcprewrite + tcpreplay -> AoI con stesso coex di prima con scapy. No delay aggiuntivo --> 67e7e3e24da3a89c886451c2
+    # tcprewrite + tcpreplay -> AoI con stesso coex di prima con scapy. No delay aggiuntivo --> 67e7e7ba08cf95aa11481e6f
+    # tcprewrite + tcpreplay -> AoI con stesso coex di prima con scapy. No delay aggiuntivo --> 67e7e91517f99032015f1744
+
+    # tcprewrite + tcpreplay -> AoI con stesso coex di prima con scapy. No delay aggiuntivo --> 67e80d9d018e4ff055213fb2 (Perfect) 30 pkts/s
+    # tcprewrite + tcpreplay -> AoI con stesso coex di prima con scapy. No delay aggiuntivo --> 67e80e46d934162362cab543 (Perfect) 300 pkts/s
+    
+    
+
+    """
+        Da vedere
+        67e6c7b30b606a84fa9b04b6 RATE 5
+        67e6c7f80b606a84fa9b04b8 RATE 10
+        67e6c8300b606a84fa9b04ba RATE 20
+        67e6c8620b606a84fa9b04bc RATE 50
+    """
+
+    rest_server = RestServer(mongo_instance = mongo_db,
+                             commands_multiplexer_instance = commands_multiplexer)
+    rest_server.start_REST_API_server()
 
     while True:
         print("PRESS 0 -> exit")
-        print("PRESS 1 -> start ping from probe2 to probe4")
-        print("PRESS 2 -> start ping from probe4 to probe2")
-        print("PRESS 3 -> stop ping on probe2")
-        print("PRESS 4 -> stop ping on probe4")
-        print("PRESS 9 to insert a measure ping")
         command = input()
-        match command:
-            case "1":
-                print("PRESS 1 -> send role SERVER to probe2")
-                iperf_coordinator.send_probe_iperf_configuration(probe_id = "probe2", role = "Server")
-                """
-                probe_ping_starter = "probe2"
-                probe_ping_destination = "probe4"
-                if probe_ping_starter not in probe_ip:
-                    print(f"The starter probe {probe_ping_starter} is OFFLINE")
-                    continue
-                if probe_ping_destination not in probe_ip:
-                    print(f"The destination probe {probe_ping_destination} is OFFLINE")
-                    continue
-                ping_coordinator.send_start_command(probe_sender = probe_ping_starter,
-                                                    probe_receiver = probe_ping_destination,
-                                                    destination_ip = probe_ip[probe_ping_destination],
-                                                    source_ip = probe_ip[probe_ping_starter],
-                                                    packets_number = 5,
-                                                    packets_size = 512)
-                """
-            case "2":
-                """
-                probe_ping_starter = "probe4"
-                probe_ping_destinarion = "probe2"
-                if probe_ping_starter not in probe_ip:
-                    print(f"The starter probe {probe_ping_starter} is OFFLINE")
-                    continue
-                if probe_ping_destinarion not in probe_ip:
-                    print(f"The destination probe {probe_ping_destinarion} is OFFLINE")
-                    continue
-                ping_coordinator.send_start_command(probe_sender = probe_ping_starter,
-                                                     destination_ip = probe_ip[probe_ping_destinarion],
-                                                     packets_number=8,
-                                                     packets_size=1024
-                                                     )
-                """
-                print("PRESS 2 -> send role CLIENT to probe2")
-                destination_probe = "probe4"
-                iperf_coordinator.send_probe_iperf_configuration(probe_id = "probe2", role = "Client", source_probe_ip = probe_ip.get("probe2"), dest_probe=destination_probe, dest_probe_ip=probe_ip.get(destination_probe, None))
-            case "3":
-                print("PRESS 3 -> send role SERVER to probe4")
-                iperf_coordinator.send_probe_iperf_configuration(probe_id = "probe4", role = "Server")
-            case "4":
-                print("PRESS 4 -> send role CLIENT to probe4")
-                destination_probe = "probe2"
-                iperf_coordinator.send_probe_iperf_configuration(probe_id = "probe4", role = "Client", source_probe_ip = probe_ip.get("probe4"), dest_probe = destination_probe, dest_probe_ip=probe_ip.get(destination_probe, None))
-            case "5":
-                print("PRESS 5 -> start throughput measurement")
-                iperf_coordinator.send_probe_iperf_start()
-            case "6":
-                print("PRESS 6 -> stop iperf SERVER on probe2")
-                iperf_coordinator.send_probe_iperf_stop("probe2")
-            case "7":
-                print("PRESS 7 -> stop iperf SERVER on probe4")
-                iperf_coordinator.send_probe_iperf_stop("probe4")
-                """
-                case "3":
-                    ping_coordinator.send_stop_command("probe2")
-                case "4":
-                    ping_coordinator.send_stop_command("probe4")
-                """
-            case "9":
-                test_misura = MeasurementModelMongo(description="Misura ping test", type="Ping", source_probe="probe_test", dest_probe="probe_test",
-                                                    source_probe_ip="192.168.1.8", dest_probe_ip="192.168.1.8")
-                mongo_db.insert_measurement(test_misura)
-            case "10":
-                delete_count = mongo_db.delete_measurements_by_id("672fb3887189c5212ab6b2be")
-                print(f"Ho eliminato {delete_count} measures")
-            case "11":
-                pcap_file = r"C:/Users/Francesco/Desktop/OnePingPacket.pcap"
-                packets = rdpcap(pcap_file)
-                for packet in packets:
-                    if IP in packet and packet[IP].dst == "192.168.43.1":
-                        sendp(packet, iface="Wi-Fi")  # Sostituisci "eth0" con la tua interfaccia di rete
-                    #time.sleep(0.1)  # Tempo tra i pacchetti (in secondi)
-            case _:
-                break
+        if command == "0":
+            break
+        # Measure OK 67e178d7c280c68b62dfcbad
     coordinator_mqtt.disconnect()
 
 if __name__ == "__main__":
     main()
+
+    """
+    JSON MISURA CHE TESTIMONIA IL MOTIVO PER CUI LO STOP CON DURATION E' LATO PROBES
+    {
+        _id: ObjectId('67e043029aefeb88fb06b589'),
+        description: 'Prova misura',
+        type: 'aoi',
+        state: 'completed',
+        start_time: 1742750467.6435952,
+        source_probe: 'probe1',
+        dest_probe: 'probe3',
+        source_probe_ip: '192.168.43.211',
+        dest_probe_ip: '192.168.43.131',
+        gps_source_probe: null,
+        gps_dest_probe: null,
+        coexisting_application: {
+            description: 'Coex traffic from tcp_big.pcap',
+            source_probe: 'probe4',
+            dest_probe: 'probe2',
+            source_probe_ip: '192.168.43.152',
+            dest_probe_ip: '192.168.43.210',
+            packets_size: null,
+            packets_number: null,
+            packets_rate: null,
+            socket_port: 60606,
+            trace_name: 'tcp_big',
+            delay_start: 6,
+            duration: 12
+        },
+        stop_time: 1742750490.1498997,
+        results: [
+            ObjectId('67e0431a9aefeb88fb06b58a')
+        ],
+        parameters: {
+            socket_port: 50505,
+            packets_rate: 25,
+            payload_size: 32
+        }
+    }
+    """

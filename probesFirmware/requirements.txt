@@ -1,5 +1,13 @@
+# REQUIREMENTS FOR THE PROBES
 pyyaml
 paho-mqtt
 psutil
 pingparsing
 scapy
+smbus==1.1.post2
+smbus2==0.5.0
+gpiozero
+lgpio
+netifaces
+pandas
+cbor2

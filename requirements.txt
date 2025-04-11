@@ -1,3 +1,28 @@
-pyyaml
-paho-mqtt
-pymongo
+# REQUIREMENTS FOR THE COORDINATOR PROBES
+#pyyaml
+#paho-mqtt
+#pymongo
+#scapy
+# PythonFlask Requirements
+#connexion >= 2.6.0
+#connexion[swagger-ui] >= 2.6.0
+#python_dateutil == 2.6.0
+#setuptools >= 21.0.0
+#swagger-ui-bundle >= 0.0.2
+
+# Update the requirements after incompatibilty from dateutil and 
+# REQUIREMENTS FOR THE COORDINATOR PROBES
+pyyaml==6.0
+paho-mqtt==1.6.1
+pymongo==4.5.0
+scapy==2.5.0
+
+# PythonFlask Requirements
+connexion==2.14.2
+connexion[swagger-ui]
+python_dateutil==2.8.2
+setuptools==67.8.0
+swagger-ui-bundle
+
+# Compress and decompress data result
+cbor2
