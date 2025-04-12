@@ -1,4 +1,5 @@
-import time
+import time, json, os
+from pathlib import Path
 from bson import ObjectId
 from datetime import datetime
 from pymongo import MongoClient
@@ -82,15 +83,21 @@ class MongoDB:
         return (replace_result.modified_count > 0)
     
     
-    def update_results_array_in_measurement(self, msm_id):
+    def update_results_array_in_measurement(self, msm_id, result_id = None):
     # This method is an automatic setting of the results doc-linking in measurements collection. 
     # It finds all the results with that msm_id, and store them _ids in the doc-link
         try:
-            update_result = self.measurements_collection.update_one(
-                {"_id": ObjectId(msm_id)},
-                {"$set": {"results": list(
-                    self.results_collection.find({"msm_id": ObjectId(msm_id)}).distinct("_id"))}}
-            )
+            if result_id is None:
+                update_result = self.measurements_collection.update_one(
+                    {"_id": ObjectId(msm_id)},
+                    {"$set": {"results": list(
+                        self.results_collection.find({"msm_id": ObjectId(msm_id)}).distinct("_id"))}}
+                )
+            else:
+                update_result = self.measurements_collection.update_one(
+                    {"_id": ObjectId(msm_id)},
+                    {"$set": {"results": [str(result_id)]}}
+                )
             return update_result
         except Exception as e:
             print(f"Motivo -> {e}")
@@ -280,15 +287,28 @@ class MongoDB:
 
     # ------------------------------------------------- RESULTS COLLECTION -------------------------------------------------
 
+    def convert_objectid(self, obj):
+        if isinstance(obj, ObjectId):
+            return str(obj)
+        raise TypeError("Type not serializable")
+
     def insert_result(self, result) -> str:
         try:
             insert_result = self.results_collection.insert_one(result.to_dict())
             if insert_result.inserted_id:
                 print(f"MongoDB: result stored in mongo. Result ID -> |{insert_result.inserted_id}|")
-                return insert_result.inserted_id
+            
+            return insert_result.inserted_id
         except Exception as e:
+            result._id = ObjectId()
+            filename = f"{result.msm_id}.json"
+            base_path = os.path.join(Path(__file__).parent, "json", filename)
+            with open(base_path, "w", encoding="utf-8") as file:
+                json.dump(result.to_dict(), file, indent=4, ensure_ascii=False, default=self.convert_objectid)
+            
             print(f"MongoDB: Error while storing the result on mongo -> {e}")
-            return None
+            print(f"Result stored locally in: {base_path}")
+            return {"_id": result._id, "locally": True}
 
     """
     def insert_iperf_result(self, result : IperfResultModelMongo) -> str:
