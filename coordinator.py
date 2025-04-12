@@ -1,5 +1,5 @@
 import threading
-import time
+import time, os, sys
 from pathlib import Path
 from datetime import datetime
 from modules.configLoader.config_loader import ConfigLoader, MONGO_KEY
@@ -14,6 +14,10 @@ from modules.udppingCoordinator.udpping_coordinator import UDPPing_Coordinator
 from modules.coexCoordinator.coex_coordinator import Coex_Coordinator
 
 from modules.restAPIModule.swagger_server.rest_server import RestServer
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+REST_API_PATH = os.path.join(BASE_DIR, 'modules', 'restAPIModule')
+sys.path.insert(0, REST_API_PATH)
 
 # Thread body for the check failed measurements
 def update_measurements_collection_thread_body(mongo_db : MongoDB):
