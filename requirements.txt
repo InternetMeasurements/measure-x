@@ -12,7 +12,7 @@
 
 # Update the requirements after incompatibilty from dateutil and 
 # REQUIREMENTS FOR THE COORDINATOR PROBES
-pyyaml==6.0
+pyyaml==6.0.2
 paho-mqtt==1.6.1
 pymongo==4.5.0
 scapy==2.5.0
@@ -26,3 +26,5 @@ swagger-ui-bundle
 
 # Compress and decompress data result
 cbor2
+
+netifaces
