@@ -1,3 +1,8 @@
+"""
+PingController: Implements the LATENCY measurement functionality using the system ping command.
+Handles configuration, command dispatch, execution, and result reporting for ping measurements.
+"""
+
 import json
 import threading
 import os
@@ -12,7 +17,14 @@ from shared_resources import SharedState
 
 """ Class that implements the LATENCY measurement funcionality """
 class PingController:
+    """
+    Controller for managing ping-based latency measurements.
+    Handles command processing, ping execution, and result publishing.
+    """
     def __init__(self, mqtt_client : ProbeMqttClient, registration_handler_request_function):
+        """
+        Initialize the PingController, register the command handler, and set up state variables.
+        """
         self.shared_state = SharedState.get_instance()
         self.mqtt_client = mqtt_client        
         self.ping_thread = None
@@ -28,6 +40,10 @@ class PingController:
         
         
     def ping_command_handler(self, command : str, payload: json):
+        """
+        Handles incoming ping commands (start, stop) and dispatches to the appropriate logic.
+        Sends ACK/NACK responses as needed.
+        """
         msm_id = payload["msm_id"] if ("msm_id" in payload) else None
         if msm_id is None:
             self.send_ping_NACK(failed_command = command, error_info = "No measurement_id provided", measurement_related_conf = msm_id)
@@ -58,6 +74,10 @@ class PingController:
             
 
     def start_ping(self, payload : json):
+        """
+        Executes the ping command in a separate thread, parses the result, and publishes it.
+        Handles both normal and error termination.
+        """
         destination_ip = payload['destination_ip']
         packets_number = payload['packets_number']
         packets_size = payload['packets_size']
@@ -91,6 +111,10 @@ class PingController:
     
         
     def stop_ping_thread(self):
+        """
+        Stops the ping thread and kills the ping process if running.
+        Returns 'OK' or an error message.
+        """
         ping_process = None
         process_name = "ping"
         if self.ping_thread != None:
@@ -113,7 +137,10 @@ class PingController:
             return str(e)
         
 
-    def send_ping_ACK(self, successed_command, measurement_related_conf): # Incapsulating from the ping client
+    def send_ping_ACK(self, successed_command, measurement_related_conf):
+        """
+        Publishes an ACK message for a successful ping command via MQTT.
+        """
         json_ack = {
             "command": successed_command,
             "msm_id" : measurement_related_conf
@@ -122,6 +149,9 @@ class PingController:
         print(f"PingController: sent ACK -> {successed_command} for measure -> |{measurement_related_conf}|")
 
     def send_ping_NACK(self, failed_command, error_info, measurement_related_conf = None):
+        """
+        Publishes a NACK message for a failed ping command via MQTT.
+        """
         json_nack = {
             "command" : failed_command,
             "reason" : error_info,
@@ -131,6 +161,9 @@ class PingController:
         print(f"PingController: sent NACK, reason-> {error_info} for measure -> |{measurement_related_conf}|")
 
     def send_ping_result(self, json_ping_result : json, icmp_replies, timestamp, msm_id):
+        """
+        Publishes the result of a ping measurement, including ICMP replies, via MQTT.
+        """
         my_ip = self.shared_state.get_probe_ip()
         json_ping_result["source"] = my_ip
         json_ping_result["timestamp"] = timestamp

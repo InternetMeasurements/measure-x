@@ -1,3 +1,8 @@
+"""
+AoI_Coordinator: Coordinator class for Age of Information (AoI) measurements in Measure-X.
+Handles probe orchestration, command dispatch, result collection, and MongoDB integration for AoI experiments.
+"""
+
 import os
 from pathlib import Path
 import threading, json
@@ -9,10 +14,16 @@ from modules.mongoModule.mongoDB import MongoDB, MeasurementModelMongo, ErrorMod
 from modules.mongoModule.models.age_of_information_model_mongo import AgeOfInformationResultModelMongo
 
 class Age_of_Information_Coordinator:
-
+    """
+    Coordinator for Age of Information (AoI) measurements.
+    Manages probe orchestration, command dispatch, result collection, and MongoDB integration.
+    """
     def __init__(self, mqtt_client : Mqtt_Client, registration_handler_error_callback, registration_handler_status_callback,
                  registration_handler_result_callback, registration_measure_preparer_callback,
                  ask_probe_ip_mac_callback, registration_measurement_stopper_callback, mongo_db : MongoDB):
+        """
+        Initialize the AoI Coordinator, register all handlers, and set up state variables.
+        """
         self.mqtt_client = mqtt_client
         self.ask_probe_ip_mac = ask_probe_ip_mac_callback
         self.mongo_db = mongo_db
@@ -56,6 +67,9 @@ class Age_of_Information_Coordinator:
 
 
     def send_probe_aoi_measure_start(self, probe_sender, msm_id, packets_rate, payload_size):
+        """
+        Send a command to a probe to start an AoI measurement.
+        """
         json_ping_start = {
             "handler": "aoi",
             "command": "start",
@@ -69,6 +83,9 @@ class Age_of_Information_Coordinator:
 
 
     def send_probe_aoi_measure_stop(self, probe_sender, msm_id):
+        """
+        Send a command to a probe to stop an AoI measurement.
+        """
         json_ping_start = {
             "handler": "aoi",
             "command": "stop",
@@ -80,6 +97,9 @@ class Age_of_Information_Coordinator:
 
     
     def send_disable_ntp_service(self, probe_sender, probe_ntp_server, probe_server_aoi, msm_id, socket_port, role):
+        """
+        Send a command to a probe to disable the NTP service (for AoI measurement setup).
+        """
         json_disable_ntp_service = {
             "handler": "aoi",
             "command": "disable_ntp_service",
@@ -94,6 +114,9 @@ class Age_of_Information_Coordinator:
 
 
     def send_enable_ntp_service(self, probe_sender, msm_id, role, payload_size = None, socket_port = None):
+        """
+        Send a command to a probe to enable the NTP service (for AoI measurement teardown or setup).
+        """
         # This command, at the end of the measurement, must be sent to the client probe, to re-enable the ntp_sec service.
         # In this case, the last two paramers are not used, so they can be None (ONLY IN THIS SPECIFIC CASE).
         json_enable_ntp_service = {
@@ -110,6 +133,9 @@ class Age_of_Information_Coordinator:
 
 
     def handler_received_result(self, probe_sender, result):
+        """
+        Handler for results received from probes. Stores the result in the database.
+        """
         msm_id = result["msm_id"] if "msm_id" in result else None
         if msm_id is None:
             print(f"AoI_Coordinator: received result from probe |{probe_sender}| -> No measure_id provided. IGNORE.")
@@ -118,6 +144,9 @@ class Age_of_Information_Coordinator:
         
     
     def handler_received_status(self, probe_sender, type, payload : json):
+        """
+        Handler for status messages (ACK/NACK) received from probes. Updates events and handles errors.
+        """
         msm_id = payload["msm_id"] if "msm_id" in payload else None
         if msm_id is None:
             print(f"AoI_Coordinator: |{type}| from probe |{probe_sender}| -> No measure_id provided. IGNORE.")
@@ -180,6 +209,10 @@ class Age_of_Information_Coordinator:
                         print(f"AoI_Coordinator: NACK received for unkonwn AoI command -> {failed_command}")
 
     def probes_preparer_to_measurements(self, new_measurement : MeasurementModelMongo):
+        """
+        Prepares and orchestrates a new AoI measurement, including probe IP resolution and parameter setup.
+        Returns a tuple (status, message, error) depending on the outcome.
+        """
         new_measurement.assign_id()
         msm_id = str(new_measurement._id)
 
@@ -245,6 +278,10 @@ class Age_of_Information_Coordinator:
         
     
     def aoi_measurement_stopper(self, msm_id_to_stop : str):
+        """
+        Stops an ongoing AoI measurement, handling both client and server probes.
+        Returns a tuple (status, message, error) depending on the outcome.
+        """
         if msm_id_to_stop not in self.queued_measurements:
             return "Error", f"Unknown aoi measurement |{msm_id_to_stop}|", "May be failed"
         measurement_to_stop : MeasurementModelMongo = self.queued_measurements[msm_id_to_stop]
@@ -296,6 +333,10 @@ class Age_of_Information_Coordinator:
     
 
     def store_measurement_result(self, probe_sender, result : json):
+        """
+        Stores the AoI measurement result in the database and updates the measurement status.
+        Handles linking results to measurements and marking completion.
+        """
         msm_id = result["msm_id"] if "msm_id" in result else None
         if msm_id is None:
             print(f"AoI_Coordinator: received result from probe |{probe_sender}| -> No measure_id provided. IGNORE.")
@@ -343,12 +384,20 @@ class Age_of_Information_Coordinator:
 
     
     def get_default_ping_parameters(self) -> json:
+        """
+        Loads the default AoI measurement parameters from the configuration file.
+        Returns a dictionary of default parameters.
+        """
         base_path = os.path.join(Path(__file__).parent)       
         cl = ConfigLoader(base_path= base_path, file_name = "default_parameters.yaml", KEY=AOI_KEY)
         json_default_config = cl.config if (cl.config is not None) else {}
         return json_default_config
 
     def override_default_parameters(self, json_config, measurement_parameters):
+        """
+        Overrides the default AoI parameters with those provided in the measurement request.
+        Returns the updated configuration dictionary.
+        """
         json_overrided_config = json_config
         if (measurement_parameters is not None) and (isinstance(measurement_parameters, dict)):
             if ('socket_port' in measurement_parameters):

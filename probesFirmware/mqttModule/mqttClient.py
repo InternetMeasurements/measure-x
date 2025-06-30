@@ -7,14 +7,20 @@ import paho.mqtt.client as mqtt
 from shared_resources import SharedState
 
 """
-    ******************************************************* Classe MQTT FOR THE PROBES *******************************************************
+MQTT Client class for probes.
+Handles MQTT connection, publishing, and subscription logic for probe devices in the Measure-X system.
 """
 
 VERBOSE = False
 
 class ProbeMqttClient(mqtt.Client):
-
+    """
+    MQTT client for probe devices. Manages connection, topics, publishing, and message handling.
+    """
     def __init__(self, probe_id, msg_received_handler_callback):
+        """
+        Initialize the MQTT client, load configuration, set up topics, and connect to the broker.
+        """
         self.config = None
         self.probe_id = None
         self.mosquitto_certificate_path = None
@@ -59,6 +65,9 @@ class ProbeMqttClient(mqtt.Client):
         self.loop_start()
 
     def connection_success_event_handler(self, client, userdata, flags, rc): 
+        """
+        Called when the connection to the broker is successful. Subscribes to topics and publishes ONLINE state.
+        """
         # Invoked when the connection to broker has success
         if not self.check_return_code(rc):
             self.loop_stop() # the loop_stop() here, ensure that the client stops to polling the broker with connection requests
@@ -72,12 +81,18 @@ class ProbeMqttClient(mqtt.Client):
                 print(f"{self.probe_id}: Subscription to topic --> [{topic}]")
 
     def message_rcvd_event_handler(self, client, userdata, message):
+        """
+        Called when a new message arrives from the broker. Forwards the message to the external handler.
+        """
         # Invoked when a new message has arrived from the broker. The handler is CommandsDemultiplexer   
         if VERBOSE: 
             print(f"MQTT {self.probe_id}: Received msg on topic -> | {message.topic} | {message.payload.decode('utf-8')} |")
         self.external_mqtt_msg_handler(message.payload.decode('utf-8'))
 
     def publish_on_status_topic(self, status):
+        """
+        Publish a status message to the status topic.
+        """
         # Invoked when you want to publish your status
         if not self.connected_to_broker:
             print(f"{self.probe_id}: Not connected to broker!")
@@ -91,6 +106,9 @@ class ProbeMqttClient(mqtt.Client):
             print(f"MqttClient: sent on topic |{self.status_topic}| -> {status}")
         
     def publish_on_result_topic(self, result):
+        """
+        Publish a result message to the results topic.
+        """
         # Invoked when you want to publish a result
         self.publish(
             topic = self.results_topic,
@@ -101,6 +119,9 @@ class ProbeMqttClient(mqtt.Client):
             print(f"MqttClient: sent on topic |{self.results_topic}| -> {result}")
 
     def publish_on_error_topic(self, error_msg):
+        """
+        Publish an error message to the error topic.
+        """
         self.publish(
             topic = self.error_topic,
             payload = error_msg,
@@ -110,6 +131,9 @@ class ProbeMqttClient(mqtt.Client):
             print(f"MqttClient: sent on topic |{self.error_topic}| -> {error_msg}")
         
     def publish_command_ACK(self, handler, payload):
+        """
+        Publish an ACK message for a command to the status topic.
+        """
         json_ACK = {
             "handler": handler,
             "type" : "ACK",
@@ -118,6 +142,9 @@ class ProbeMqttClient(mqtt.Client):
         self.publish_on_status_topic(json.dumps(json_ACK))
 
     def publish_command_NACK(self, handler, payload):
+        """
+        Publish a NACK message for a command to the status topic.
+        """
         json_NACK = {
             "handler": handler,
             "type" : "NACK",
@@ -126,6 +153,10 @@ class ProbeMqttClient(mqtt.Client):
         self.publish_on_status_topic(json.dumps(json_NACK))
 
     def check_return_code(self, rc):
+        """
+        Check the MQTT connection return code and print a human-readable message.
+        Returns True if connection is successful, False otherwise.
+        """
         match rc:
             case 0:
                 print(f"{self.probe_id}: The broker has accepted the connection")
@@ -145,6 +176,9 @@ class ProbeMqttClient(mqtt.Client):
         return False
     
     def publish_probe_state(self, state):
+        """
+        Publish the probe's state (ONLINE, UPDATE, OFFLINE) to the status topic, including IP and MAC if relevant.
+        """
         shared_state = SharedState.get_instance()   
         json_status = {
             "handler": "root_service",
@@ -160,6 +194,9 @@ class ProbeMqttClient(mqtt.Client):
         self.publish_on_status_topic(json.dumps(json_status))
 
     def publish_error(self, handler, payload):
+        """
+        Publish a generic error message to the error topic.
+        """
         json_error = {
             "handler": handler,
             "payload": payload
@@ -167,6 +204,9 @@ class ProbeMqttClient(mqtt.Client):
         self.publish_on_error_topic(json.dumps(json_error))
 
     def disconnect(self):
+        """
+        Disconnect from the MQTT broker, publish OFFLINE state, and stop the loop.
+        """
         # Invoked to inform the broker to release the allocated resources
         self.publish_probe_state("OFFLINE")
         self.loop_stop()

@@ -1,3 +1,9 @@
+"""
+mqtt_client.py
+
+This module defines the Mqtt_Client class, which manages MQTT communication for the Measure-X coordinator. It handles connection setup, topic subscription, message dispatching, and publishing commands to probes.
+"""
+
 import os
 from pathlib import Path
 import paho.mqtt.client as mqtt
@@ -9,8 +15,19 @@ from modules.configLoader.config_loader import ConfigLoader, MQTT_KEY
 VERBOSE = False
 
 class Mqtt_Client(mqtt.Client):
+    """
+    MQTT client for the Measure-X coordinator.
+    Handles connection, subscription, message routing, and command publishing to probes.
+    """
 
     def __init__(self, status_handler_callback, results_handler_callback, errors_handler_callback):
+        """
+        Initialize the MQTT client, load configuration, and set up callbacks.
+        Args:
+            status_handler_callback (callable): Handler for status messages.
+            results_handler_callback (callable): Handler for result messages.
+            errors_handler_callback (callable): Handler for error messages.
+        """
         self.config = None
         self.mosquitto_certificate_path = None
         self.probes_command_topic = None
@@ -54,6 +71,14 @@ class Mqtt_Client(mqtt.Client):
             print(f"MqttClient Exception: not connected to the broker. Reason -> {e}")
         
     def connection_success_event_handler(self, client, userdata, flags, rc): 
+        """
+        Handle successful connection to the MQTT broker and subscribe to topics.
+        Args:
+            client: The MQTT client instance.
+            userdata: User data (unused).
+            flags: Response flags from the broker.
+            rc (int): Connection result code.
+        """
         # Invoked when the connection to broker has success
         if not self.check_return_code(rc):
             self.loop_stop() # the loop_stop() here, ensure that the client stops to polling the broker with periodic connection requests
@@ -65,6 +90,13 @@ class Mqtt_Client(mqtt.Client):
                 print(f"MqttClient: Subscription to topic --> [{topic}]")
 
     def message_rcvd_event_handler(self, client, userdata, message):
+        """
+        Handle incoming MQTT messages and dispatch to the appropriate external handler.
+        Args:
+            client: The MQTT client instance.
+            userdata: User data (unused).
+            message: The received MQTT message.
+        """
         # Invoked when a new message has arrived from the broker      
         #print(f"MQTT: Received msg on topic -> | {message.topic} | "
         probe_sender = (str(message.topic).split('/'))[1]
@@ -80,6 +112,13 @@ class Mqtt_Client(mqtt.Client):
             print(f"MqttClient: topic registered but non handled -> {message.topic}")
 
     def check_return_code(self, rc):
+        """
+        Check the return code from the broker connection attempt and print status.
+        Args:
+            rc (int): The return code from the broker.
+        Returns:
+            bool: True if connected, False otherwise.
+        """
         match rc:
             case 0:
                 if VERBOSE:
@@ -100,6 +139,12 @@ class Mqtt_Client(mqtt.Client):
         return False
 
     def publish_on_command_topic(self, probe_id, complete_command): 
+        """
+        Publish a command to the probe's command topic.
+        Args:
+            probe_id (str): The probe identifier to target.
+            complete_command (str): The command payload to send.
+        """
         complete_command_topic = str(self.probes_command_topic).replace("PROBE_ID", probe_id)
         self.publish(
             topic = complete_command_topic, 
@@ -108,6 +153,9 @@ class Mqtt_Client(mqtt.Client):
             retain = self.config['publishing']['retain'] )
         
     def disconnect(self):
+        """
+        Disconnect from the MQTT broker and stop the network loop.
+        """
         # Invoked to inform the broker to release the allocated resources
         self.loop_stop()
         super().disconnect()

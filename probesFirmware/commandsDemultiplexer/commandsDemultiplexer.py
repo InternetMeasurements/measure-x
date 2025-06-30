@@ -82,7 +82,7 @@ class CommandsDemultiplexer():
         self.event_to_set_in_case_of_root_service_command_reception.wait(timeout = 5) 
         # ------------------------- WAIT for ROOT_SERVICE command RECEPTION from COORDINATOR -------------------------
         self.event_to_set_in_case_of_root_service_command_reception = None"""
-        print("METODO NON NECESSARIO -> DEPRECATO")
+        print("Not needed anymore -> deprecated method")
         """
         Non c'è bisogno di questo metodo perchè se la probe viene riavviata, e quindi non conosce l'ip del coordinator,
         anche se quest'ultimo conosce l'ip della probe, comunque la probe quando si avvia, pubblica il messaggio ONLINE

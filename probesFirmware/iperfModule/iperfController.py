@@ -11,8 +11,15 @@ from shared_resources import SharedState
 from mqttModule.mqttClient import ProbeMqttClient
 
 class IperfController:
-    """ Class that implements the THROUGHPUT measurement funcionality """
+    """
+    Class that implements the THROUGHPUT measurement functionality using iperf3.
+    Handles configuration, command dispatch, execution, and result reporting for both client and server roles.
+    """
     def __init__(self, mqtt_client : ProbeMqttClient, registration_handler_request_function):
+        """
+        Initialize the IperfController with MQTT client and register the command handler.
+        Sets up all configuration and state variables for both client and server roles.
+        """
 
         self.shared_state = SharedState.get_instance()
 
@@ -47,6 +54,10 @@ class IperfController:
 
 
     def read_configuration(self, payload : json) -> str :
+        """
+        Reads the configuration from the payload and dispatches to the appropriate role handler.
+        Returns 'OK' if configuration is successful, otherwise returns an error message.
+        """
         if 'role' not in payload:
             return "Missing Role!"
         
@@ -63,6 +74,10 @@ class IperfController:
             return "Wrong Role!"
 
     def read_server_configuration(self, payload_conf : json) -> str:
+        """
+        Reads and sets the server configuration from the payload.
+        Returns 'OK' if successful, otherwise returns an error message.
+        """
         print(f"IperfController: read_configuration_Server()")
         try:
             self.listening_port = payload_conf['listen_port']
@@ -76,6 +91,10 @@ class IperfController:
             return str(e)
 
     def read_client_configuration(self, payload_conf : json) -> str:
+        """
+        Reads and sets the client configuration from the payload.
+        Returns 'OK' if successful, otherwise returns an error message.
+        """
         print(f"IperfController: read_configuration_Client()")
         try:
             self.destination_server_ip = payload_conf['destination_server_ip']
@@ -97,6 +116,10 @@ class IperfController:
 
 
     def iperf_command_handler(self, command : str, payload: json):
+        """
+        Handles incoming iperf commands (conf, start, stop) and dispatches to the appropriate logic.
+        Sends ACK/NACK responses as needed.
+        """
         match command:
             case 'conf':
                 measurement_related_conf = payload['msm_id']
@@ -144,6 +167,9 @@ class IperfController:
     
         
     def start_iperf(self):
+        """
+        Starts the iperf measurement in a new thread, depending on the current role (client or server).
+        """
         if self.last_role is None:
             self.shared_state.set_probe_as_ready()
             self.send_iperf_NACK(failed_command="start", error_info="No configuration")
@@ -159,6 +185,9 @@ class IperfController:
 
 
     def iperf_client_body(self): # BODY CLIENT THREAD 
+        """
+        Main loop for the iperf client thread. Handles repetitions, result publishing, and error handling.
+        """
         repetition_count = 0
         execution_return_code = -2
         while (repetition_count < self.repetitions):
@@ -179,7 +208,10 @@ class IperfController:
 
     
     def run_iperf_execution(self) -> int :  # BODY SERVER THREAD 
-        """This method execute the iperf3 program with the pre-loaded config. THIS METHOD IS EXECUTED BY A NEW THREAD, IF THE ROLE IS SERVER"""
+        """
+        Executes the iperf3 program with the pre-loaded configuration.
+        Handles both client and server roles. Returns the iperf process return code.
+        """
         command = ["iperf3"]
 
         if self.last_role == "Client":
@@ -240,6 +272,10 @@ class IperfController:
     
 
     def stop_iperf_thread(self, msm_id):
+        """
+        Stops the iperf thread and kills the iperf3 process if running.
+        Checks the measurement ID for safety. Returns 'OK' or an error message.
+        """
         iperf_process_pid = None
         process_name = "iperf3"
         if (self.iperf_thread is not None) and (self.last_role is not None):
@@ -267,7 +303,10 @@ class IperfController:
             return "Process " + process_name + " not in execution"
 
 
-    def send_iperf_ACK(self, successed_command, msm_id = None): # Incapsulating of the iperf-server-ip
+    def send_iperf_ACK(self, successed_command, msm_id = None):
+        """
+        Publishes an ACK message for a successful iperf command via MQTT.
+        """
         json_ack = { 
             "command" : successed_command,
             "msm_id" : self.last_measurement_id if (msm_id is None) else msm_id
@@ -278,6 +317,9 @@ class IperfController:
         self.mqtt_client.publish_command_ACK(handler='iperf', payload=json_ack) 
 
     def send_iperf_NACK(self, failed_command, error_info, msm_id = None, role = None):
+        """
+        Publishes a NACK message for a failed iperf command via MQTT.
+        """
         json_nack = {
             "command" : failed_command,
             "reason" : error_info,
@@ -289,7 +331,10 @@ class IperfController:
 
 
     def publish_last_output_iperf(self, repetition : int , last_result : bool):
-        """ Publish the last measuremet's output summary loading it from flash """
+        """
+        Publish the last measurement's output summary, loading it from memory and compressing the result.
+        Publishes the result via MQTT.
+        """
         # base_path = Path(__file__).parent
         # completePathIPerfJson = os.path.join(base_path, self.output_iperf_dir, self.output_json_filename + str(self.last_measurement_id) + ".json")
         # if not os.path.exists(completePathIPerfJson):
@@ -356,6 +401,9 @@ class IperfController:
         """
     
     def reset_conf(self):
+        """
+        Resets all configuration and state variables for both client and server roles.
+        """
         self.last_role = None
         self.last_error = None
         self.iperf_thread = None

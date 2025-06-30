@@ -1,28 +1,35 @@
+# coexController.py
+# Controller for Coexisting Applications (COEX) functionality in Measure-X
+# Handles configuration, traffic generation, and result/error reporting for COEX experiments
+
 import os, signal
 import json
 from pathlib import Path
 from mqttModule.mqttClient import ProbeMqttClient
 from shared_resources import SharedState
-
 from scapy.all import *
 
 DEFAULT_THREAD_NAME = "coex_traffic_worker"
 DEFAULT_PCAP_FOLDER = "pcap"
 
 class CoexParamaters:
+    """
+    Data class for storing COEX measurement parameters.
+    """
     def __init__(self, role = None, packets_size = None, packets_number = None, packets_rate = None,
                  socker_port = None, counterpart_probe_ip = None, counterpart_probe_mac = None, trace_name = None, duration = None):
         self.role = role
         self.packets_size = packets_size
-        self.packets_number = packets_number # Client paramter
-        self.packets_rate = packets_rate # Client paramter
+        self.packets_number = packets_number # Client parameter
+        self.packets_rate = packets_rate # Client parameter
         self.socker_port = socker_port
-        self.counterpart_probe_ip = counterpart_probe_ip # Client paramter
+        self.counterpart_probe_ip = counterpart_probe_ip # Client parameter
         self.counterpart_probe_mac = counterpart_probe_mac
-        self.trace_name = trace_name # Client paramter
+        self.trace_name = trace_name # Client parameter
         self.duration = duration
 
     def to_dict(self):
+        """Return parameters as a dictionary."""
         return {
             "role": self.role,
             "packets_size" : self.packets_size,
@@ -36,9 +43,12 @@ class CoexParamaters:
         }
 
 
-""" Class that implements the COEXISTING APPLICATIONS measurement funcionality """
 class CoexController:
+    """
+    Main controller for COEX measurements. Handles configuration, start, stop, and result/error reporting.
+    """
     def __init__(self, mqtt_client : ProbeMqttClient, registration_handler_request_function):
+        # Initialize shared state and MQTT client
         self.shared_state = SharedState.get_instance()
         self.mqtt_client = mqtt_client
         self.last_msm_id = None
@@ -53,16 +63,17 @@ class CoexController:
         self.closed_by_scheduled_stop = threading.Event()
         self.last_complete_trace_rewrited = None
 
-
-        # Requests to commands_demultiplexer
+        # Register handler for COEX commands
         registration_response = registration_handler_request_function(
             interested_command = "coex",
             handler = self.coex_command_handler)
         if registration_response != "OK" :
             print(f"CoexController: registration handler failed. Reason -> {registration_response}")
         
-        
     def coex_command_handler(self, command : str, payload: json):
+        """
+        Handles incoming COEX commands (conf, start, stop) and dispatches to the appropriate logic.
+        """
         msm_id = payload["msm_id"] if ("msm_id" in payload) else None
         if msm_id is None:
             self.send_coex_NACK(failed_command = command, error_info = "No measurement_id provided", measurement_related_conf = msm_id)
@@ -126,7 +137,10 @@ class CoexController:
                 self.send_coex_NACK(failed_command = command, error_info = "Command not handled", measurement_related_conf = msm_id)
 
 
-    def send_coex_ACK(self, successed_command, measurement_related_conf): # Incapsulating from the coex client
+    def send_coex_ACK(self, successed_command, measurement_related_conf):
+        """
+        Publishes an ACK message for a successful COEX command via MQTT.
+        """
         json_ack = {
             "command": successed_command,
             "msm_id" : measurement_related_conf
@@ -135,6 +149,9 @@ class CoexController:
         print(f"CoexController: sent ACK -> {successed_command} for measure -> |{measurement_related_conf}|")
 
     def send_coex_NACK(self, failed_command, error_info, measurement_related_conf = None):
+        """
+        Publishes a NACK message for a failed COEX command via MQTT.
+        """
         json_nack = {
             "command" : failed_command,
             "reason" : error_info,
@@ -144,6 +161,9 @@ class CoexController:
         print(f"CoexController: sent NACK for |{failed_command}| , reason-> {error_info} for measure -> |{measurement_related_conf}|")
 
     def send_coex_result(self, json_coex_result : json):
+        """
+        Publishes a result message for a COEX measurement via MQTT.
+        """
         json_command_result = {
             "handler": "coex",
             "type": "result",
@@ -153,6 +173,9 @@ class CoexController:
         print(f"CoexController: sent coex result -> {json_coex_result}")
 
     def send_coex_error(self, command_error, msm_id, reason):
+        """
+        Publishes an error message for a COEX measurement via MQTT.
+        """
         json_error_payload = {
             "msm_id": msm_id,
             "reason": reason
@@ -166,6 +189,9 @@ class CoexController:
         self.mqtt_client.publish_on_error_topic(error_msg=json.dumps(json_command_error))
 
     def submit_thread_for_coex_traffic(self):
+        """
+        Prepares and starts the thread that will handle COEX traffic (server or client).
+        """
         try:
             self.thread_worker_on_socket = threading.Thread(target=self.body_worker_for_coex_traffic, name = DEFAULT_THREAD_NAME , args=())
             return "OK"
@@ -176,9 +202,11 @@ class CoexController:
             print(f"CoexController: Exception while creating socket -> {str(e)}")
             return str(e)
 
-    
-            
     def body_worker_for_coex_traffic(self):
+        """
+        Main logic for COEX traffic generation and handling (server or client).
+        Handles UDP traffic, pcap replay, and manages iptables rules for TCP RST suppression.
+        """
         try:
             print(f"Thread_Coex: I'm the |{self.last_coex_parameters.role}| probe of measure |{self.last_msm_id}|")
             if self.last_coex_parameters.role == "Server":
@@ -369,6 +397,9 @@ class CoexController:
             
 
     def stop_worker_socket_thread(self, invoked_by_timer = False, measurement_coex_to_stop = ""):
+        """
+        Stops the COEX worker thread and cleans up resources. Handles both server and client roles.
+        """
         print(f"stop_worker_socket_thread invoked_by_timer = {invoked_by_timer} , msm_id = {measurement_coex_to_stop}")
         try:
             if self.last_coex_parameters.role == "Server":
@@ -416,6 +447,9 @@ class CoexController:
             return str(e)
         
     def print_coex_conf_info_message(self):
+        """
+        Prints configuration info for the current COEX measurement.
+        """
         if self.last_coex_parameters.trace_name is None:
             print(f"CoexController: conf received -> CBR traffic |rate: {str(self.last_coex_parameters.packets_rate)}| , |size: {str(self.last_coex_parameters.packets_size)}|")
             print(f" , |number: {str(self.last_coex_parameters.packets_number)}| , |port: {str(self.last_coex_parameters.socker_port)}| , |counterpart_ip: {self.last_coex_parameters.counterpart_probe_ip}|"
@@ -426,6 +460,9 @@ class CoexController:
                   f" , duration: |{str(self.last_coex_parameters.duration)}|s")
 
     def reset_vars(self):
+        """
+        Resets internal state variables after a measurement is finished or aborted.
+        """
         print("CoexController: variables reset")
         self.last_msm_id = None
         self.last_coex_parameters = CoexParamaters()
@@ -440,6 +477,10 @@ class CoexController:
 
 
     def check_all_parameters(self, payload : dict) -> str:
+        """
+        Checks all required parameters for a COEX measurement and sets them if valid.
+        Returns 'OK' if all parameters are valid, otherwise returns an error message.
+        """
         role = payload.get("role")
         counterpart_probe_ip = payload.get("counterpart_probe_ip")
         trace_name = payload.get("trace_name")

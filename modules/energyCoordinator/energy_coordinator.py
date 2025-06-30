@@ -1,3 +1,8 @@
+"""
+energy_coordinator.py
+
+This module defines the EnergyCoordinator class, which manages the coordination of energy measurement tasks between the coordinator and measurement probes in the Measure-X system. It handles the preparation, starting, stopping, and result collection for energy measurements, as well as communication with probes via MQTT.
+"""
 import json
 import cbor2, base64
 import threading
@@ -7,6 +12,11 @@ from modules.mongoModule.models.measurement_model_mongo import MeasurementModelM
 from modules.mongoModule.models.energy_result_model_mongo import EnergyResultModelMongo
 
 class EnergyCoordinator:
+    """
+    Coordinates energy measurement tasks between the coordinator and probes.
+    Handles registration of callbacks, preparation and stopping of measurements, and result processing.
+    Communicates with probes using MQTT and manages measurement state in MongoDB.
+    """
     def __init__(self, 
                  mqtt_client : Mqtt_Client,
                  registration_handler_status_callback,
@@ -15,6 +25,17 @@ class EnergyCoordinator:
                  ask_probe_ip_mac_callback,
                  registration_measurement_stopper_callback,
                  mongo_db : MongoDB):
+        """
+        Initialize the EnergyCoordinator and register all necessary callbacks for status, result, preparation, and stopping.
+        Args:
+            mqtt_client (Mqtt_Client): The MQTT client for communication with probes.
+            registration_handler_status_callback (callable): Callback to register status handler.
+            registration_handler_result_callback (callable): Callback to register result handler.
+            registration_measure_preparer_callback (callable): Callback to register measurement preparer.
+            ask_probe_ip_mac_callback (callable): Callback to get probe IP/MAC.
+            registration_measurement_stopper_callback (callable): Callback to register measurement stopper.
+            mongo_db (MongoDB): MongoDB interface for storing measurements and results.
+        """
         self.mqtt_client = mqtt_client
         self.mongo_db = mongo_db
         self.ask_probe_ip_mac = ask_probe_ip_mac_callback
@@ -22,7 +43,7 @@ class EnergyCoordinator:
         self.events_received_start_ack = {}
         self.events_received_stop_ack = {}
 
-         # Requests to CommandsDemultiplexer
+        # Register status handler for energy measurements
         registration_response = registration_handler_status_callback(
             interested_status = "energy",
             handler = self.handler_received_status)
@@ -31,7 +52,7 @@ class EnergyCoordinator:
         else:
             print(f"EnergyCoordinator: registration handler failed. Reason -> {registration_response}")
 
-        # Requests to CommandsDemultiplexer
+        # Register result handler for energy measurements
         registration_response = registration_handler_result_callback(
             interested_result = "energy",
             handler = self.handler_received_result)
@@ -40,7 +61,7 @@ class EnergyCoordinator:
         else:
             print(f"EnergyCoordinator: registration handler failed. Reason -> {registration_response}")
 
-        # Requests to commands_multiplexer: Probes-Preparer registration
+        # Register probes preparer for energy measurements
         registration_response = registration_measure_preparer_callback(
             interested_measurement_type = "energy",
             preparer_callback = self.probes_preparer_to_measurements)
@@ -49,7 +70,7 @@ class EnergyCoordinator:
         else:
             print(f"EnergyCoordinator: registration preparer failed. Reason -> {registration_response}")
 
-        # Requests to commands_multiplexer: Measurement-Stopper registration
+        # Register measurement stopper for energy measurements
         registration_response = registration_measurement_stopper_callback(
             interested_measurement_type = "energy",
             stopper_method_callback = self.energy_measurement_stopper)
@@ -61,9 +82,23 @@ class EnergyCoordinator:
         #self.print_average_compression_ratio()
         
     def handler_error_messages(self, probe_sender, payload : json):
+        """
+        Handle error messages received from probes.
+        Args:
+            probe_sender (str): The probe sending the error message.
+            payload (json): The error message payload.
+        """
         print(f"EnergyCoordinator: received error msg from |{probe_sender}| --> |{payload}|")
     
     def handler_received_status(self, probe_sender, type, payload):
+        """
+        Handle status messages (ACK/NACK) received from probes for energy commands.
+        Updates internal events and state based on the received status.
+        Args:
+            probe_sender (str): The probe sending the status.
+            type (str): The type of status message (ACK/NACK).
+            payload (dict): The status message payload.
+        """
         msm_id = payload["msm_id"] if ("msm_id" in payload) else None
         match type:
             case "ACK":
@@ -100,6 +135,13 @@ class EnergyCoordinator:
                             self.events_received_stop_ack[msm_id][0].set()
 
     def handler_received_result(self, probe_sender, result: json):
+        """
+        Handle result messages received from probes for energy measurements.
+        Decodes and stores the result in MongoDB, and updates measurement state.
+        Args:
+            probe_sender (str): The probe sending the result.
+            result (json): The result message payload.
+        """
         msm_id = result["msm_id"] if ("msm_id" in result) else None
         if msm_id is None:
             print(f"EnergyCoordinator: received result from |{probe_sender}| without measure id. -> IGNORE")
@@ -139,6 +181,11 @@ class EnergyCoordinator:
     
     
     def send_check_i2C_command(self, probe_id):
+        """
+        Send a check command to the probe to verify I2C communication.
+        Args:
+            probe_id (str): The probe to send the check command to.
+        """
         json_check_i2C_command = {
             "handler": "energy",
             "command": "check",
@@ -148,6 +195,14 @@ class EnergyCoordinator:
                                                   complete_command = json.dumps(json_check_i2C_command))
         
     def probes_preparer_to_measurements(self, new_measurement : MeasurementModelMongo):
+        """
+        Prepare the probe for a new energy measurement and start the measurement process.
+        Waits for an ACK/NACK from the probe and stores the measurement in MongoDB if successful.
+        Args:
+            new_measurement (MeasurementModelMongo): The measurement to prepare and start.
+        Returns:
+            tuple: (status, message, error_cause)
+        """
         new_measurement.assign_id()
         measurement_id = str(new_measurement._id)
 
@@ -170,7 +225,7 @@ class EnergyCoordinator:
         self.events_received_start_ack[measurement_id] = [threading.Event(), None]
         self.mqtt_client.publish_on_command_topic(probe_id = new_measurement.source_probe, complete_command = json.dumps(json_iperf_start))
         self.events_received_start_ack[measurement_id][0].wait(timeout = 5)
-        # ------------------------------- YOU MUST WAIT (AT MOST 5s) FOR AN ACK/NACK FROM SOURCE_PROBE
+        # Wait (at most 5s) for an ACK/NACK from the source probe
         probe_event_message = self.events_received_start_ack[measurement_id][1]
         if probe_event_message == "OK":
             measurement_id = self.mongo_db.insert_measurement(new_measurement)
@@ -185,6 +240,14 @@ class EnergyCoordinator:
             return "Error", f"No response from Probe: {new_measurement.source_probe}" , "Response Timeout"
 
     def energy_measurement_stopper(self, msm_id_to_stop : str):
+        """
+        Stop an ongoing energy measurement by sending a stop command to the probe.
+        Waits for an ACK/NACK from the probe and returns the result.
+        Args:
+            msm_id_to_stop (str): The measurement ID to stop.
+        Returns:
+            tuple: (status, message, error_cause)
+        """
         if msm_id_to_stop not in self.queued_measurements:
             measure_from_db : MeasurementModelMongo = self.mongo_db.find_measurement_by_id(measurement_id=msm_id_to_stop)
             if isinstance(measure_from_db, ErrorModel):
@@ -205,7 +268,7 @@ class EnergyCoordinator:
         self.mqtt_client.publish_on_command_topic(probe_id = queued_measurement.source_probe,
                                                   complete_command=json.dumps(json_energy_stop))
         self.events_received_stop_ack[msm_id_to_stop][0].wait(timeout = 5)
-        # ------------------------------- YOU MUST WAIT (AT MOST 5s) FOR AN ACK/NACK FROM SOURCE_PROBE
+        # Wait (at most 5s) for an ACK/NACK from the source probe
         stop_event_message = self.events_received_stop_ack[msm_id_to_stop][1]
         if stop_event_message == "OK":
             return "OK", f"Measurement {msm_id_to_stop} stopped.", None

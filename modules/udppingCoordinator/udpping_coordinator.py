@@ -1,3 +1,9 @@
+"""
+udpping_coordinator.py
+
+This module defines the UDPPing_Coordinator class, which manages the orchestration of UDP-ping measurements between the coordinator and measurement probes in the Measure-X system. It handles configuration, starting, stopping, and result collection for UDP-ping measurements, as well as communication with probes via MQTT and state management in MongoDB.
+"""
+
 import os
 from pathlib import Path
 import threading, json
@@ -9,10 +15,27 @@ from modules.mongoModule.mongoDB import MongoDB, MeasurementModelMongo
 from modules.mongoModule.models.udpping_result_model_mongo import UDPPINGResultModelMongo
 
 class UDPPing_Coordinator:
+    """
+    Coordinates UDP-ping measurement tasks between the coordinator and probes.
+    Handles registration of callbacks, preparation and stopping of measurements, and result processing.
+    Communicates with probes using MQTT and manages measurement state in MongoDB.
+    """
     # This class implement the UDP-PING module to orchestrate the probes to make udp-ping measurements
     def __init__(self, mqtt_client : Mqtt_Client, registration_handler_error_callback, registration_handler_status_callback,
                  registration_handler_result_callback, registration_measure_preparer_callback,
                  ask_probe_ip_mac_callback, registration_measurement_stopper_callback, mongo_db : MongoDB):
+        """
+        Initialize the UDPPing_Coordinator and register all necessary callbacks for status, result, preparation, and stopping.
+        Args:
+            mqtt_client (Mqtt_Client): The MQTT client for communication with probes.
+            registration_handler_error_callback (callable): Callback to register error handler.
+            registration_handler_status_callback (callable): Callback to register status handler.
+            registration_handler_result_callback (callable): Callback to register result handler.
+            registration_measure_preparer_callback (callable): Callback to register measurement preparer.
+            ask_probe_ip_mac_callback (callable): Callback to get probe IP/MAC.
+            registration_measurement_stopper_callback (callable): Callback to register measurement stopper.
+            mongo_db (MongoDB): MongoDB interface for storing measurements and results.
+        """
         self.mqtt_client = mqtt_client
         self.ask_probe_ip_mac = ask_probe_ip_mac_callback
         self.mongo_db = mongo_db
@@ -56,6 +79,12 @@ class UDPPing_Coordinator:
 
 
     def send_probe_udpping_measure_start(self, probe_sender, msm_id):
+        """
+        Send a start command to the probe to begin a UDP-ping measurement.
+        Args:
+            probe_sender (str): The probe to start the UDP-ping.
+            msm_id (str): The measurement ID.
+        """
         json_ping_start = {
             "handler": "udpping",
             "command": "start",
@@ -67,6 +96,12 @@ class UDPPing_Coordinator:
 
 
     def send_probe_udpping_measure_stop(self, probe_sender, msm_id):
+        """
+        Send a stop command to the probe to terminate a UDP-ping measurement.
+        Args:
+            probe_sender (str): The probe to stop.
+            msm_id (str): The measurement ID.
+        """
         json_ping_start = {
             "handler": "udpping",
             "command": "stop",
@@ -78,6 +113,16 @@ class UDPPing_Coordinator:
 
     
     def send_disable_ntp_service(self, probe_sender, msm_id, probe_ntp_server, probe_server_udpping, role, udpping_parameters):
+        """
+        Send a command to disable the NTP service on a probe before starting UDP-ping measurement.
+        Args:
+            probe_sender (str): The probe to disable NTP service on.
+            msm_id (str): The measurement ID.
+            probe_ntp_server (str): The NTP server IP.
+            probe_server_udpping (str): The UDP-ping server IP.
+            role (str): The role of the probe (Client/Server).
+            udpping_parameters (dict): UDP-ping measurement parameters.
+        """
         json_disable_ntp_service = {
             "handler": "udpping",
             "command": "disable_ntp_service",
@@ -112,6 +157,13 @@ class UDPPing_Coordinator:
 
 
     def handler_received_result(self, probe_sender, result):
+        """
+        Handle result messages received from probes for UDP-ping measurements.
+        Stores the result in MongoDB and updates measurement state.
+        Args:
+            probe_sender (str): The probe sending the result.
+            result (dict): The result message payload.
+        """
         msm_id = result["msm_id"] if "msm_id" in result else None
         if msm_id is None:
             print(f"UDPPingController: received result from probe |{probe_sender}| -> No measure_id provided. IGNORE.")
@@ -120,6 +172,14 @@ class UDPPing_Coordinator:
         
     
     def handler_received_status(self, probe_sender, type, payload : json):
+        """
+        Handle status messages (ACK/NACK) received from probes for UDP-ping commands.
+        Updates internal events and state based on the received status.
+        Args:
+            probe_sender (str): The probe sending the status.
+            type (str): The type of status message (ACK/NACK).
+            payload (dict): The status message payload.
+        """
         msm_id = payload["msm_id"] if "msm_id" in payload else None
         if msm_id is None:
             print(f"UDPPingController: |{type}| from probe |{probe_sender}| -> No measure_id provided. IGNORE.")
@@ -182,6 +242,14 @@ class UDPPing_Coordinator:
                         print(f"UDPPingController: NACK received for unkonwn UDPPING command -> {failed_command}")
 
     def probes_preparer_to_measurements(self, new_measurement : MeasurementModelMongo):
+        """
+        Prepare the probes for a new UDP-ping measurement and start the measurement process.
+        Waits for ACK/NACK from both server and client probes and stores the measurement in MongoDB if successful.
+        Args:
+            new_measurement (MeasurementModelMongo): The measurement to prepare and start.
+        Returns:
+            tuple: (status, message, error_cause)
+        """
         new_measurement.assign_id()
         msm_id = str(new_measurement._id)
 
@@ -247,6 +315,14 @@ class UDPPing_Coordinator:
         
     
     def udpping_measurement_stopper(self, msm_id_to_stop : str):
+        """
+        Stop an ongoing UDP-ping measurement by sending stop commands to both server and client probes.
+        Waits for ACK/NACK from both probes and returns the result.
+        Args:
+            msm_id_to_stop (str): The measurement ID to stop.
+        Returns:
+            tuple: (status, message, error_cause)
+        """
         if msm_id_to_stop not in self.queued_measurements:
             return "Error", f"Unknown udpping measurement |{msm_id_to_stop}|", "May be failed"
         measurement_to_stop : MeasurementModelMongo = self.queued_measurements[msm_id_to_stop]
@@ -282,6 +358,12 @@ class UDPPing_Coordinator:
     
 
     def store_measurement_result(self, probe_sender, result : json):
+        """
+        Store the result of a UDP-ping measurement in MongoDB and update measurement state.
+        Args:
+            probe_sender (str): The probe sending the result.
+            result (dict): The result message payload.
+        """
         msm_id = result["msm_id"] if "msm_id" in result else None
         if msm_id is None:
             print(f"UDPPingController: received result from probe |{probe_sender}| -> No measure_id provided. IGNORE.")
@@ -313,12 +395,25 @@ class UDPPing_Coordinator:
 
     
     def get_default_ping_parameters(self) -> json:
+        """
+        Load the default UDP-ping parameters from configuration files.
+        Returns:
+            dict: The default configuration for UDP-ping measurements.
+        """
         base_path = os.path.join(Path(__file__).parent)       
         cl = ConfigLoader(base_path= base_path, file_name = "default_parameters.yaml", KEY = UDPPING_KEY)
         json_default_config = cl.config if (cl.config is not None) else {}
         return json_default_config
 
     def override_default_parameters(self, json_config, measurement_parameters):
+        """
+        Override the default UDP-ping parameters with those specified in the measurement parameters.
+        Args:
+            json_config (dict): The default configuration.
+            measurement_parameters (dict): The parameters to override.
+        Returns:
+            dict: The overridden configuration.
+        """
         json_overrided_config = json_config
         if (measurement_parameters is not None) and (isinstance(measurement_parameters, dict)):
             if ('packets_size' in measurement_parameters):

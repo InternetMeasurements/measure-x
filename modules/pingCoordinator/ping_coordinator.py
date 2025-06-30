@@ -1,3 +1,9 @@
+"""
+ping_coordinator.py
+
+This module defines the Ping_Coordinator class, which manages the coordination of ping-based network measurements between the coordinator and measurement probes in the Measure-X system. It handles configuration, starting, stopping, and result collection for ping measurements, as well as communication with probes via MQTT and state management in MongoDB.
+"""
+
 import os
 from pathlib import Path
 import json
@@ -12,11 +18,27 @@ from modules.mongoModule.models.measurement_model_mongo import MeasurementModelM
 from modules.mongoModule.models.ping_result_model_mongo import PingResultModelMongo
 
 class Ping_Coordinator:
+    """
+    Coordinates ping measurement tasks between the coordinator and probes.
+    Handles registration of callbacks, preparation and stopping of measurements, and result processing.
+    Communicates with probes using MQTT and manages measurement state in MongoDB.
+    """
 
     def __init__(self, mqtt_client : Mqtt_Client, registration_handler_status_callback,
                  registration_handler_result_callback, registration_measure_preparer_callback,
                  ask_probe_ip_mac_callback, registration_measurement_stopper_callback,
                  mongo_db : MongoDB):
+        """
+        Initialize the Ping_Coordinator and register all necessary callbacks for status, result, preparation, and stopping.
+        Args:
+            mqtt_client (Mqtt_Client): The MQTT client for communication with probes.
+            registration_handler_status_callback (callable): Callback to register status handler.
+            registration_handler_result_callback (callable): Callback to register result handler.
+            registration_measure_preparer_callback (callable): Callback to register measurement preparer.
+            ask_probe_ip_mac_callback (callable): Callback to get probe IP/MAC.
+            registration_measurement_stopper_callback (callable): Callback to register measurement stopper.
+            mongo_db (MongoDB): MongoDB interface for storing measurements and results.
+        """
         self.mqtt_client = mqtt_client
         self.mongo_db = mongo_db
         self.ask_probe_ip_mac = ask_probe_ip_mac_callback
@@ -60,6 +82,14 @@ class Ping_Coordinator:
 
 
     def handler_received_status(self, probe_sender, type, payload : json):
+        """
+        Handle status messages (ACK/NACK) received from probes for ping commands.
+        Updates internal events and state based on the received status.
+        Args:
+            probe_sender (str): The probe sending the status.
+            type (str): The type of status message (ACK/NACK).
+            payload (dict): The status message payload.
+        """
         msm_id = payload["msm_id"] if ("msm_id" in payload) else None
         command = payload["command"] if ("command" in payload) else None
         match type:
@@ -91,6 +121,13 @@ class Ping_Coordinator:
 
 
     def handler_received_result(self, probe_sender, result: json):
+        """
+        Handle result messages received from probes for ping measurements.
+        Stores the result if it is recent enough, otherwise ignores it.
+        Args:
+            probe_sender (str): The probe sending the result.
+            result (json): The result message payload.
+        """
         measure_id = result['msm_id'] if ('msm_id' in result) else None
         if measure_id is None:
             print("Ping_Coordinator: received result wihout measure_id -> IGNORED")
@@ -105,6 +142,12 @@ class Ping_Coordinator:
 
 
     def send_probe_ping_start(self, probe_sender, json_payload):
+        """
+        Send a start command to the probe to begin a ping measurement.
+        Args:
+            probe_sender (str): The probe to start the ping.
+            json_payload (dict): The payload for the ping command.
+        """
         json_ping_start = {
             "handler": "ping",
             "command": "start",
@@ -113,6 +156,12 @@ class Ping_Coordinator:
         self.mqtt_client.publish_on_command_topic(probe_id = probe_sender, complete_command=json.dumps(json_ping_start))
 
     def send_probe_ping_stop(self, probe_id, msm_id_to_stop):
+        """
+        Send a stop command to the probe to terminate a ping measurement.
+        Args:
+            probe_id (str): The probe to stop.
+            msm_id_to_stop (str): The measurement ID to stop.
+        """
         json_ping_stop = {
             "handler": "ping",
             "command": "stop",
@@ -124,6 +173,13 @@ class Ping_Coordinator:
 
     
     def store_measurement_result(self, result : json) -> bool:
+        """
+        Store the result of a ping measurement in MongoDB and update measurement state.
+        Args:
+            result (json): The result message payload.
+        Returns:
+            bool: True if stored and updated successfully, False otherwise.
+        """
         ping_result = PingResultModelMongo(
             msm_id = ObjectId(result["msm_id"]),
             timestamp = result["timestamp"],
@@ -151,6 +207,11 @@ class Ping_Coordinator:
 
 
     def print_summary_result(self, measurement_result):
+        """
+        Print a summary of the ping measurement result for debugging or analysis.
+        Args:
+            measurement_result (json): The result message payload.
+        """
         timestamp = measurement_result["timestamp"]
         msm_id = measurement_result["msm_id"]
         source_ip = measurement_result["source"]
@@ -183,6 +244,14 @@ class Ping_Coordinator:
 
 
     def probes_preparer_to_measurements(self, new_measurement : MeasurementModelMongo):
+        """
+        Prepare the probe for a new ping measurement and start the measurement process.
+        Waits for an ACK/NACK from the probe and stores the measurement in MongoDB if successful.
+        Args:
+            new_measurement (MeasurementModelMongo): The measurement to prepare and start.
+        Returns:
+            tuple: (status, message, error_cause)
+        """
         new_measurement.assign_id()
         measurement_id = str(new_measurement._id)
 
@@ -234,6 +303,14 @@ class Ping_Coordinator:
         
 
     def ping_measurement_stopper(self, msm_id_to_stop : str):
+        """
+        Stop an ongoing ping measurement by sending a stop command to the probe.
+        Waits for an ACK/NACK from the probe and returns the result.
+        Args:
+            msm_id_to_stop (str): The measurement ID to stop.
+        Returns:
+            tuple: (status, message, error_cause)
+        """
         if msm_id_to_stop not in self.queued_measurements:
             return "Error", f"Unknown ping measurement |{msm_id_to_stop}|", "May be not started"
         measurement_to_stop : MeasurementModelMongo = self.queued_measurements[msm_id_to_stop]
@@ -252,12 +329,25 @@ class Ping_Coordinator:
     
 
     def get_default_ping_parameters(self) -> json:
+        """
+        Load the default ping parameters from configuration files.
+        Returns:
+            dict: The default configuration for ping measurements.
+        """
         base_path = os.path.join(Path(__file__).parent)       
         cl = ConfigLoader(base_path= base_path, file_name = "default_parameters.yaml", KEY = PING_KEY)
         json_default_config = cl.config if (cl.config is not None) else {}
         return json_default_config
 
     def override_default_parameters(self, json_config, measurement_parameters):
+        """
+        Override the default ping parameters with those specified in the measurement parameters.
+        Args:
+            json_config (dict): The default configuration.
+            measurement_parameters (dict): The parameters to override.
+        Returns:
+            dict: The overridden configuration.
+        """
         json_overrided_config = json_config
         if (measurement_parameters is not None) and (isinstance(measurement_parameters, dict)):
             if ('packets_number' in measurement_parameters):

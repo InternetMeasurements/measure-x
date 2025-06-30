@@ -38,12 +38,14 @@ class AgeOfInformationController:
             print(f"AoIController: registration handler failed. Reason -> {registration_response}")
 
 
+    # This function is called when an AoI command is received. It handles different commands such as 'start', 'stop',
+    # 'disable_ntp_service', and 'enable_ntp_service', performing the appropriate actions for each command.
     def aoi_command_handler(self, command : str, payload: json):
-         msm_id = payload["msm_id"] if "msm_id" in payload else None
-         if msm_id is None:
-             self.send_aoi_NACK(failed_command=command, error_info="No measurement_id provided")
-             return
-         match command:
+        msm_id = payload["msm_id"] if "msm_id" in payload else None
+        if msm_id is None:
+            self.send_aoi_NACK(failed_command=command, error_info="No measurement_id provided")
+            return
+        match command:
             case "start":
                 if (not self.shared_state.probe_is_ready()): # If the probe has an on-going measurement...
                     if self.last_measurement_id != msm_id: # If this ongoing measurement is not the one mentioned in the command
@@ -182,6 +184,7 @@ class AgeOfInformationController:
                     self.send_aoi_NACK(failed_command = command, error_info = (f"Wrong role -> {role}"), msm_id = msm_id)
                 
                 
+    # Creates and binds a UDP socket for AoI measurement communication.
     def create_socket(self):
         try:
             self.measure_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -199,6 +202,7 @@ class AgeOfInformationController:
             return str(e)
                 
 
+    # Prepares and starts the thread that will run the AoI measurement (client or server role).
     def submit_thread_to_aoi_measure(self, msm_id):
         try:
             self.aoi_thread = threading.Thread(target=self.run_aoi_measurement, args=(msm_id,))
@@ -209,6 +213,7 @@ class AgeOfInformationController:
             return returned_msg
 
 
+    # Main logic for running the AoI measurement, either as a client (sending timestamps) or server (receiving and logging AoI).
     def run_aoi_measurement(self, msm_id):
         if self.last_role == "Client":
             stderr_command = None
@@ -284,6 +289,7 @@ class AgeOfInformationController:
         else:
             print(f"THREAD START WITH STRANGE ROLE -> {self.last_role}")
 
+    # Stops the AoI measurement thread and cleans up resources. Returns a status string.
     def stop_aoi_thread(self) -> str:
         if self.aoi_thread is None:
             return "No AoI measure in progress"
@@ -299,6 +305,7 @@ class AgeOfInformationController:
         return "OK"
     
 
+    # Stops the ntpsec service on the system. Returns 'OK' or an error message.
     def stop_ntpsec_service(self):
         stop_command = ["sudo", "systemctl" , "stop" , "ntpsec" ] #[ "sudo systemctl stop ntpsec" ]
         result = subprocess.run(stop_command, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
@@ -310,6 +317,7 @@ class AgeOfInformationController:
         return "OK"
     
     
+    # Starts the ntpsec service on the system. Returns 'OK' or an error message.
     def start_ntpsec_service(self):
         start_command = [ "sudo", "systemctl" , "start" , "ntpsec" ]
         result = subprocess.run(start_command, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
@@ -322,6 +330,7 @@ class AgeOfInformationController:
         return "OK"
     
 
+    # Publishes an ACK message for a successful AoI command via MQTT.
     def send_aoi_ACK(self, successed_command, msm_id = None):
         json_ack = { 
             "command" : successed_command,
@@ -331,6 +340,7 @@ class AgeOfInformationController:
         self.mqtt_client.publish_command_ACK(handler='aoi', payload=json_ack) 
 
 
+    # Publishes a NACK message for a failed AoI command via MQTT.
     def send_aoi_NACK(self, failed_command, error_info, msm_id = None):
         json_nack = {
             "command" : failed_command,
@@ -340,6 +350,7 @@ class AgeOfInformationController:
         print(f"AoIController: NACK sending -> {json_nack}")
         self.mqtt_client.publish_command_NACK(handler='aoi', payload = json_nack) 
 
+    # Resets internal state variables after a measurement is finished or aborted.
     def reset_vars(self):
         print("reset_vars()")
         self.last_measurement_id = None
@@ -349,6 +360,7 @@ class AgeOfInformationController:
         self.aoi_thread = None
         self.last_probe_server_aoi = None
 
+    # Compresses the AoI measurement results, encodes them, and publishes them via MQTT.
     def compress_and_publish_aoi_result(self, msm_id):
         base_path = Path(__file__).parent
         aoi_measurement_file_path = os.path.join(base_path, DEFAULT_AoI_MEASUREMENT_FOLDER, msm_id + ".csv")
@@ -362,19 +374,21 @@ class AgeOfInformationController:
         aoi_min = df["AoI"].min()
         aoi_max = df["AoI"].max()
 
+        # Ensure aoi_min and aoi_max are None if not available (unit: mS)
         aoi_min = None if (pd.isna(aoi_min)) else aoi_min # unit in mS
         aoi_max = None if (pd.isna(aoi_max)) else aoi_max # unit in mS
 
-        # MEASURE RESULT MESSAGE
+        # Prepare the result message to be published via MQTT
         json_aoi_result = {
             "handler": "aoi",
             "type": "result",
             "payload": {
-                "msm_id": msm_id,
-                "c_aois_b64": c_aois_b64,
-                "aoi_min" : aoi_min,
-                "aoi_max" : aoi_max
+                "msm_id": msm_id,           # Measurement ID
+                "c_aois_b64": c_aois_b64,   # Compressed AoI timeseries (base64 CBOR)
+                "aoi_min" : aoi_min,         # Minimum AoI (ms)
+                "aoi_max" : aoi_max          # Maximum AoI (ms)
              }
         }
+        # Publish the result on the MQTT result topic
         self.mqtt_client.publish_on_result_topic(result=json.dumps(json_aoi_result))
         print(f"AoIController: compressed and published result of msm -> {msm_id}")

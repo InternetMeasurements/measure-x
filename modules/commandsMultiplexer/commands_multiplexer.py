@@ -1,3 +1,9 @@
+"""
+commands_multiplexer.py
+
+This module defines the CommandsMultiplexer class, which acts as a central hub for managing communication and coordination between the coordinator and measurement probes in the Measure-X system. It handles registration and invocation of callbacks for results, status, and errors, manages probe IP/MAC information, and coordinates measurement preparation and stopping.
+"""
+
 import json
 import time
 import netifaces
@@ -9,26 +15,45 @@ from modules.mqttModule.mqtt_client import Mqtt_Client
 from concurrent.futures import ThreadPoolExecutor
 
 class CommandsMultiplexer:
+    """
+    Central multiplexer for handling commands, results, status, and errors between the coordinator and probes.
+    Manages callback registration, probe IP/MAC tracking, and measurement lifecycle operations.
+    """
     def __init__(self, mongo_db : MongoDB):
+        """
+        Initialize the CommandsMultiplexer.
+        Args:
+            mongo_db (MongoDB): The MongoDB interface for measurement data.
+        """
         self.mongo_db = mongo_db
-        self.results_handler_callback = {}
-        self.status_handler_callback = {}
-        self.error_handler_callback = {}
-        self.probes_preparer_callback = {}
-        self.measurement_stopper_callback = {}
+        self.results_handler_callback = {}  # Maps result types to handler functions
+        self.status_handler_callback = {}   # Maps status types to handler functions
+        self.error_handler_callback = {}    # Maps error types to handler functions
+        self.probes_preparer_callback = {}  # Maps measurement types to probe preparer functions
+        self.measurement_stopper_callback = {}  # Maps measurement types to stopper functions
         self.mqtt_client = None
-        self.probe_ip_lock = threading.Lock()
-        self.probe_ip_mac = {}
-        self.probe_ip_for_clock_sync = {}
-        self.event_ask_probe_ip = {}
-        self.event_ask_probe_ip_for_clock_sync = {}
-        self.coordinator_ip = self.get_coordinator_ip()
-        self.started_measurement = {}
+        self.probe_ip_lock = threading.Lock()  # Lock for thread-safe probe IP/MAC access
+        self.probe_ip_mac = {}  # Maps probe_id to (ip, mac)
+        self.probe_ip_for_clock_sync = {}  # Maps probe_id to clock sync IP
+        self.event_ask_probe_ip = {}  # Maps probe_id to threading.Event for IP requests
+        self.event_ask_probe_ip_for_clock_sync = {}  # Maps probe_id to threading.Event for clock sync IP requests
+        self.coordinator_ip = self.get_coordinator_ip()  # Coordinator's IP address
+        self.started_measurement = {}  # Maps measurement_id to measurement type
 
     def set_mqtt_client(self, mqtt_client : Mqtt_Client):
+        """
+        Set the MQTT client for publishing commands.
+        Args:
+            mqtt_client (Mqtt_Client): The MQTT client instance.
+        """
         self.mqtt_client = mqtt_client
 
     def get_coordinator_ip(self):
+        """
+        Retrieve the coordinator's IP address from the default network interface.
+        Returns:
+            str: The coordinator's IP address, or '0.0.0.0' if not found.
+        """
         try:
             gateways = netifaces.gateways()
             default_iface = gateways['default'][netifaces.AF_INET][1]
@@ -40,30 +65,75 @@ class CommandsMultiplexer:
         return my_ip
 
     def get_probe_ip_mac_if_present(self, probe_id):
+        """
+        Get the (IP, MAC) tuple for a probe if present.
+        Args:
+            probe_id (str): The probe identifier.
+        Returns:
+            tuple or (None, None): (IP, MAC) if present, else (None, None).
+        """
         with self.probe_ip_lock:
             return self.probe_ip_mac[probe_id] if (probe_id in self.probe_ip_mac) else (None, None)
     
     def set_probe_ip_mac(self, probe_id, probe_ip, probe_mac):
+        """
+        Set the (IP, MAC) tuple for a probe.
+        Args:
+            probe_id (str): The probe identifier.
+            probe_ip (str): The probe's IP address.
+            probe_mac (str): The probe's MAC address.
+        """
         with self.probe_ip_lock:
             self.probe_ip_mac[probe_id] = (probe_ip, probe_mac)
 
     def pop_probe_ip(self, probe_id):
+        """
+        Remove the (IP, MAC) entry for a probe.
+        Args:
+            probe_id (str): The probe identifier.
+        """
         with self.probe_ip_lock:
             self.probe_ip_mac.pop(probe_id, None)
 
     def get_probe_ip_for_clock_sync_if_present(self, probe_id):
+        """
+        Get the clock sync IP for a probe if present.
+        Args:
+            probe_id (str): The probe identifier.
+        Returns:
+            str or None: The clock sync IP if present, else None.
+        """
         with self.probe_ip_lock:
             return self.probe_ip_for_clock_sync[probe_id] if (probe_id in self.probe_ip_for_clock_sync) else None
     
     def set_probe_ip_for_clock_sync(self, probe_id, probe_ip_for_clock_sync):
+        """
+        Set the clock sync IP for a probe.
+        Args:
+            probe_id (str): The probe identifier.
+            probe_ip_for_clock_sync (str): The clock sync IP address.
+        """
         with self.probe_ip_lock:
             self.probe_ip_for_clock_sync[probe_id] = probe_ip_for_clock_sync
     
     def pop_probe_ip_for_clock_sync(self, probe_id):
+        """
+        Remove the clock sync IP entry for a probe.
+        Args:
+            probe_id (str): The probe identifier.
+        """
         with self.probe_ip_lock:
             self.probe_ip_for_clock_sync.pop(probe_id, None)
 
     def ask_probe_ip_mac(self, probe_id, sync_clock_ip = None):
+        """
+        Request the (IP, MAC) or clock sync IP for a probe, waiting for a response if not already known.
+        Args:
+            probe_id (str): The probe identifier.
+            sync_clock_ip (str, optional): If provided, requests clock sync IP instead of normal IP/MAC.
+        Returns:
+            tuple or str or None: (IP, MAC) or clock sync IP, or None if not received in time.
+        """
         if sync_clock_ip is None:
             probe_ip, probe_mac = self.get_probe_ip_mac_if_present(probe_id = probe_id)
             if (probe_ip is not None) and (probe_mac is not None):
@@ -88,6 +158,14 @@ class CommandsMultiplexer:
         
     
     def add_result_callback(self, interested_result, handler):
+        """
+        Register a callback for a specific result type.
+        Args:
+            interested_result (str): The result type.
+            handler (callable): The handler function.
+        Returns:
+            str: Status message.
+        """
         if interested_result not in self.results_handler_callback:
             self.results_handler_callback[interested_result] = handler
             return "OK" #print(f"CommandsMultiplexer: Registered result handler for [{interested_result}]")
@@ -96,6 +174,14 @@ class CommandsMultiplexer:
 
 
     def add_status_callback(self, interested_status, handler):
+        """
+        Register a callback for a specific status type.
+        Args:
+            interested_status (str): The status type.
+            handler (callable): The handler function.
+        Returns:
+            str: Status message.
+        """
         if interested_status not in self.status_handler_callback:
             self.status_handler_callback[interested_status] = handler
             return "OK" #print(f"CommandsMultiplexer: Registered status handler for [{interested_status}]")
@@ -104,6 +190,14 @@ class CommandsMultiplexer:
         
 
     def add_error_callback(self, interested_error, handler):
+        """
+        Register a callback for a specific error type.
+        Args:
+            interested_error (str): The error type.
+            handler (callable): The handler function.
+        Returns:
+            str: Status message.
+        """
         if interested_error not in self.error_handler_callback:
             self.error_handler_callback[interested_error] = handler
             return "OK" #print(f"CommandsMultiplexer: Registered status handler for [{interested_status}]")
@@ -112,6 +206,14 @@ class CommandsMultiplexer:
         
 
     def add_probes_preparer_callback(self, interested_measurement_type, preparer_callback):
+        """
+        Register a callback to prepare probes for a specific measurement type.
+        Args:
+            interested_measurement_type (str): The measurement type.
+            preparer_callback (callable): The preparer function (must return a triad).
+        Returns:
+            str: Status message.
+        """
         # Be sure that all the "preparer methods" returns a string!
         if interested_measurement_type not in self.probes_preparer_callback:
             self.probes_preparer_callback[interested_measurement_type] = preparer_callback
@@ -122,6 +224,14 @@ class CommandsMultiplexer:
     
 
     def add_measure_stopper_callback(self, interested_measurement_type, stopper_method_callback):
+        """
+        Register a callback to stop a measurement of a specific type.
+        Args:
+            interested_measurement_type (str): The measurement type.
+            stopper_method_callback (callable): The stopper function.
+        Returns:
+            str: Status message.
+        """
         if interested_measurement_type not in self.measurement_stopper_callback:
             self.measurement_stopper_callback[interested_measurement_type] = stopper_method_callback
             #print(f"CommandsMultiplexer: Registered measurement-stopper for [{interested_measurement_type}]")
@@ -131,6 +241,12 @@ class CommandsMultiplexer:
         
 
     def result_multiplexer(self, probe_sender: str, nested_result):  # invoked by MQTT module -> on_message on RESULT topic
+        """
+        Dispatch a result message to the appropriate registered handler.
+        Args:
+            probe_sender (str): The probe sending the result.
+            nested_result (str): The JSON-encoded result message.
+        """
         try:
             nested_json_result = json.loads(nested_result)
             handler = nested_json_result['handler']
@@ -144,6 +260,12 @@ class CommandsMultiplexer:
             
 
     def status_multiplexer(self, probe_sender, nested_status):  # invoked by MQTT module -> on_message on STATUS topic
+        """
+        Dispatch a status message to the appropriate registered handler.
+        Args:
+            probe_sender (str): The probe sending the status.
+            nested_status (str): The JSON-encoded status message.
+        """
         try:
             nested_json_status = json.loads(nested_status)
             handler = nested_json_status['handler']
@@ -158,6 +280,12 @@ class CommandsMultiplexer:
 
 
     def errors_multiplexer(self, probe_sender, nested_error):  # invoked by MQTT module -> on_message on ERROR topic
+        """
+        Dispatch an error message to the appropriate registered handler.
+        Args:
+            probe_sender (str): The probe sending the error.
+            nested_error (str): The JSON-encoded error message.
+        """
         try:
             nested_error_json = json.loads(nested_error)
             error_handler = nested_error_json['handler']
@@ -172,6 +300,13 @@ class CommandsMultiplexer:
     
 
     def prepare_probes_to_measure(self, new_measurement : MeasurementModelMongo):  # invoked by REST module
+        """
+        Prepare probes for a new measurement by invoking the registered preparer callback.
+        Args:
+            new_measurement (MeasurementModelMongo): The measurement to prepare.
+        Returns:
+            tuple: (success_message, measurement_as_dict, error_cause)
+        """
         measurement_type = new_measurement.type
         if measurement_type in self.probes_preparer_callback:
             # *** Ensure that all "preparer" methods return exactly three values (triad). ***
@@ -195,6 +330,13 @@ class CommandsMultiplexer:
 
 
     def measurement_stop_by_msm_id(self, msm_id_to_stop : str):  # invoked by REST module
+        """
+        Stop a measurement by its ID, invoking the appropriate stopper callback.
+        Args:
+            msm_id_to_stop (str): The measurement ID to stop.
+        Returns:
+            tuple: (result, message, error_cause)
+        """
         measure_from_db = self.mongo_db.find_measurement_by_id(measurement_id=msm_id_to_stop)
         if isinstance(measure_from_db, ErrorModel):
             return "Error", measure_from_db.error_description, measure_from_db.error_cause
@@ -226,6 +368,13 @@ class CommandsMultiplexer:
 
     # Default handler for the root_service probe message reception
     def root_service_default_handler(self, probe_sender, type, payload):
+        """
+        Default handler for root_service messages from probes. Updates probe IP/MAC and handles state changes.
+        Args:
+            probe_sender (str): The probe sending the message.
+            type (str): The type of message (e.g., 'state').
+            payload (dict): The message payload.
+        """
         if type == "state":
             state_info = payload["state"] if ("state" in payload) else None
             if state_info is None:
@@ -267,6 +416,13 @@ class CommandsMultiplexer:
 
 
     def root_service_send_command(self, probe_id, command, root_service_payload):
+        """
+        Send a command to a probe via the MQTT client on the command topic.
+        Args:
+            probe_id (str): The probe to send the command to.
+            command (str): The command name.
+            root_service_payload (dict): The command payload.
+        """
         json_command = {
             "handler": 'root_service',
             "command": command,

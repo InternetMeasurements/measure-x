@@ -66,7 +66,7 @@ def main():
         cl = ConfigLoader(base_path = Path(__file__).parent, file_name="coordinatorConfig.yaml", KEY = MONGO_KEY)
         mongo_db = MongoDB(mongo_config = cl.config)
     except Exception as e:
-        print(f"Coordinator: connection failed to mongo. -> Exception info: \n{e}")
+        print(f"Coordinator: connection failed to connect to MongoDB. -> Exception info: \n{e}")
         return
     
 

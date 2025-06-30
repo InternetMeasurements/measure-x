@@ -1,3 +1,8 @@
+"""
+Firmware entry point for the probe device in Measure-X.
+Handles initialization, connectivity (5G or WiFi), and controller setup for all supported measurement modules.
+"""
+
 import os
 import time, psutil
 import subprocess, threading
@@ -14,7 +19,14 @@ from udppingModule.udppingController import UDPPingController
 from coexModule.coexController import CoexController
 
 class Probe:
+    """
+    Main class representing a probe device.
+    Handles connectivity setup, controller initialization, and MQTT client management.
+    """
     def __init__(self, probe_id, dbg_mode):
+        """
+        Initialize the probe, set up connectivity (5G or WiFi), and instantiate all controllers.
+        """
         self.id = probe_id
         self.commands_demultiplexer = None
         self.waveshare_cm_thread = None
@@ -32,6 +44,7 @@ class Probe:
         else:
             print(f"{probe_id}: DBG mode enabled. Using WiFi...")
 
+        # Initialize shared state and all controllers
         SharedState.get_instance() 
 
         self.commands_demultiplexer = CommandsDemultiplexer()
@@ -61,6 +74,10 @@ class Probe:
 
         
     def waiting_for_5G_connection(self):
+        """
+        Wait for the 5G interface to become available and up.
+        Returns True if the interface is up, False otherwise.
+        """
         interfaces = psutil.net_if_addrs()
         count_retry = 0
         MAX_RETRY = 5
@@ -80,6 +97,9 @@ class Probe:
 
 
     def body_start_waveshare_cm(self):
+        """
+        Start the Waveshare-CM process in a separate thread for 5G connectivity.
+        """
         try:
             self.waveshare_process = subprocess.Popen(
                                         ['sudo', 'waveshare-CM'],
@@ -93,10 +113,16 @@ class Probe:
 
 
     def disconnect(self):
+        """
+        Disconnect the MQTT client and clean up resources.
+        """
         self.mqtt_client.disconnect()
 
 
 def main():
+    """
+    Main entry point for the probe firmware. Handles argument parsing and probe lifecycle.
+    """
     parser = argparse.ArgumentParser(description="Script to handle dbg mode")
     parser.add_argument('-dbg', action='store_true', help="Enable the debug mode.")
     args = parser.parse_args()

@@ -8,7 +8,7 @@ SYNC_OTII_PIN_NUMBER = 4
 SYNC_OTII_PIN = LED(SYNC_OTII_PIN_NUMBER)
 DEFAULT_I2C_INA219_ADDRESS = 0x40
 
-""" Class that implements the LOW LEVEL DRIVER FOR CURRENT CONSUMPTION funcionality """
+""" Class that implements the LOW LEVEL DRIVER FOR CURRENT CONSUMPTION functionality """
 class Ina219Driver:
     def __init__(self, current_compare : bool = False):
         self.ina219 = INA219(addr = DEFAULT_I2C_INA219_ADDRESS)

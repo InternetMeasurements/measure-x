@@ -1,3 +1,9 @@
+"""
+iperf_coordinator.py
+
+This module defines the Iperf_Coordinator class, which manages the coordination of iperf-based network measurements between the coordinator and measurement probes in the Measure-X system. It handles configuration, starting, stopping, and result collection for iperf measurements, as well as communication with probes via MQTT and state management in MongoDB.
+"""
+
 import os
 import json
 import yaml
@@ -13,6 +19,11 @@ from modules.mongoModule.models.measurement_model_mongo import MeasurementModelM
 from modules.mongoModule.models.iperf_result_model_mongo import IperfResultModelMongo
 
 class Iperf_Coordinator:
+    """
+    Coordinates iperf measurement tasks between the coordinator and probes.
+    Handles registration of callbacks, preparation and stopping of measurements, and result processing.
+    Communicates with probes using MQTT and manages measurement state in MongoDB.
+    """
 
     def __init__(self, mqtt : Mqtt_Client, 
                  registration_handler_status_callback,
@@ -21,6 +32,17 @@ class Iperf_Coordinator:
                  ask_probe_ip_mac_callback,
                  registration_measurement_stopper_callback,
                  mongo_db : MongoDB):
+        """
+        Initialize the Iperf_Coordinator and register all necessary callbacks for status, result, preparation, and stopping.
+        Args:
+            mqtt (Mqtt_Client): The MQTT client for communication with probes.
+            registration_handler_status_callback (callable): Callback to register status handler.
+            registration_handler_result_callback (callable): Callback to register result handler.
+            registration_measure_preparer_callback (callable): Callback to register measurement preparer.
+            ask_probe_ip_mac_callback (callable): Callback to get probe IP/MAC.
+            registration_measurement_stopper_callback (callable): Callback to register measurement stopper.
+            mongo_db (MongoDB): MongoDB interface for storing measurements and results.
+        """
         self.mqtt = mqtt 
         self.probes_configurations_dir = 'probes_configurations'
         self.probes_server_port = {}
@@ -71,6 +93,13 @@ class Iperf_Coordinator:
 
 
     def handler_received_result(self, probe_sender, result: json):
+        """
+        Handle result messages received from probes for iperf measurements.
+        Stores the result if it is recent enough, otherwise ignores it.
+        Args:
+            probe_sender (str): The probe sending the result.
+            result (json): The result message payload.
+        """
         if ((time.time() - result["start_timestamp"]) < SECONDS_OLD_MEASUREMENT):
             self.store_measurement_result(probe_sender, result)
             #self.print_summary_result(measurement_result = result)
@@ -80,6 +109,14 @@ class Iperf_Coordinator:
 
         
     def handler_received_status(self, probe_sender, type, payload : json):
+        """
+        Handle status messages (ACK/NACK) received from probes for iperf commands.
+        Updates internal events and state based on the received status.
+        Args:
+            probe_sender (str): The probe sending the status.
+            type (str): The type of status message (ACK/NACK).
+            payload (dict): The status message payload.
+        """
         match type:
             case "ACK":
                 command_executed_on_probe = payload["command"]
@@ -144,6 +181,14 @@ class Iperf_Coordinator:
 
         
     def send_probe_iperf_start(self, new_measurement : MeasurementModelMongo):
+        """
+        Send a start command to the probe to begin an iperf measurement.
+        Inserts the measurement into MongoDB before sending the command.
+        Args:
+            new_measurement (MeasurementModelMongo): The measurement to start.
+        Returns:
+            tuple: (status, message, error_cause)
+        """
         new_measurement.parameters.pop("output_iperf_dir", None)
         new_measurement.parameters.pop("save_result_on_flash", None)
         new_measurement.parameters.pop("verbose", None)
@@ -167,6 +212,12 @@ class Iperf_Coordinator:
         return "OK", new_measurement.to_dict(), None # By returning these arguments, it's possible to see them in the HTTP response
 
     def send_probe_iperf_conf(self, probe_id, json_config):
+        """
+        Send a configuration command to a probe for iperf setup.
+        Args:
+            probe_id (str): The probe to configure.
+            json_config (dict): The configuration payload.
+        """
         json_command = {
             "handler": 'iperf',
             "command": "conf",
@@ -175,6 +226,12 @@ class Iperf_Coordinator:
         self.mqtt.publish_on_command_topic(probe_id = probe_id, complete_command=json.dumps(json_command))
     
     def send_probe_iperf_stop(self, probe_id, msm_id):
+        """
+        Send a stop command to a probe to terminate an iperf measurement.
+        Args:
+            probe_id (str): The probe to stop.
+            msm_id (str): The measurement ID to stop.
+        """
         json_iperf_stop = {
             "handler": "iperf",
             "command": "stop",
@@ -186,6 +243,13 @@ class Iperf_Coordinator:
 
     
     def get_size(self, obj):
+        """
+        Recursively compute the size in bytes of a Python object, including nested structures.
+        Args:
+            obj: The object to measure.
+        Returns:
+            int: The total size in bytes.
+        """
         if isinstance(obj, dict):
             return sys.getsizeof(obj) + sum(self.get_size(k) + self.get_size(v) for k, v in obj.items())
         elif isinstance(obj, (list, tuple, set)):
@@ -194,6 +258,13 @@ class Iperf_Coordinator:
             return sys.getsizeof(obj)
 
     def store_measurement_result(self, probe_sender, result : json):
+        """
+        Store the result of an iperf measurement in MongoDB and update measurement state.
+        Decodes and processes the result, and triggers completion logic if this is the last result.
+        Args:
+            probe_sender (str): The probe sending the result.
+            result (json): The result message payload.
+        """
         msm_id = result["msm_id"] if "msm_id" in result else None
         if msm_id is None:
             print(f"Iperf_Coordinator: received result from probe |{probe_sender}| -> No measure_id provided. IGNORE.")
@@ -248,6 +319,13 @@ class Iperf_Coordinator:
 
 
     def get_default_iperf_parameters(self, role) -> json:
+        """
+        Load the default iperf parameters for a given role (Client or Server) from configuration files.
+        Args:
+            role (str): 'Client' or 'Server'.
+        Returns:
+            dict: The default configuration for the specified role.
+        """
         base_path = os.path.join(Path(__file__).parent, "probes_configurations")
 
         config_file_name =  "configToBeClient.yaml" if (role == "Client") else "configToBeServer.yaml"
@@ -259,6 +337,15 @@ class Iperf_Coordinator:
         return json_default_config
 
     def override_default_parameters(self, json_config, measurement_parameters, role):
+        """
+        Override the default iperf parameters with those specified in the measurement parameters.
+        Args:
+            json_config (dict): The default configuration.
+            measurement_parameters (dict): The parameters to override.
+            role (str): 'Client' or 'Server'.
+        Returns:
+            dict: The overridden configuration.
+        """
         json_overrided_config = json_config
         if (measurement_parameters is not None) and (isinstance(measurement_parameters, dict)):
             if role == "Client":
@@ -285,6 +372,14 @@ class Iperf_Coordinator:
 
 
     def probes_preparer_to_measurements(self, new_measurement : MeasurementModelMongo):
+        """
+        Prepare the probes for a new iperf measurement and start the measurement process.
+        Waits for ACK/NACK from both server and client probes and stores the measurement in MongoDB if successful.
+        Args:
+            new_measurement (MeasurementModelMongo): The measurement to prepare and start.
+        Returns:
+            tuple: (status, message, error_cause)
+        """
         new_measurement.assign_id()
         measurement_id = str(new_measurement._id)
 
@@ -361,6 +456,14 @@ class Iperf_Coordinator:
             return "Error", f"No response from Probe: {new_measurement.dest_probe}" , "Response Timeout"
 
     def iperf_measurement_stopper(self, msm_id_to_stop : str):
+        """
+        Stop an ongoing iperf measurement by sending a stop command to the probe.
+        Waits for an ACK/NACK from the probe and returns the result.
+        Args:
+            msm_id_to_stop (str): The measurement ID to stop.
+        Returns:
+            tuple: (status, message, error_cause)
+        """
         if msm_id_to_stop not in self.queued_measurements:
             measure_from_db : MeasurementModelMongo = self.mongo_db.find_measurement_by_id(measurement_id=msm_id_to_stop)
             if isinstance(measure_from_db, ErrorModel):
@@ -384,6 +487,11 @@ class Iperf_Coordinator:
     
     # NOT USED BUT USEFULL FOR TESTING
     def print_summary_result(self, measurement_result : json):
+        """
+        Print a summary of the iperf measurement result for debugging or analysis.
+        Args:
+            measurement_result (json): The result message payload.
+        """
         start_timestamp = measurement_result["start_timestamp"]
         repetition_number = measurement_result["repetition_number"]
         msm_id = measurement_result["msm_id"]

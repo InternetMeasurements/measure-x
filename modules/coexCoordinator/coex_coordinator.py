@@ -1,3 +1,8 @@
+"""
+Coex_Coordinator: Coordinator class for Coexisting Applications (COEX) measurements in Measure-X.
+Handles probe orchestration, command dispatch, result collection, and MongoDB integration for COEX experiments.
+"""
+
 import os
 from pathlib import Path
 import json
@@ -11,12 +16,18 @@ from modules.mongoModule.mongoDB import MongoDB, SECONDS_OLD_MEASUREMENT, ErrorM
 from modules.mongoModule.models.measurement_model_mongo import MeasurementModelMongo, CoexistingApplicationModelMongo
 
 class Coex_Coordinator:
-
+    """
+    Coordinator for Coexisting Applications (COEX) measurements.
+    Manages probe orchestration, command dispatch, result collection, and MongoDB integration.
+    """
     def __init__(self, mqtt_client : Mqtt_Client, 
                  registration_handler_error_callback, registration_handler_status_callback,
                  registration_measure_preparer_callback,
                  ask_probe_ip_mac_callback, registration_measurement_stopper_callback,
                  mongo_db : MongoDB):
+        """
+        Initialize the COEX Coordinator, register all handlers, and set up state variables.
+        """
         self.mqtt_client = mqtt_client
         self.mongo_db = mongo_db
         self.ask_probe_ip_mac = ask_probe_ip_mac_callback
@@ -60,6 +71,9 @@ class Coex_Coordinator:
 
 
     def handler_received_status(self, probe_sender, type, payload : json):
+        """
+        Handler for status messages (ACK/NACK) received from probes. Updates events and handles errors.
+        """
         msm_id = payload["msm_id"] if ("msm_id" in payload) else None
         command = payload["command"] if ("command" in payload) else None
         match type:
@@ -119,6 +133,9 @@ class Coex_Coordinator:
 
 
     def handler_received_error(self, probe_sender, error_command, error_payload : json):
+        """
+        Handler for error messages received from probes. Handles socket errors and probe failures.
+        """
         print(f"Coex_Coordinator: error from {probe_sender} , command |{error_command}| payload: {error_payload}")
         if error_command == "socket":
             msm_id = error_payload['msm_id'] if ('msm_id' in error_payload) else None
@@ -146,7 +163,9 @@ class Coex_Coordinator:
 
     def send_probe_coex_conf(self, probe_sender, msm_id, role, parameters : CoexistingApplicationModelMongo, 
                              counterpart_probe_mac, counterpart_probe_ip = None):
-        
+        """
+        Send a configuration command to a probe for COEX measurement setup.
+        """
         json_conf_payload = {
             "msm_id": msm_id,
             "role": role,
@@ -169,6 +188,9 @@ class Coex_Coordinator:
 
 
     def send_probe_coex_start(self, probe_id, msm_id):
+        """
+        Send a command to a probe to start a COEX measurement.
+        """
         json_coex_start = {
             "handler": "coex",
             "command": "start",
@@ -180,6 +202,9 @@ class Coex_Coordinator:
 
 
     def send_probe_coex_stop(self, probe_id, msm_id_to_stop, silent = False):
+        """
+        Send a command to a probe to stop a COEX measurement.
+        """
         json_coex_stop = {
             "handler": "coex",
             "command": "stop",
@@ -192,6 +217,10 @@ class Coex_Coordinator:
 
 
     def probes_preparer_to_measurements(self, new_measurement : MeasurementModelMongo):
+        """
+        Prepares and orchestrates a new COEX measurement, including probe IP resolution and parameter setup.
+        Returns a tuple (status, message, error) depending on the outcome.
+        """
         if new_measurement._id is None:
             new_measurement.assign_id()
         measurement_id = str(new_measurement._id)
@@ -284,6 +313,10 @@ class Coex_Coordinator:
 
 
     def coex_measurement_stopper(self, msm_id_to_stop : str):
+        """
+        Stops an ongoing COEX measurement, handling both client and server probes.
+        Returns a tuple (status, message, error) depending on the outcome.
+        """
         if msm_id_to_stop not in self.queued_measurements:
             measure_from_db : MeasurementModelMongo = self.mongo_db.find_measurement_by_id(measurement_id=msm_id_to_stop)
             if isinstance(measure_from_db, ErrorModel):
@@ -332,12 +365,20 @@ class Coex_Coordinator:
     
 
     def get_default_coex_parameters(self) -> json:
+        """
+        Loads the default COEX measurement parameters from the configuration file.
+        Returns a dictionary of default parameters.
+        """
         base_path = os.path.join(Path(__file__).parent)       
         cl = ConfigLoader(base_path= base_path, file_name = "default_parameters.yaml", KEY = COEX_KEY)
         json_default_config = cl.config if (cl.config is not None) else {}
         return json_default_config
 
     def override_default_parameters(self, json_config : dict, measurement_parameters : dict):
+        """
+        Overrides the default COEX parameters with those provided in the measurement request.
+        Returns the updated configuration dictionary.
+        """
         json_overrided_config = json_config.copy()
         source_probe_coex = measurement_parameters.get("source_probe")
         dest_probe_coex = measurement_parameters.get("dest_probe")

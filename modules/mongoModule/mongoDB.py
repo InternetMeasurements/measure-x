@@ -1,3 +1,9 @@
+"""
+mongoDB.py
+
+This module provides the MongoDB class for managing measurement and result data in a MongoDB database for the Measure-X system. It supports inserting, updating, deleting, and querying measurements and results, as well as plotting and analysis utilities for time series data.
+"""
+
 import time, json, os
 from pathlib import Path
 from bson import ObjectId
@@ -21,8 +27,17 @@ COMPLETED_STATE = "completed"
 
 
 class MongoDB:
+    """
+    MongoDB interface for storing, updating, and retrieving measurement and result data.
+    Provides methods for managing measurement lifecycle, linking results, and plotting/analysis utilities.
+    """
 
     def __init__(self, mongo_config):
+        """
+        Initialize the MongoDB connection and collections.
+        Args:
+            mongo_config: Configuration object with MongoDB connection parameters.
+        """
         self.server_ip = mongo_config.ip_server
         self.server_port = mongo_config.port_server
         self.user = mongo_config.user
@@ -48,6 +63,13 @@ class MongoDB:
     # ------------------------------------------------- MEASUREMENTS COLLECTION -------------------------------------------------
     
     def insert_measurement(self, measure : MeasurementModelMongo) -> str:
+        """
+        Insert a new measurement document into the measurements collection.
+        Args:
+            measure (MeasurementModelMongo): The measurement to insert.
+        Returns:
+            str: The inserted measurement's ID, or None on failure.
+        """
         try:
             measure.start_time = time.time()
             measure.state = STARTED_STATE
@@ -60,10 +82,25 @@ class MongoDB:
             return None
         
     def replace_measurement(self, measurement_id, measure : MeasurementModelMongo):
+        """
+        Replace an existing measurement document by ID.
+        Args:
+            measurement_id (str): The ID of the measurement to replace.
+            measure (MeasurementModelMongo): The new measurement data.
+        Returns:
+            bool: True if replaced, False otherwise.
+        """
         result = self.measurements_collection.replace_one({"_id": ObjectId(measurement_id)}, measure.to_dict(to_store = True))
         return (result.matched_count > 0)
 
     def set_measurement_as_completed(self, measurement_id) -> bool:
+        """
+        Mark a measurement as completed and set its stop time.
+        Args:
+            measurement_id (str): The ID of the measurement to update.
+        Returns:
+            bool: True if updated, False otherwise.
+        """
         stop_time = time.time()
         update_result = self.measurements_collection.update_one(
                             {"_id": ObjectId(measurement_id)},
@@ -73,6 +110,13 @@ class MongoDB:
 
 
     def set_measurement_as_failed_by_id(self, measurement_id : str) -> bool:
+        """
+        Mark a measurement as failed by its ID.
+        Args:
+            measurement_id (str): The ID of the measurement to update.
+        Returns:
+            bool: True if updated, False otherwise.
+        """
         replace_result = self.measurements_collection.update_one(
                             {"_id": ObjectId(measurement_id)},
                             {"$set":{
@@ -108,6 +152,13 @@ class MongoDB:
     
 
     def delete_measurements_by_id(self, measurement_id: str) -> bool:
+        """
+        Delete a measurement document by its ID.
+        Args:
+            measurement_id (str): The ID of the measurement to delete.
+        Returns:
+            bool: True if deleted, False otherwise.
+        """
         # Da cancellare
         delete_result = self.measurements_collection.delete_one(
                             {"_id": ObjectId(measurement_id)})
@@ -115,6 +166,13 @@ class MongoDB:
 
 
     def find_measurement_by_id(self, measurement_id):
+        """
+        Find a measurement by its ID and return as a MeasurementModelMongo or ErrorModel.
+        Args:
+            measurement_id (str): The ID of the measurement to find.
+        Returns:
+            MeasurementModelMongo or ErrorModel: The found measurement or error info.
+        """
         try:
             find_result = self.measurements_collection.find_one({"_id": ObjectId(measurement_id)})
             if find_result is None:
@@ -137,6 +195,13 @@ class MongoDB:
 
 
     def get_measurement_state(self, measurement_id) -> str:
+        """
+        Get the state of a measurement by its ID.
+        Args:
+            measurement_id (str): The ID of the measurement.
+        Returns:
+            str: The state of the measurement, or None if not found.
+        """
         measurement_result : MeasurementModelMongo = self.measurements_collection.find_one({"_id": ObjectId(measurement_id)})
         if measurement_result is None:
             return None
@@ -144,6 +209,11 @@ class MongoDB:
     
     
     def get_old_measurements_not_yet_setted_as_failed(self) -> list[MeasurementModelMongo]:
+        """
+        Get a list of old measurements (older than 24 hours) that are still marked as started.
+        Returns:
+            list[MeasurementModelMongo]: List of old measurements.
+        """
         twenty_four_hours_ago  = time.time() - SECONDS_OLD_MEASUREMENT
         old_measurements = self.measurements_collection.find(
                             {"start_time": {"$lt": twenty_four_hours_ago},
@@ -152,6 +222,11 @@ class MongoDB:
     
     
     def set_old_measurements_as_failed(self) -> int:
+        """
+        Mark all old measurements (older than 24 hours) as failed.
+        Returns:
+            int: The number of measurements updated.
+        """
         twenty_four_hours_ago  = time.time() - SECONDS_OLD_MEASUREMENT
         replace_result = self.measurements_collection.update_many(
                             { "start_time": {"$lt": twenty_four_hours_ago} ,
@@ -163,6 +238,17 @@ class MongoDB:
         return replace_result.modified_count
     
     def find_and_plot(self, msm_id, start_coex, stop_coex, series_name, time_field, value_field, granularity):
+        """
+        Find all results for a measurement and plot the specified time series with optional coexisting application highlighting.
+        Args:
+            msm_id (str): The measurement ID.
+            start_coex (float): Start time of coexisting application.
+            stop_coex (float): Stop time of coexisting application.
+            series_name (str): The name of the series to plot.
+            time_field (str): The field name for time.
+            value_field (str): The field name for values.
+            granularity (str): The resampling granularity (e.g., '1S').
+        """
         import matplotlib.pyplot as plt
         import numpy as np
 
@@ -203,6 +289,19 @@ class MongoDB:
 
 
     def plot_smoothed(self, msm_id, series_name, time_field, value_field, granularity, with_original, with_smoothed, start_coex = None, stop_coex = None):
+        """
+        Plot a smoothed version of a time series for a measurement, with optional original and coexisting application highlighting.
+        Args:
+            msm_id (str): The measurement ID.
+            series_name (str): The name of the series to plot.
+            time_field (str): The field name for time.
+            value_field (str): The field name for values.
+            granularity (str): The resampling granularity (e.g., '1S').
+            with_original (bool): Whether to plot the original data.
+            with_smoothed (bool): Whether to plot the smoothed data.
+            start_coex (float, optional): Start time of coexisting application.
+            stop_coex (float, optional): Stop time of coexisting application.
+        """
         import matplotlib.pyplot as plt
         import numpy as np
         import pandas as pd
@@ -249,6 +348,11 @@ class MongoDB:
 
 
     def calculate_time_differences(self, seconds_diff):
+        """
+        Calculate and print time differences between consecutive completed measurements, highlighting those with different types and small time gaps.
+        Args:
+            seconds_diff (float): The threshold for time difference in seconds.
+        """
         # Troviamo tutti i documenti ordinati per start_time in modo decrescente
         cursor = self.measurements_collection.find({"state": "completed"}).sort("start_time", 1)
 
@@ -288,11 +392,28 @@ class MongoDB:
     # ------------------------------------------------- RESULTS COLLECTION -------------------------------------------------
 
     def convert_objectid(self, obj):
+        """
+        Convert a BSON ObjectId to a string for JSON serialization.
+        Args:
+            obj: The object to convert.
+        Returns:
+            str: The string representation of the ObjectId.
+        Raises:
+            TypeError: If the object is not an ObjectId.
+        """
         if isinstance(obj, ObjectId):
             return str(obj)
         raise TypeError("Type not serializable")
 
     def insert_result(self, result) -> str:
+        """
+        Insert a result document into the results collection.
+        If MongoDB is unavailable, store the result locally as a JSON file.
+        Args:
+            result: The result object to insert (must have to_dict method).
+        Returns:
+            str or dict: The inserted result's ID, or a dict with local storage info on failure.
+        """
         try:
             insert_result = self.results_collection.insert_one(result.to_dict())
             if insert_result.inserted_id:
@@ -347,18 +468,39 @@ class MongoDB:
     """
 
     def delete_results_by_msm_id(self, msm_id) -> bool:
+        """
+        Delete all result documents associated with a measurement ID.
+        Args:
+            msm_id (str): The measurement ID.
+        Returns:
+            bool: True if any results were deleted, False otherwise.
+        """
         delete_result = self.results_collection.delete_many(
                             {"msm_id": ObjectId(msm_id)})
         return (delete_result.deleted_count > 0)
     
 
     def delete_result_by_id(self, result_id : str) -> bool:
+        """
+        Delete a result document by its ID.
+        Args:
+            result_id (str): The result ID to delete.
+        Returns:
+            bool: True if deleted, False otherwise.
+        """
         delete_result = self.results_collection.delete_one(
                             {"_id": ObjectId(result_id)})
         return (delete_result.deleted_count > 0)
       
     
     def find_all_results_by_measurement_id(self, msm_id):
+        """
+        Find all result documents associated with a measurement ID.
+        Args:
+            msm_id (str): The measurement ID.
+        Returns:
+            list: List of result documents or an error model as dict.
+        """
         try:
             cursor = self.results_collection.find({"msm_id": ObjectId(msm_id)})
             result_list = list() if (cursor is None) else list(cursor)
