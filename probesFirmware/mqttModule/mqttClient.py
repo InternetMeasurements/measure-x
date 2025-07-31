@@ -30,7 +30,9 @@ class ProbeMqttClient(mqtt.Client):
         self.external_mqtt_msg_handler = msg_received_handler_callback
 
         base_path = Path(__file__).parent
-        yaml_path = os.path.join(base_path, probe_id + ".yaml")
+        # VECCHIO
+        #yaml_path = os.path.join(base_path, probe_id + ".yaml")
+        yaml_path = os.path.join(base_path, "mqtt_probe_config.yaml")
         with open(yaml_path) as file:
             self.config = yaml.safe_load(file)
 
