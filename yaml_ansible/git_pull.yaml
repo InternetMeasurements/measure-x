@@ -1,15 +1,11 @@
 - name: Pull latest changes from Git repository
   hosts: all
   become: yes
-  vars_files:
-    - vault.yml
   tasks:
     - name: Pull latest changes using GitHub token
-      command: git pull https://{{ github_token }}@github.com/francescoB1997/measureX.git rasp_branch
+      command: git pull https://github.com/InternetMeasurements/measure-x.git
       args:
         chdir: "/home/{{ ansible_user }}/measureX"
-      environment:
-        GIT_ASKPASS: "/bin/echo"
     - name: Change ownership of the measureX directory to ansible_user
       ansible.builtin.file:
         path: "/home/{{ ansible_user }}/measureX"

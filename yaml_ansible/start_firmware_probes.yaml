@@ -1,9 +1,9 @@
 - name: Start the firmware into virtualenv
   hosts: probes
   vars:
-    venv_path: "/home/{{ inventory_hostname }}/measurex_venv"
+    venv_path: "/home/{{ ansible_user }}/measurex_venv"
   tasks:
     - name: Execute the firmware
-      command: "{{ venv_path }}/bin/python -m probesFirmware.firmware"
+      command: "{{ venv_path }}/bin/python3 firmware.py"
       args:
-        chdir: "/home/{{ inventory_hostname }}/measureX/probesFirmware"
+        chdir: "/home/{{ ansible_user }}/measureX/probesFirmware"

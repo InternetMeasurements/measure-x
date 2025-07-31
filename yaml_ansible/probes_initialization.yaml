@@ -1,9 +1,9 @@
 ---
 - name: Setup virtual environment and install dependencies
-  hosts: probe4
+  hosts: all 
   become: yes
   vars:
-    path_base: "/home/{{ inventory_hostname }}/measureX/probesFirmware"  # Cambia con il percorso corretto
+    path_base: "/home/{{ ansible_user }}/measureX/probesFirmware"  # Cambia con il percorso corretto
 
   tasks:
     - name: Install pip and virtualenv if not already installed
@@ -15,11 +15,11 @@
 
     - name: Create a virtual environment named measurex_venv
       command:
-        cmd: python3 -m venv /home/{{ inventory_hostname }}/measurex_venv
-        creates: /home/{{ inventory_hostname }}/measurex_venv
-    - name: Set the priviledge higher level the measurex_venv
+        cmd: python3 -m venv /home/{{ ansible_user }}/measurex_venv
+        creates: /home/{{ ansible_user }}/measurex_venv
+    - name: Set the privilege level
       ansible.builtin.file:
-        path: /home/{{ inventory_hostname }}/measurex_venv
+        path: /home/{{ ansible_user }}/measurex_venv
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"
         recurse: yes
@@ -29,8 +29,19 @@
         name: iperf3
         state: present
         update_cache: yes
+    - name: git clone measure-x repository
+      git:
+        repo: "https://github.com/InternetMeasurements/measure-x.git"
+        dest: "/home/{{ ansible_user }}/measureX"
+        version: "main"
     - name: Install dependencies from requirements.txt into virtualenv
       pip:
         requirements: "{{ path_base }}/requirements.txt"
-        virtualenv: "/home/{{ inventory_hostname }}/measurex_venv"
+        virtualenv: "/home/{{ ansible_user }}/measurex_venv"
         state: present
+    - name: Change ownership of the measureX directory to ansible_user
+      ansible.builtin.file:
+        path: "/home/{{ ansible_user }}/measureX"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        recurse: yes

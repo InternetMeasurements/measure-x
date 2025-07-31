@@ -8,6 +8,7 @@ import time, psutil
 import subprocess, threading
 import signal
 import argparse
+import yaml
 from mqttModule.mqttClient import ProbeMqttClient
 from commandsDemultiplexer.commandsDemultiplexer import CommandsDemultiplexer
 from iperfModule.iperfController import IperfController
@@ -118,6 +119,17 @@ class Probe:
         """
         self.mqtt_client.disconnect()
 
+def get_probe_id_from_yaml(yaml_path="probe_config.yaml"):
+    """
+    Reads the probe id from a yaml configuration file.
+    """
+    try:
+        with open(yaml_path, "r") as f:
+            config = yaml.safe_load(f)
+            return config.get("probe_id", None)
+    except Exception as e:
+        print(f"Error reading probe id from yaml: {e}")
+        return None
 
 def main():
     """
@@ -127,10 +139,13 @@ def main():
     parser.add_argument('-dbg', action='store_true', help="Enable the debug mode.")
     args = parser.parse_args()
 
-    user_name = os.getlogin()
-    if user_name == "coordinator" or user_name=="Francesco": # Trick for execute the firmware also on the coordinator
-        user_name = "probe1"
-    probe = Probe(user_name, args.dbg)
+# VECCHIO
+#    user_name = os.getlogin()
+#    if user_name == "coordinator" or user_name=="Francesco": # Trick for execute the firmware also on the coordinator
+#        user_name = "probe1"
+#    probe = Probe(user_name, args.dbg)
+    probe_id_from_yaml = get_probe_id_from_yaml()
+    probe = Probe(probe_id_from_yaml, args.dbg)
 
     if probe.commands_demultiplexer is not  None:
         while True:
