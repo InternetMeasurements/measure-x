@@ -12,7 +12,7 @@ from modules.configLoader.config_loader import ConfigLoader, MQTT_KEY
     ******************************************************* Class FOR THE MQTT CLIENT COORDINATOR *******************************************************
 """
 
-VERBOSE = False
+VERBOSE = True
 
 class Mqtt_Client(mqtt.Client):
     """
@@ -98,7 +98,7 @@ class Mqtt_Client(mqtt.Client):
             message: The received MQTT message.
         """
         # Invoked when a new message has arrived from the broker      
-        #print(f"MQTT: Received msg on topic -> | {message.topic} | "
+        print(f"MQTT: Received msg on topic -> | {message.topic} | ")
         probe_sender = (str(message.topic).split('/'))[1]
         if VERBOSE:
             print(f"MqttClient: from topic |{str(message.topic)}| -> |{ message.payload.decode('utf-8')}|")

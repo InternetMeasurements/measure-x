@@ -17,6 +17,7 @@
       command:
         cmd: python3 -m venv /home/{{ ansible_user }}/measurex_venv
         creates: /home/{{ ansible_user }}/measurex_venv
+
     - name: Set the privilege level
       ansible.builtin.file:
         path: /home/{{ ansible_user }}/measurex_venv
@@ -24,24 +25,50 @@
         group: "{{ ansible_user }}"
         recurse: yes
         state: directory
+
     - name: Iperf3 installation
       apt:
         name: iperf3
         state: present
         update_cache: yes
+
     - name: git clone measure-x repository
       git:
         repo: "https://github.com/InternetMeasurements/measure-x.git"
         dest: "/home/{{ ansible_user }}/measureX"
         version: "main"
+        force: yes
+  
+    - name: Sets probe id
+      ansible.builtin.command:
+        cmd: echo "probe_id{{':'}} {{inventory_hostname }}" > /home/{{ ansible_user }}/measureX/probesFirmware/probe_id.yaml
+      args:
+        creates: /home/{{ ansible_user }}/measureX/probesFirmware/probe_config.yaml
+
     - name: Install dependencies from requirements.txt into virtualenv
       pip:
         requirements: "{{ path_base }}/requirements.txt"
         virtualenv: "/home/{{ ansible_user }}/measurex_venv"
         state: present
+
     - name: Change ownership of the measureX directory to ansible_user
       ansible.builtin.file:
         path: "/home/{{ ansible_user }}/measureX"
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"
         recurse: yes
+    
+    - name: Download and install waveshare kernel
+      shell: wget -O - https://files.waveshare.com/wiki/PCIe-TO-5G-HAT%2B/install.sh | sudo bash
+      args:
+        chdir: "/home/{{ ansible_user }}"
+    
+    - name: Enables I2C interface
+      ansible.builtin.command:
+        cmd: sudo raspi-config nonint do_i2c 0
+      register: i2c_enable_result
+    
+    - name: Rebooting the probe
+      ansible.builtin.reboot:
+        msg: "Rebooting the probe to apply changes"
+      when: i2c_enable_result.changed
