@@ -124,7 +124,7 @@ def get_probe_id_from_yaml(yaml_path="probe_config.yaml"):
     Reads the probe id from a yaml configuration file.
     """
     try:
-        with open(yaml_path, "r") as f:
+        with open(os.path.join(os.path.dirname(__file__), yaml_path), "r") as f:
             config = yaml.safe_load(f)
             return config.get("probe_id", None)
     except Exception as e:
