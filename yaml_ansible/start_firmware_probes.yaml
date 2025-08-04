@@ -4,6 +4,6 @@
     venv_path: "/home/{{ ansible_user }}/measurex_venv"
   tasks:
     - name: Execute the firmware
-      command: "{{ venv_path }}/bin/python3 firmware.py"
+      command: "{{ venv_path }}/bin/python3 firmware.py -dbg"
       args:
         chdir: "/home/{{ ansible_user }}/measureX/probesFirmware"

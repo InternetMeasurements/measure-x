@@ -58,17 +58,15 @@
         group: "{{ ansible_user }}"
         recurse: yes
     
+    - name: Enables I2C interface
+      ansible.builtin.command:
+        cmd: sudo raspi-config nonint do_i2c 0
+    
     - name: Download and install waveshare kernel
       shell: wget -O - https://files.waveshare.com/wiki/PCIe-TO-5G-HAT%2B/install.sh | sudo bash
       args:
         chdir: "/home/{{ ansible_user }}"
     
-    - name: Enables I2C interface
-      ansible.builtin.command:
-        cmd: sudo raspi-config nonint do_i2c 0
-      register: i2c_enable_result
-    
     - name: Rebooting the probe
       ansible.builtin.reboot:
         msg: "Rebooting the probe to apply changes"
-      when: i2c_enable_result.changed
