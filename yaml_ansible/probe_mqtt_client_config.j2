@@ -2,17 +2,17 @@
 
 mqtt_client:
   clean_session: True # Auto-eliminazione delle subscriptions
-  mosquitto_certificate_path: mosquitto_certificate/mosquitto.crt
+  mosquitto_certificate_path: mosquitto.crt
 
   broker:
-    host: 131.114.72.254 # 192.168.1.51
-    port: 8080
+    host: {{ mqtt_broker_host }}
+    port: {{ mqtt_broker_port }}
     keep_alive: 60
     login: True # per l'utilizzo delle credenziali, metti a True. L'ESP32 non supporta le credenziali!
 
   credentials:
-    username: probe1
-    password: Righello3L&
+    username: {{ mqtt_client_username }}
+    password: {{ mqtt_client_password }}
 
   subscription_topics:
     - "probes/PROBE_ID/commands"
