@@ -32,7 +32,7 @@ class ProbeMqttClient(mqtt.Client):
         base_path = Path(__file__).parent
         # VECCHIO
         #yaml_path = os.path.join(base_path, probe_id + ".yaml")
-        yaml_path = os.path.join(base_path, "mqtt_probe_config.yaml")
+        yaml_path = os.path.join(base_path, "probe_mqtt_client_config.yaml")
         with open(yaml_path) as file:
             self.config = yaml.safe_load(file)
 
