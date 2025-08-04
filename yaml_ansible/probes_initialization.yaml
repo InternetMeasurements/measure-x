@@ -62,7 +62,12 @@
       ansible.builtin.command:
         cmd: sudo raspi-config nonint do_i2c 0
     
+    - name: Gather kernel version
+      ansible.builtin.shell: uname -r
+      register: kernel_release
+
     - name: Download and install waveshare kernel
       shell: wget -O - https://files.waveshare.com/wiki/PCIe-TO-5G-HAT%2B/install.sh | sudo bash
       args:
         chdir: "/home/{{ ansible_user }}"
+      when: kernel_release.stdout != "6.6.23-v8-16k-waveshare+"
