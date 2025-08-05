@@ -17,9 +17,9 @@ A Measure-X installation comprises the following elements:
  - a number of probes: every probe is a measuring endpoint; probes are Raspberry PI5 devices equipped with a 5G module
  - an MQTT broker: it is used to make the coordinator and the probes communicate with each other. 
  
-[INSTALLATION](./docs/ISTALLATION.md)
+[INSTALLATION](./ISTALLATION.md)
 
-[EXAMPLES](./docs/EXAMPLES.md)
+[EXAMPLES](./EXAMPLES.md)
 
 
 
