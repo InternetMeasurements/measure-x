@@ -1,0 +1,7 @@
+---
+- name: Poweroff all probes
+  hosts: all
+  become: yes
+  tasks:
+    - name: Shutdown all probes
+      community.general.shutdown:
