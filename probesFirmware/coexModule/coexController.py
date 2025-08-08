@@ -276,14 +276,14 @@ class CoexController:
                             print(f"Thread_Coex: starting sendpfast. Future-kill scheduled to terminate after {self.last_coex_parameters.duration} seconds.")
                             self.future_stopper = threading.Timer(self.last_coex_parameters.duration, self.stop_worker_socket_thread, args=(True, self.last_msm_id,))
                             self.future_stopper.start()
-                        d = sendpfast(pkt, mbps = rate, loop = 1, parse_results = True)
+                        d = sendpfast(pkt, pps = rate, loop = 1, parse_results = True)
 
                     else:
                         if self.last_coex_parameters.duration != 0:
                             print(f"Thread_Coex: starting sendpfast. Future-kill scheduled to terminate after {self.last_coex_parameters.duration} seconds.")
                             self.future_stopper = threading.Timer(self.last_coex_parameters.duration, self.stop_worker_socket_thread, args=(True, self.last_msm_id,))
                             self.future_stopper.start()
-                            d = sendpfast(pkt, mbps=rate, count=n_pkts, parse_results=True)
+                            d = sendpfast(pkt, pps=rate, count=n_pkts, parse_results=True)
                             
                             if self.last_msm_id is not None:
                                 self.future_stopper.cancel()
@@ -292,7 +292,7 @@ class CoexController:
                                 self.shared_state.set_probe_as_ready()
                                 self.reset_vars()
                         else:
-                            d = sendpfast(pkt, mbps = rate, loop = 1, parse_results = True) # Send the packet forever (duration: 0)
+                            d = sendpfast(pkt, pps = rate, loop = 1, parse_results = True) # Send the packet forever (duration: 0)
                             print("Thread_Coex: sendpfast killed from stop")
  
                 else: # Else, if a trace_name has been specified, then it will be used the combo tcprewrite + tcpreplay, bypassing scapy
