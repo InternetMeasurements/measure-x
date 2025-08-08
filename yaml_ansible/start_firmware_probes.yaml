@@ -1,5 +1,7 @@
-- name: Start the firmware into virtualenv
+- name: Starts the firmware on all the probes
   hosts: probes
+  become: true
+  become_user: "{{ ansible_user }}"
   vars:
     venv_path: "/home/{{ ansible_user }}/measurex_venv"
   tasks:

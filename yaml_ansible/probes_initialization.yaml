@@ -1,16 +1,24 @@
 ---
-- name: Setup virtual environment and install dependencies
+- name: Setup virtual environment, install dependencies, and probes' software; configure probes
   hosts: all 
   become: yes
+  vars_files:
+    - vars.yaml	
+    
   vars:
-    path_base: "/home/{{ ansible_user }}/measureX/probesFirmware"  # Cambia con il percorso corretto
+    path_base: "/home/{{ ansible_user }}/measureX/probesFirmware"
+    mqtt_broker_host: "{{ MQTT_BROKER_HOST }}"
+    mqtt_broker_port: "{{ MQTT_BROKER_PORT }}"
+    mqtt_client_username: "{{ MQTT_BROKER_USERNAME }}"
+    mqtt_client_password: "{{ MQTT_BROKER_PASSWORD }}"
 
   tasks:
-    - name: Install pip and virtualenv if not already installed
+    - name: Install pip, virtualenv, and tcpreplay if not already installed
       apt:
         name:
           - python3-pip
           - python3-venv
+          - tcpreplay
         state: present
 
     - name: Create a virtual environment named measurex_venv
@@ -39,13 +47,12 @@
         version: "main"
         force: yes
   
-
     - name: Install dependencies from requirements.txt into virtualenv
       pip:
         requirements: "{{ path_base }}/requirements.txt"
         virtualenv: "/home/{{ ansible_user }}/measurex_venv"
         state: present
-
+  
     - name: Change ownership of the measureX directory to ansible_user
       ansible.builtin.file:
         path: "/home/{{ ansible_user }}/measureX"
@@ -57,6 +64,22 @@
       shell: echo probe_id{{':'}} $(hostname) > /home/{{ ansible_user }}/measureX/probesFirmware/probe_config.yaml
       args:
         creates: /home/{{ ansible_user }}/measureX/probesFirmware/probe_config.yaml
+
+    - name: Customize and copy the mqtt client configuration
+      template:
+        src: probe_mqtt_client_config.j2
+        dest: /home/{{ ansible_user }}/measureX/probesFirmware/mqttModule/probe_mqtt_client_config.yaml
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0644'
+    
+    - name: Copy the mosquitto.crt file
+      copy:
+        src: mosquitto.crt
+        dest: /home/{{ ansible_user }}/measureX/probesFirmware/mqttModule/mosquitto.crt
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0644'
 
     - name: Enables I2C interface
       ansible.builtin.command:

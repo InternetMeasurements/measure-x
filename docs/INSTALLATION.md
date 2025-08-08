@@ -84,7 +84,7 @@ Create a measurex user:
 mongosh admin --eval "db.createUser({
     user: 'measurex',
     pwd: chose a password,
-    roles: [{ role: 'readWrite', db: 'measurexDB' }]
+    roles: [{ role: 'readWrite', db: 'measurex' }]
 })"
 ```
 Edit the `measure-x/coordinatorConfig.yaml` file to set the MongoDB password. The file should look like this:
@@ -176,7 +176,11 @@ ansible-vault edit measure-x/yaml_ansible/vars.yaml
 edit the content of the encrypted vars.yaml file as follows:
 ```
 ---
-MQTT_MEASUREX_PASSWORD: the password you chose for the measurex user in mosquitto
+---
+MQTT_BROKER_HOST: <ip address of the broker>
+MQTT_BROKER_PORT: <port of the broker, e.g. 8080>
+MQTT_BROKER_USERNAME: <measurex or the name you chose>
+MQTT_BROKER_PASSWORD: <the password you chose>
 ```
 
 The `mosquitto.crt`file must be placed in the yaml_ansible folder. 
