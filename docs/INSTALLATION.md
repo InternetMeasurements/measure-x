@@ -21,7 +21,7 @@ sudo mosquitto_passwd /etc/mosquitto/passwd measurex
 ```
 Create a certificate following the instructions available [here](http://mosquitto.org/man/mosquitto-tls-7.html)
 
-We suppose the certificate is mosquitto.crt
+We suppose the certificate file is `mosquitto.crt`
 
 We also run mosquitto on port 8080 to avoid some problems with firewalls. 
 
@@ -87,7 +87,7 @@ mongosh admin --eval "db.createUser({
     roles: [{ role: 'readWrite', db: 'measurexDB' }]
 })"
 ```
-Edit the `measure-x/coordinatorConfig.yaml` file to set the MongoDB password. The file shoul look like this:
+Edit the `measure-x/coordinatorConfig.yaml` file to set the MongoDB password. The file should look like this:
 ```
 mongo:
   ip_server:  127.0.0.1
@@ -98,6 +98,7 @@ mongo:
   measurements_collection_name: measurements
   results_collection_name: results
 ```
+Please note that the MongoDB password is stored in cleartext. 
 
 The coordinator can be started using the following command:
 ```
@@ -211,5 +212,3 @@ A similar procedure can be used to pull onto all the probes a new version of the
 ```
 ansible-playbook -i measurex_ansible_inventory measure-x/yaml_ansible/git_pull.yaml
 ```
-
-
