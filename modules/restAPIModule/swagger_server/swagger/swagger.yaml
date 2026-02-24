@@ -225,6 +225,53 @@ paths:
                   - $ref: '#/components/schemas/AoIResultModelMongo'
                 x-content-type: application/json
       x-openapi-router-controller: swagger_server.controllers.default_controller
+  /contexts:
+    get:
+      summary: Retrieve all contexts
+      operationId: get_all_contexts
+      responses:
+        "200":
+          description: All contexts retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ContextModelMongo'
+        "500":
+          description: Error retrieving contexts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorModel'
+      x-openapi-router-controller: swagger_server.controllers.default_controller
+  /contexts/{measurement_id}:
+    get:
+      summary: Retrieve contexts by measurement ID
+      operationId: get_contexts_by_measurement_id
+      parameters:
+        - name: measurement_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Contexts retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ContextModelMongo'
+        "400":
+          description: Invalid measurement ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorModel'
+      x-openapi-router-controller: swagger_server.controllers.default_controller
+
 components:
   schemas:
     MeasurementModelMongo:
@@ -468,4 +515,76 @@ components:
         msg: "Measure X is a tool that helps you to perform 5G measurements, including\
           \ latency, throughput, jitter, Age of Information, and Power Consumption\
           \ analysis."
-
+    ContextModelMongo:
+      type: object
+      required:
+        - msm_id
+        - probe_id
+      properties:
+        _id:
+          type: string
+          description: Unique MongoID for the context
+        msm_id:
+          type: string
+          description: The measurement ID this context is associated with
+        probe_id:
+          type: string
+          description: The probe identifier
+        rsrp:
+          type: number
+        rsrq:
+          type: number
+        rssi:
+          type: number
+        sinr:
+          type: number
+        cqi:
+          type: number
+        rssnr:
+          type: number
+        ber:
+          type: number
+        rat:
+          type: string
+        mode:
+          type: string
+        pci:
+          type: integer
+        tac:
+          type: integer
+        cell_id:
+          type: integer
+        arfcn:
+          type: integer
+        band:
+          type: string
+        bandwidth:
+          type: string
+        plmn:
+          type: string
+        operator_name:
+          type: string
+        connection_state:
+          type: string
+      example:
+        _id: "64db3ad8b8591e001c1a1f4d"
+        msm_id: "64db3ad8b8591e001c1a1f3c"
+        probe_id: "probe_01"
+        rsrp: -95
+        rsrq: -10
+        rssi: -60
+        sinr: 20
+        cqi: 15
+        rssnr: 30
+        ber: 0
+        rat: "5G"
+        mode: "NSA"
+        pci: 100
+        tac: 500
+        cell_id: 12345
+        arfcn: 6300
+        band: "n78"
+        bandwidth: "100MHz"
+        plmn: "00101"
+        operator_name: "MyOperator"
+        connection_state: "connected"

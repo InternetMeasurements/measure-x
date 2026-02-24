@@ -19,6 +19,7 @@ mqtt_client:
     - "probes/+/status"
     - "probes/+/errors"
     - "probes/+/results"
+    - "probes/+/contexts"
 
   publishing:
     topics:

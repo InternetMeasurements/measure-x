@@ -95,5 +95,64 @@ This is another example, where energy is measured in the presence of some CBR tr
 
 After having started the energy measurement, it can be stopped by using a DELETE request using the measurement identifier provided back by the system.
 
+## Traffic Tracks Distribution
+The new release introduces a way to distribute a traffic track automatically to all the probes.
+Place the `track_to_distribute.pcap` file in the `tracks_to_distribute` directory, then launch the following command from `yaml_ansible` directory:
+```
+ansible-playbook -i [your_inventory] track_distribution.yaml
+```
+
+## Grafana Dashboard
+
+Measure-X includes a fully interactive Grafana dashboard designed to visualize measurement history and analyze network performance. The dashboard uses a **Master-Detail** architecture: a main interactive list controls the detail panels below, allowing for analysis of specific test runs.
+
+### Accessing the Dashboard
+
+By default, Grafana is available on port `3000` of the coordinator.
+Point your browser to: `http://<coordinator_ip>:3000`
+
+### 1\. Measurement Selection 
+
+![Example 5](./figs/GrafanaMaster.png)
+
+The top section of the dashboard features the **Measurements Results** list. This panel queries the MongoDB database based on the selected **Time Range** (top-right corner of Grafana).
+
+  * **Time Filter:** Ensure the time range (e.g., "Last 24 hours", "Last 7 days") covers the timestamp of your measurements.
+  * **The List:** Displays all measurements (Ping, Iperf, AoI) found in the period, showing the Timestamp and Type.
+  * **Interaction:** Click on any row to select a specific measurement. This action updates the dashboard variable and triggers the detail panels below.
+
+### 2\. Detail Analysis
+
+The dashboard is **context-aware**. Depending on the type of measurement selected in the master list, different detail rows will populate with data.
+
+#### Throughput Analysis (Iperf)
+
+When an **Iperf** measurement is selected, the "Throughput Details" row becomes active:
+
+  ![Example 6](./figs/GrafanaThroughput.png)
+
+  * **Time Series:** Visualizes the bandwidth stability over the entire duration of the test (second by second), derived from the iperf `intervals`. This helps in identifying temporary drops or network instability.
+  * **Statistics:** Displays the Average Speed and Total Data transferred during the session.
+
+#### Latency Analysis (Ping)
+
+When a **Ping** measurement is selected, the "Latency Details" row displays:
+
+  ![Example 7](./figs/GrafanaLatency.png)
+
+  * **RTT Evolution:** A graph showing the Round Trip Time for every single ICMP packet. This allows for visual analysis of Jitter and latency spikes.
+  * **Statistics:** Summarizes Average, Min, and Max RTT, along with the Packet Loss percentage.
+
+#### Age of Information (AoI) Analysis
+
+When an **AoI** measurement is selected, the dashboard provides a focused view on the freshness of information:
+
+  ![Example 8](./figs/GrafanaAoI.png)
+
+  * **AoI History:** A time-series graph showing the instantaneous AoI evolution for every packet received during the selected test. This allows you to see how the age of information fluctuates over time.
+  * **AoI Statistics:** A dedicated panel highlighting the specific **Maximum** and **Minimum** AoI values reached during that specific measurement run.
+
+
+
 
 

@@ -1,7 +1,7 @@
 """
 mongoDB.py
 
-This module provides the MongoDB class for managing measurement and result data in a MongoDB database for the Measure-X system. It supports inserting, updating, deleting, and querying measurements and results, as well as plotting and analysis utilities for time series data.
+This module provides the MongoDB class for managing measurement result and context data in a MongoDB database for the Measure-X system. It supports inserting, updating, deleting, and querying measurements, results and context, as well as plotting and analysis utilities for time series data.
 """
 
 import time, json, os
@@ -45,9 +45,11 @@ class MongoDB:
         self.db_name = mongo_config.db_name
         self.measurements_collection_name = mongo_config.measurements_collection_name
         self.results_collection_name = mongo_config.results_collection_name
+        self.contexts_collection_name = mongo_config.contexts_collection_name 
         self.client = MongoClient("mongodb://" + self.user + ":" + self.password + "@" + self.server_ip + ":" + str(self.server_port) + "/")
         self.measurements_collection = None
         self.results_collection = None
+        self.contexts_collection = None 
 
         db = self.client[self.db_name] # crea il db measurex
 
@@ -56,9 +58,13 @@ class MongoDB:
 
         if self.results_collection_name not in db.list_collection_names():  # if the results_collection doesn't exists, then creates it
             db.create_collection(self.results_collection_name)
+
+        if self.contexts_collection_name not in db.list_collection_names():  # if the contexts_collection doesn't exists, then creates it
+            db.create_collection(self.contexts_collection_name)
         
         self.measurements_collection = db[self.measurements_collection_name]
         self.results_collection = db[self.results_collection_name]
+        self.contexts_collection = db[self.contexts_collection_name]
 
     # ------------------------------------------------- MEASUREMENTS COLLECTION -------------------------------------------------
     
@@ -150,7 +156,33 @@ class MongoDB:
                                      error_cause="measurement_id NOT VALID")
         return (find_result.to_dict())
     
+    def update_contexts_array_in_measurement(self, msm_id, context_id=None):
+        # This method is an automatic setting of the contexts doc-linking in measurements collection. 
+        # It finds all the contexts with that msm_id, and store them _ids in the doc-link
+        try:
+            if context_id is None:
+                update_result = self.measurements_collection.update_one(
+                    {"_id": ObjectId(msm_id)},
+                    {"$set": {"contexts": list(
+                        self.contexts_collection.find({"msm_id": ObjectId(msm_id)}).distinct("_id")
+                    )}}
+                )
+            else:
+                update_result = self.measurements_collection.update_one(
+                    {"_id": ObjectId(msm_id)},
+                    {"$set": {"contexts": [str(context_id)]}}
+                )
 
+            return update_result
+
+        except Exception as e:
+            print(f"Motivo -> {e}")
+            find_context = ErrorModel(object_ref_id=msm_id, object_ref_type="list of contexts",
+                                      error_description="It must be a 12-byte input or a 24-character hex string",
+                                      error_cause="measurement_id NOT VALID")
+        return (find_context.to_dict())
+
+    
     def delete_measurements_by_id(self, measurement_id: str) -> bool:
         """
         Delete a measurement document by its ID.
@@ -511,3 +543,76 @@ class MongoDB:
                                      error_description="It must be a 12-byte input or a 24-character hex string",
                                      error_cause="measurement_id NOT VALID")
         return (find_result.to_dict())
+    
+    # ------------------------------------------------- CONTEXT COLLECTION -------------------------------------------------
+
+    def insert_context(self, context) -> str:
+        """
+        Insert a context document into the contexts collection.
+        If MongoDB is unavailable, store the context locally as a JSON file.
+        Args:
+            context: The context object to insert (must have to_dict method).
+        Returns:
+            str or dict: The inserted context's ID, or a dict with local storage info on failure.
+        """
+        try:
+            insert_context = self.contexts_collection.insert_one(context.to_dict())
+            if insert_context.inserted_id:
+                print(f"MongoDB: context stored in mongo. Context ID -> |{insert_context.inserted_id}|")
+            
+            return insert_context.inserted_id
+        except Exception as e:
+            context._id = ObjectId()
+            filename = f"{context.msm_id}.json"
+            base_path = os.path.join(Path(__file__).parent, "json", filename)
+            with open(base_path, "w", encoding="utf-8") as file:
+                json.dump(context.to_dict(), file, indent=4, ensure_ascii=False, default=self.convert_objectid)
+            
+            print(f"MongoDB: Error while storing the context on mongo -> {e}")
+            print(f"context stored locally in: {base_path}")
+            return {"_id": context._id, "locally": True}
+
+    def delete_contexts_by_msm_id(self, msm_id) -> bool:
+        """
+        Delete all context documents associated with a measurement ID.
+        Args:
+            msm_id (str): The measurement ID.
+        Returns:
+            bool: True if any contexts were deleted, False otherwise.
+        """
+        delete_context = self.contexts_collection.delete_many(
+                            {"msm_id": ObjectId(msm_id)})
+        return (delete_context.deleted_count > 0)
+    
+
+    def delete_context_by_id(self, context_id : str) -> bool:
+        """
+        Delete a context document by its ID.
+        Args:
+            context_id (str): The context ID to delete.
+        Returns:
+            bool: True if deleted, False otherwise.
+        """
+        delete_context = self.contexts_collection.delete_one(
+                            {"_id": ObjectId(context_id)})
+        return (delete_context.deleted_count > 0)
+      
+    
+    def find_all_contexts_by_measurement_id(self, msm_id):
+        """
+        Find all context documents associated with a measurement ID.
+        Args:
+            msm_id (str): The measurement ID.
+        Returns:
+            list: List of context documents or an error model as dict.
+        """
+        try:
+            cursor = self.contexts_collection.find({"msm_id": ObjectId(msm_id)})
+            context_list = list() if (cursor is None) else list(cursor)
+            return context_list
+        except Exception as e:
+            print(f"MongoDB: exception handled for find_all_context. Reason: {e}")
+            find_context = ErrorModel(object_ref_id=msm_id, object_ref_type="contexts", 
+                                     error_description="It must be a 12-byte input or a 24-character hex string",
+                                     error_cause="measurement_id NOT VALID")
+        return (find_context.to_dict())

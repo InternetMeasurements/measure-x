@@ -64,40 +64,23 @@ Install all the required packages:
 python3 -m pip install -r measure-x/requirements.txt
 ````
 
-The results of network measurements are stored on MongoDB. We suppose MongoDB is installed on your PC/Mac. 
+This coordinator environment requires MongoDB and Grafana. Both services are deployed using Docker and Docker Compose.
 
-Install MongoDB locally. For MacOS, you can use the following commands:
-```
-brew tap mongodb/brew
-brew update
-brew install mongodb-community@8.0
-````
+Please ensure Docker and Docker Compose are installed on your coordinator machine.
+Once Docker is installed, use the configuration script to automatically create the entire environment.
 
-You can then start and stop MongoDB using the following commands:
+Launch settings.py using:
 ```
-brew services start mongodb-community@8.0
-brew services stop mongodb-community@8.0
+python3 settings.py
 ```
+The script will perform the following actions:
 
-Create a measurex user:
-```
-mongosh admin --eval "db.createUser({
-    user: 'measurex',
-    pwd: chose a password,
-    roles: [{ role: 'readWrite', db: 'measurex' }]
-})"
-```
-Edit the `measure-x/coordinatorConfig.yaml` file to set the MongoDB password. The file should look like this:
-```
-mongo:
-  ip_server:  127.0.0.1
-  port_server: 27017
-  user: measurex
-  password: the password you chose for the MongoDB measurex user
-  db_name: measurex
-  measurements_collection_name: measurements
-  results_collection_name: results
-```
+1. Set up two containers: one for MongoDB and one for Grafana.
+
+2. Configure Grafana's data source and set up the default dashboard.
+
+3. Create the measurex user within the MongoDB instance.
+
 Please note that the MongoDB password is stored in cleartext. 
 
 The coordinator can be started using the following command:
@@ -105,9 +88,20 @@ The coordinator can be started using the following command:
 python3 measure-x/coordinator.py
 ```
 
-The coordinator can also be executed on a Raspberry PI. In that case, you can use the ansible file to automate the installation operations. 
+The coordinator can also be executed on a Raspberry Pi. In that case, you can use the Ansible file to automate the installation operations. To use this feature, use Ansible Vault to store the password which will be used to set up the environment. Go to the yaml_ansible directory and use the following commands:
 
-
+Create a new encrypted file to contain your Mongo user password
+```
+ansible-vault create coordinator_vars.yaml 
+```
+Once the text editor opens, write:
+```
+mongo_password: "YourMongoMeasurexUserPassword"
+```
+Launch the script coordinator_initialization.yaml enabling the vault:
+```
+ansible-playbook -i [your inventory] coordinator_initialization.yaml --ask-vault-pass
+```
 
 ## Installing the probes
 

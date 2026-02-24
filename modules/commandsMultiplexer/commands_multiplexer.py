@@ -8,7 +8,9 @@ import json
 import time
 import netifaces
 import threading
+from bson import ObjectId
 from modules.mongoModule.models.measurement_model_mongo import MeasurementModelMongo
+from modules.mongoModule.models.context_model import ContextModelMongo
 from modules.mongoModule.mongoDB import MongoDB, ErrorModel, STARTED_STATE, FAILED_STATE, COMPLETED_STATE
 from modules.mqttModule.mqtt_client import Mqtt_Client
 
@@ -277,6 +279,25 @@ class CommandsMultiplexer:
                 print(f"CommandsMultiplexer: status_multiplexer: no registered handler for |{handler}|. TYPE: {type}|\n-> PRINT: -> {payload}")
         except json.JSONDecodeError as e:
             print(f"CommandsMultiplexer: status_multiplexer: json exception -> {e}")
+
+
+    def handler_received_context(self, probe_sender, nested_context): # invoked by MQTT module -> on_message on CONTEXTS topic
+        nested_json_context = json.loads(nested_context)
+        # Debug
+        print(nested_json_context)
+
+        if nested_json_context is None or nested_json_context['msm_id'] is None:
+            print("Missing msm_id or payload in context")
+            return
+
+        #Creation of a ContextModelMongo object used to insert a new context in contexts collection and update of measurements contexts array 
+        context_doc = ContextModelMongo(
+            **nested_json_context
+        )
+        context_id = self.mongo_db.insert_context(context_doc)
+        self.mongo_db.update_contexts_array_in_measurement(nested_json_context['msm_id'], context_id)
+
+        print(f"Coordinator: stored context {context_id} for msm {nested_json_context['msm_id']}")
 
 
     def errors_multiplexer(self, probe_sender, nested_error):  # invoked by MQTT module -> on_message on ERROR topic

@@ -9,7 +9,7 @@ from pathlib import Path
 import json
 import time
 import threading
-from datetime import datetime as dt
+from datetime import datetime, timezone
 from modules.mqttModule.mqtt_client import Mqtt_Client
 from modules.configLoader.config_loader import ConfigLoader, PING_KEY
 from bson import ObjectId
@@ -180,8 +180,10 @@ class Ping_Coordinator:
         Returns:
             bool: True if stored and updated successfully, False otherwise.
         """
+        # Insertion of also type and timestamp to explore redundancy
         ping_result = PingResultModelMongo(
             msm_id = ObjectId(result["msm_id"]),
+            type = "ping",
             timestamp = result["timestamp"],
             rtt_avg = result["rtt_avg"],
             rtt_max = result["rtt_max"],
@@ -191,8 +193,9 @@ class Ping_Coordinator:
             packets_received = result["packet_receive"],
             packets_loss_count = result["packet_loss_count"],
             packets_loss_rate = result["packet_loss_rate"],
-            icmp_replies = result["icmp_replies"]
-        )
+            icmp_replies = result["icmp_replies"],
+            timestamp_iso = datetime.fromtimestamp(result["timestamp"], timezone.utc),
+        )   
         result_id = str(self.mongo_db.insert_result(result = ping_result))
         if result_id is not None:
             msm_id = result["msm_id"]

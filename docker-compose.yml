@@ -1,0 +1,33 @@
+services:
+  #MongoDB to store measurements and results
+  mongodb: 
+    image: mongo:8.0
+    container_name: measure-x-mongo 
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes: 
+      - mongo-data:/data/db
+
+  #Grafana to visualize an interactive dashboard
+  grafana: 
+    build: ./grafana
+    container_name: measure-x-grafana 
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: haohanyang-mongodb-datasource
+      GF_PROVISIONING_API_VERSION: 1
+      GF_PROVISIONING_ENABLED: true
+      GF_PATHS_PROVISIONING: /etc/grafana/provisioning
+    volumes:
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources:Z
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards:Z
+      - grafana-storage:/var/lib/grafana 
+    depends_on:
+      - mongodb
+
+volumes:
+  mongo-data:
+  grafana-storage:

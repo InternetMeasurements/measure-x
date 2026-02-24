@@ -158,3 +158,30 @@ def stop_measurement_by_id(measurement_id):  # noqa: E501
     
     error_msg_to_return = ErrorModel(object_ref_id = measurement_id, object_ref_type="measurement", error_description=info, error_cause=error_cause).to_dict()
     return error_msg_to_return, 400
+
+def get_all_contexts():
+    """Retrieve all contexts from the database."""
+    mongo_instance = current_app.config.get(KEY_FOR_RETRIEVE_MONGO_INSTANCE)
+    try:
+        contexts = list(mongo_instance.contexts_collection.find())
+        return jsonify(contexts=json.loads(json.dumps(contexts, default=json_serial))), 200
+    except Exception as e:
+        error_msg = ErrorModel(object_ref_id='all', object_ref_type='contexts',
+                               error_description=str(e),
+                               error_cause="MongoDB query failed")
+        return error_msg.to_dict(), 500
+
+
+def get_contexts_by_measurement_id(measurement_id):
+    """Retrieve all contexts related to a specific measurement."""
+    mongo_instance = current_app.config.get(KEY_FOR_RETRIEVE_MONGO_INSTANCE)
+    try:
+        contexts = mongo_instance.find_all_contexts_by_measurement_id(measurement_id)
+        if isinstance(contexts, dict) and "error_cause" in contexts:
+            return contexts, 400
+        return jsonify(contexts=json.loads(json.dumps(contexts, default=json_serial))), 200
+    except Exception as e:
+        error_msg = ErrorModel(object_ref_id=measurement_id, object_ref_type='contexts',
+                               error_description=str(e),
+                               error_cause="MongoDB query failed")
+        return error_msg.to_dict(), 500

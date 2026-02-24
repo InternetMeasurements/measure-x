@@ -1,0 +1,647 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 3,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "haohanyang-mongodb-datasource",
+        "uid": "PB1CB65623CC30220"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 10,
+      "options": {
+        "afterRender": "// Wait 100ms to ensure the HTML has been rendered\nsetTimeout(() => {\n\n  const rows = document.querySelectorAll('.clickable-row');\n\n  rows.forEach(row => {\n    row.onclick = function () {\n      const id = this.getAttribute('data-id');\n\n      if (context && context.grafana && context.grafana.locationService) {\n        context.grafana.locationService.partial({\n          'var-selected_msm_id': id\n        }, true);\n      } else {\n        console.error(\"Error: variable update failed (LocationService is missing)\");\n        alert(\"Grafana Error: check the browser console\");\n      }\n    };\n\n  });\n\n}, 150); ",
+        "content": "<div class=\"measure-list-container\">\n  <table class=\"measure-table\" id=\"my-aoi-table\">\n    <thead>\n      <tr>\n        <th>Time</th>\n        <th>Type</th>\n      </tr>\n    </thead>\n    <tbody>\n      {{#each data}}\n      <tr class=\"clickable-row row-{{this.type}}\" data-id=\"{{this.id}}\">\n        <td>{{date this.time \"YYYY-MM-DD HH:mm:ss\"}}</td>\n        <td><span class=\"badge badge-{{this.type}}\">{{this.type}}</span></td>\n      </tr>\n      {{/each}}\n    </tbody>\n  </table>\n</div>",
+        "contentPartials": [],
+        "defaultContent": "The query didn't return any results.\n",
+        "editor": {
+          "format": "auto",
+          "language": "handlebars"
+        },
+        "editors": [
+          "afterRender",
+          "styles"
+        ],
+        "externalStyles": [],
+        "helpers": "",
+        "renderMode": "allRows",
+        "styles": ".measure-list-container {\n  overflow-y: auto;\n  height: 100%;\n}\n.measure-table {\n  width: 100%;\n  border-collapse: separate;\n  border-spacing: 0 2px;\n}\n.measure-table th {\n  text-align: left;\n  padding: 8px;\n  background: rgba(255,255,255,0.05);\n  position: sticky;\n  top: 0;\n}\n.measure-table td {\n  padding: 8px;\n  background: rgba(255,255,255,0.02);\n  cursor: pointer;\n  border-bottom: 1px solid #333;\n}\n.measure-table tr:hover td {\n  background: rgba(255,255,255,0.1);\n}\n.badge {\n  padding: 2px 6px;\n  border-radius: 3px;\n  font-size: 10px;\n  text-transform: uppercase;\n  font-weight: bold;\n}\n.badge-aoi { background: #3274D9; color: white; }\n.badge-iperf { background: #37872D; color: white; }\n.badge-ping { background: #E0752D; color: white; }\n.clickable-row {\n  cursor: pointer;\n}\n.clickable-row:hover td {\n  background-color: rgba(255, 255, 255, 0.1) !important;\n}",
+        "wrap": false
+      },
+      "pluginVersion": "6.2.0",
+      "targets": [
+        {
+          "collection": "results",
+          "queryLanguage": "json",
+          "queryText": "[\n  {\n    \"$match\": {\n      \"$expr\": {\n        \"$and\": [\n          { \"$gte\": [\"$timestamp_iso\", { \"$dateTrunc\": { \"date\": { \"$toDate\": { \"$toLong\": \"$__from\" } }, \"unit\": \"second\" } }] },\n          { \"$lt\": [\"$timestamp_iso\", { \"$dateTrunc\": { \"date\": { \"$toDate\": { \"$toLong\": \"$__to\" } }, \"unit\": \"second\" } }] }\n        ]\n      }\n    }\n  },\n  {\n    \"$project\": {\n      \"_id\": 0,\n      \"time\": \"$timestamp_iso\",\n      \"type\": \"$type\",\n      \"id\": { \"$toString\": \"$msm_id\" }\n    }\n  },\n  { \"$sort\": { \"time\": -1 } }\n]",
+          "queryType": "table",
+          "refId": "A"
+        }
+      ],
+      "title": "Measurements Results",
+      "type": "marcusolsson-dynamictext-panel"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 8
+      },
+      "id": 9,
+      "panels": [],
+      "title": "AoI Info",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "name": "Measure-X-Mongo",
+        "type": "haohanyang-mongodb-datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic-by-name"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "AoI",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "always",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "displayName": "AoI",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 9
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "collection": "results",
+          "queryLanguage": "json",
+          "queryText": "[\n  {\n    \"$match\": {\n      \"$expr\": {\n        \"$eq\": [{ \"$toString\": \"$msm_id\" }, \"${selected_msm_id:raw}\"] \n      }\n    }\n  },\n  { \"$unwind\": \"$aois\" },\n  {\n    \"$project\": {\n      \"_id\": 0,\n      \"time\": { \"$toDate\": { \"$multiply\": [\"$aois.Timestamp\", 1000] } },\n      \"instant_AoI\": \"$aois.AoI\"\n    }\n  },\n  { \"$sort\": { \"time\": 1 } }\n]",
+          "queryType": "table",
+          "refId": "A"
+        }
+      ],
+      "title": "AoI Measurements",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "haohanyang-mongodb-datasource",
+        "uid": "PB1CB65623CC30220"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 9
+      },
+      "id": 11,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "collection": "results",
+          "queryLanguage": "json",
+          "queryText": "[\n  {\n    \"$match\": {\n      \"$expr\": {\n        \"$eq\": [{ \"$toString\": \"$msm_id\" }, \"${selected_msm_id:raw}\"] \n      }\n    }\n  },\n  {\n    \"$project\": {\n      \"_id\": 0,\n      \"Max AoI\": \"$aoi_max\",\n      \"Min AoI\": \"$aoi_min\"\n    }\n  }\n]",
+          "queryType": "table",
+          "refId": "A"
+        }
+      ],
+      "title": "AoI Stats",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 17
+      },
+      "id": 8,
+      "panels": [],
+      "title": "Latency Info",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "name": "Measure-X-Mongo",
+        "type": "haohanyang-mongodb-datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic-by-name"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "RTT",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "always",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "displayName": "RTT",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 18
+      },
+      "id": 5,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "collection": "results",
+          "queryLanguage": "json",
+          "queryText": "[\n  {\n    \"$match\": {\n      \"$expr\": {\n        \"$eq\": [{ \"$toString\": \"$msm_id\" }, \"${selected_msm_id:raw}\"]\n      }\n    }\n  },\n  { \"$unwind\": \"$icmp_replies\" },\n  {\n    \"$project\": {\n      \"_id\": 0,\n      \"time\": {\n        \"$toDate\": {\n          \"$add\": [\n            { \"$toLong\": \"$timestamp_iso\" },\n            { \"$multiply\": [\"$icmp_replies.icmp_seq\", 1000] }\n          ]\n        }\n      },\n      \"RTT_ms\": \"$icmp_replies.time\"\n    }\n  },\n  { \"$sort\": { \"time\": 1 } }\n]",
+          "queryType": "table",
+          "refId": "A"
+        }
+      ],
+      "title": "Latency Measurements",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "haohanyang-mongodb-datasource",
+        "uid": "PB1CB65623CC30220"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "clockms"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Packet Loss"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 18
+      },
+      "id": 12,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "collection": "results",
+          "queryLanguage": "json",
+          "queryText": "[\n  {\n    \"$match\": {\n      \"$expr\": {\n        \"$eq\": [{ \"$toString\": \"$msm_id\" }, \"${selected_msm_id:raw}\"] \n      }\n    }\n  },\n  {\n    \"$project\": {\n      \"_id\": 0,\n      \"Avg RTT\": \"$rtt_avg\",\n      \"Max RTT\": \"$rtt_max\",\n      \"Min RTT\": \"$rtt_min\",\n      \"Packet Loss\": \"$packets_loss_rate\"\n    }\n  }\n]",
+          "queryType": "table",
+          "refId": "A"
+        }
+      ],
+      "title": "Latency Stats",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 26
+      },
+      "id": 7,
+      "panels": [],
+      "title": "Throughput Info",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "name": "Measure-X-Mongo",
+        "type": "haohanyang-mongodb-datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic-by-name"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "Throughput",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "always",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "displayName": "Throughput",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "Mbits"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 27
+      },
+      "id": 1,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "collection": "results",
+          "queryLanguage": "json",
+          "queryText": "[\n  {\n    \"$match\": {\n      \"$expr\": {\n        \"$eq\": [{ \"$toString\": \"$msm_id\" }, \"${selected_msm_id:raw}\"] \n      }\n    }\n  },\n  { \"$unwind\": \"$full_result.intervals\" },\n  {\n    \"$project\": {\n      \"_id\": 0,\n      \"time\": {\n        \"$toDate\": {\n          \"$add\": [\n            { \"$toLong\": { \"$toDate\": \"$timestamp_iso\" } },\n            { \"$multiply\": [{ \"$toDouble\": \"$full_result.intervals.sum.start\" }, 1000] }\n          ]\n        }\n      },\n      \"Mbps\": {\n        \"$divide\": [{ \"$toDouble\": \"$full_result.intervals.sum.bits_per_second\" }, 1000000]\n      }\n    }\n  },\n  { \"$sort\": { \"time\": 1 } }\n]",
+          "queryType": "table",
+          "refId": "A"
+        }
+      ],
+      "title": "Throughput Measurements",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "haohanyang-mongodb-datasource",
+        "uid": "PB1CB65623CC30220"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "MBs"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Total Data"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 27
+      },
+      "id": 13,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "collection": "results",
+          "queryLanguage": "json",
+          "queryText": "[\n  {\n    \"$match\": {\n      \"$expr\": {\n        \"$eq\": [{ \"$toString\": \"$msm_id\" }, \"${selected_msm_id:raw}\"] \n      }\n    }\n  },\n  {\n    \"$project\": {\n      \"_id\": 0,\n      \"Average Speed\": \"$avg_speed\",\n      \"Total Data\": \"$bytes_received\"\n    }\n  }\n]",
+          "queryType": "table",
+          "refId": "A"
+        }
+      ],
+      "title": "Throughput Stats ",
+      "type": "stat"
+    }
+  ],
+  "preload": false,
+  "refresh": "",
+  "schemaVersion": 42,
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "text": "6926c551bfb41640d732bd85",
+          "value": "6926c551bfb41640d732bd85"
+        },
+        "description": "",
+        "hide": 2,
+        "label": "Selected ID",
+        "name": "selected_msm_id",
+        "options": [
+          {
+            "selected": true,
+            "text": "6926c551bfb41640d732bd85",
+            "value": "6926c551bfb41640d732bd85"
+          }
+        ],
+        "query": "6926c551bfb41640d732bd85",
+        "type": "textbox"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "MeasureX",
+  "uid": "4b798b18-ae75-4679-9e82-d123f5263b4134",
+  "version": 6
+}

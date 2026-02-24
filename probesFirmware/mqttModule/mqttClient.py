@@ -26,6 +26,7 @@ class ProbeMqttClient(mqtt.Client):
         self.mosquitto_certificate_path = None
         self.status_topic = None
         self.results_topic = None
+        self.contexts_topic = None
         self.connected_to_broker = False
         self.external_mqtt_msg_handler = msg_received_handler_callback
 
@@ -48,6 +49,7 @@ class ProbeMqttClient(mqtt.Client):
         """ ******************************************************* PROBE TOPICS *******************************************************"""
         self.status_topic = str(self.config['publishing']['status_topic']).replace('PROBE_ID', self.probe_id)
         self.results_topic = str(self.config['publishing']['results_topic']).replace('PROBE_ID', self.probe_id)
+        self.contexts_topic = str(self.config['publishing']['contexts_topic']).replace('PROBE_ID', self.probe_id)
         self.error_topic = str(self.config['publishing']['error_topic']).replace('PROBE_ID', self.probe_id)
         """ ****************************************************************************************************************************"""
 
@@ -119,6 +121,20 @@ class ProbeMqttClient(mqtt.Client):
             retain = self.config['publishing']['retain'] )
         if VERBOSE:
             print(f"MqttClient: sent on topic |{self.results_topic}| -> {result}")
+
+    def publish_on_context_topic(self, context):
+        """
+        Publish context information to the contexts topic.
+        """
+        context.update({"probe_id": self.probe_id})
+
+        self.publish(
+            topic = self.contexts_topic,
+            payload = json.dumps(context),
+            qos = self.config['publishing']['qos'],
+            retain = self.config['publishing']['retain'] )
+        if VERBOSE:
+            print(f"MqttClient: sent on topic |{self.contexts_topic}| -> {context}")
 
     def publish_on_error_topic(self, error_msg):
         """

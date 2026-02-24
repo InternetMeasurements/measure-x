@@ -8,6 +8,7 @@ from pathlib import Path
 import threading, json
 import cbor2, base64
 from bson import ObjectId
+from datetime import datetime, timezone
 from modules.mqttModule.mqtt_client import Mqtt_Client
 from modules.configLoader.config_loader import ConfigLoader, AOI_KEY
 from modules.mongoModule.mongoDB import MongoDB, MeasurementModelMongo, ErrorModel
@@ -231,6 +232,9 @@ class Age_of_Information_Coordinator:
 
         dest_probe_ip_for_clock_sync = self.ask_probe_ip_mac(new_measurement.dest_probe, sync_clock_ip = True)
         
+        #Debug line
+        print(f"DEBUG SYNC: dest probe IP for sync: |{dest_probe_ip_for_clock_sync}|")
+
         self.events_received_status_from_probe_sender[msm_id] = [threading.Event(), None]
         self.send_enable_ntp_service(probe_sender=new_measurement.dest_probe, msm_id = msm_id,
                                      socket_port = aoi_parameters['socket_port'], role="Server",
@@ -356,11 +360,15 @@ class Age_of_Information_Coordinator:
         c_aois = base64.b64decode(c_aois_b64)
         aois = cbor2.loads(c_aois)
 
+        # Insertion of also type and timestamp to explore redundancy
+        raw_timestamp = self.mongo_db.measurements_collection.find_one({"_id": ObjectId(msm_id)})["start_time"]
         mongo_aoi_result = AgeOfInformationResultModelMongo(
             msm_id = ObjectId(msm_id),
             aois=aois,
             aoi_min = result["aoi_min"],
-            aoi_max = result["aoi_max"]
+            aoi_max = result["aoi_max"],
+            type = "aoi",
+            timestamp_iso = datetime.fromtimestamp(raw_timestamp, timezone.utc)
         )
 
         result_id = self.mongo_db.insert_result(result = mongo_aoi_result)

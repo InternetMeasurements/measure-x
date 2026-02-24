@@ -78,6 +78,7 @@ def main():
     coordinator_mqtt = Mqtt_Client(
         status_handler_callback = commands_multiplexer.status_multiplexer, 
         results_handler_callback = commands_multiplexer.result_multiplexer,
+        contexts_handler_callback = commands_multiplexer.handler_received_context,
         errors_handler_callback = commands_multiplexer.errors_multiplexer)
     commands_multiplexer.set_mqtt_client(coordinator_mqtt)
 

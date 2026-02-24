@@ -11,3 +11,4 @@ lgpio
 netifaces
 pandas
 cbor2
+pyserial

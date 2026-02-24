@@ -1,0 +1,25 @@
+- name: Distribute traffic tracks on all the probes
+  hosts: probes
+  vars:
+    local_tracks_path: "{{ (playbook_dir + '/../tracks_to_distribute') | realpath }}"
+    remote_tracks_path: "~/measureX/probesFirmware/coexModule/pcap"
+
+  tasks:
+    - name: Find all the files to distribute
+      find:
+        paths: "{{ local_tracks_path }}"
+        recurse: no
+      register: local_files
+      delegate_to: localhost
+      run_once: true
+
+    - name: Copy all the found files to all the probes
+      copy:
+        src: "{{ item.path }}"
+        dest: "{{ remote_tracks_path }}/{{ item.path | basename }}"
+        owner: measurex
+        group: measurex
+        mode: '0644'
+      loop: "{{ local_files.files }}"
+      become: true
+      become_user: "{{ ansible_user }}"

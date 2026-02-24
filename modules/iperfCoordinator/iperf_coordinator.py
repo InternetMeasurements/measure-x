@@ -13,6 +13,7 @@ import cbor2, base64, sys
 from pathlib import Path
 from modules.mqttModule.mqtt_client import Mqtt_Client
 from bson import ObjectId
+from datetime import datetime, timezone
 from modules.mongoModule.mongoDB import MongoDB, ErrorModel, SECONDS_OLD_MEASUREMENT
 from modules.configLoader.config_loader import ConfigLoader, IPERF_CLIENT_KEY, IPERF_SERVER_KEY
 from modules.mongoModule.models.measurement_model_mongo import MeasurementModelMongo
@@ -277,6 +278,7 @@ class Iperf_Coordinator:
             print(f"Iperf_Coordinator: WARNING -> received result without full_result , measure_id -> {result['msm_id']}")
             full_result = None
 
+        # Insertion of also type and timestamp to explore redundancy
         mongo_result = IperfResultModelMongo(
             msm_id = ObjectId(msm_id),
             repetition_number = result["repetition_number"],
@@ -289,8 +291,11 @@ class Iperf_Coordinator:
             bytes_received = result["bytes_received"],
             duration = result["duration"],
             avg_speed = result["avg_speed"] / 10**6, # Speed in Mbps
-            full_result = full_result
+            full_result = full_result,
+            type = "iperf",
+            timestamp_iso = datetime.fromtimestamp(result["start_timestamp"], timezone.utc)
         )
+        print(datetime.fromtimestamp(result["start_timestamp"], timezone.utc))
 
         #size_1 = self.get_size(full_result)
         #size_2 = self.get_size(full_result_c_b64)

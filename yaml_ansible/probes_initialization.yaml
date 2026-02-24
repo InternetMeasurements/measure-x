@@ -13,9 +13,10 @@
     mqtt_client_password: "{{ MQTT_BROKER_PASSWORD }}"
 
   tasks:
-    - name: Install pip, virtualenv, and tcpreplay if not already installed
+    - name: Install iptables, pip, virtualenv, and tcpreplay if not already installed
       apt:
         name:
+          - iptables
           - python3-pip
           - python3-venv
           - tcpreplay
@@ -67,12 +68,25 @@
 
     - name: Customize and copy the mqtt client configuration
       template:
-        src: probe_mqtt_client_config.j2
+        src: templates/probe_mqtt_client_config.j2
         dest: /home/{{ ansible_user }}/measureX/probesFirmware/mqttModule/probe_mqtt_client_config.yaml
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"
         mode: '0644'
     
+    - name: Copy serial port configuration
+      ansible.builtin.copy:
+        content: KERNEL == "mhi_DUN", MODE = "0660", GROUP = "measurex"
+        dest: /etc/udev/rules.d/99-mhi.rules
+        owner: "root"
+        group: "root"
+        mode: '0644'
+    
+    - name: Reload of udev rules
+      ansible.builtin.command:
+        cmd: sudo udevadm control --reload-rules
+        cmd: sudo udevadm trigger
+       
     - name: Copy the mosquitto.crt file
       copy:
         src: mosquitto.crt

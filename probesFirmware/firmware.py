@@ -37,7 +37,7 @@ class Probe:
             self.waveshare_cm_thread = threading.Thread(target=self.body_start_waveshare_cm)
             self.waveshare_cm_thread.daemon = True
             self.waveshare_cm_thread.start()
-            can_continue = self.waiting_for_5G_connection()
+            can_continue= self.waiting_for_5G_connection()
             if not can_continue:
                 print(f"{probe_id}: CAN'T ESTABLISH 5G CONNECTIVITY")
                 return

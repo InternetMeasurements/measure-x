@@ -2,86 +2,108 @@
 - name: Setup Raspberry Pi Coordinator
   hosts: coordinator
   become: yes
+  
+  vars_files:
+    - coordinator_vars.yaml 
+    
   vars:
-    path_base: "/home/{{ inventory_hostname }}/measureX"
+    path_base: "/home/{{ ansible_user }}/measureX"
+    docker_config_dir: "{{ path_base }}"
 
   tasks:
-    # 1. Install pip and virtualenv if not already installed
-    - name: Install pip and virtualenv if not already installed
+    - name: Ensure required dependencies are installed 
       apt:
         name:
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
           - python3-pip
-          - python3-venv
+          - python3-venv 
         state: present
-
-    # 2. Create a virtual environment named measurex_venv
-    - name: Create a virtual environment named measurex_venv
-      command:
-        cmd: python3 -m venv /home/{{ inventory_hostname }}/measurex_venv
-        creates: /home/{{ inventory_hostname }}/measurex_venv
-
-    # 3. Install dependencies from requirements.txt into virtualenv
-    - name: Install dependencies from requirements.txt into virtualenv
-      pip:
-        requirements: "{{ path_base }}/requirements.txt"
-        virtualenv: "/home/{{ inventory_hostname }}/measurex_venv"
-        state: present
-
-    # 4. Remove any existing MongoDB installation
-    - name: Remove existing MongoDB installation
-      apt:
-        name: mongodb-org
-        state: absent
-      ignore_errors: yes
-
-    # 5. Add MongoDB GPG key for version 4.4
-    - name: Import MongoDB GPG key for version 4.4
-      apt_key:
-        url: https://www.mongodb.org/static/pgp/server-4.4.asc
-        state: present
-
-    # 6. Add MongoDB 4.4 repository
-    - name: Add MongoDB 4.4 repository
-      apt_repository:
-        repo: "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/4.4 multiverse"
-        state: present
-    # 7. Update apt cache
-    - name: Update apt cache
-      apt:
         update_cache: yes
 
-    # 8. Install MongoDB 4.4
-    - name: Install MongoDB 4.4
+    # Docker setup
+    - name: Add Docker GPG key
+      apt_key:
+        url: [https://download.docker.com/linux/raspbian/gpg](https://download.docker.com/linux/raspbian/gpg)
+        state: present
+      when: ansible_distribution == 'Raspbian' or ansible_distribution == 'Debian'
+
+    - name: Add Docker repository
+      apt_repository:
+        repo: "deb [arch=armhf] [https://download.docker.com/linux/raspbian](https://download.docker.com/linux/raspbian) {{ ansible_distribution_release }} stable"
+        state: present
+        filename: docker
+      when: ansible_distribution == 'Raspbian'
+
+    - name: Install Docker Engine
       apt:
-        name: mongodb-org
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin 
         state: present
 
-    - name: Configure MongoDB to bind to all IP addresses
-      lineinfile:
-        path: /etc/mongod.conf
-        regexp: '^  bindIp: 127.0.0.1'  # Cerchiamo la riga che contiene bindIp con 127.0.0.1
-        line: '  bindIp: 0.0.0.0'  # Sostituire con bindIp: 0.0.0.0
+    - name: Ensure docker group exists and user is added
+      user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: yes
 
-    # 9. Enable MongoDB service to start on boot
-    - name: Enable and start MongoDB service
-      systemd:
-        name: mongod
-        enabled: yes
-        state: started
+    - name: Restart SSH to apply docker group changes
+      meta: reset_connection
+      
+    - name: Create a virtual environment named measurex_venv
+      command:
+        cmd: python3 -m venv /home/{{ ansible_user }}/measurex_venv
+        creates: /home/{{ ansible_user }}/measurex_venv
 
-    # 10. Create MongoDB user for measurexDB
-    - name: Create MongoDB user for measurexDB
-      command: >
-        mongosh admin --eval "db.createUser({
-          user: 'measurex',
-          pwd: 'measurex',
-          roles: [{ role: 'readWrite', db: 'measurexDB' }]
-        })"
-      ignore_errors: yes
+    - name: Install Python dependencies from requirements.txt into virtualenv
+      pip:
+        requirements: "{{ path_base }}/requirements.txt"
+        virtualenv: "/home/{{ ansible_user }}/measurex_venv"
+        state: present
+  
+    - name: Customize and copy coordinatorConfig.yaml
+      template:
+        src: templates/coordinatorConfig.yaml.j2 
+        dest: "{{ docker_config_dir }}/coordinatorConfig.yaml"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0644'
 
-  # Optional: Restart MongoDB if needed
-  handlers:
-    - name: restart mongodb
-      systemd:
-        name: mongod
-        state: restarted
+    - name: Customize and copy datasource.yaml for Grafana
+      template:
+        src: templates/datasource.yaml.j2
+        dest: "{{ docker_config_dir }}/grafana/datasource/datasource.yaml"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0644'
+
+    - name: Start Docker containers using docker-compose
+      community.docker.docker_compose_v2:
+        project_src: "{{ docker_config_dir }}"
+        state: present
+        build: yes
+        wait: yes 
+
+    # MongoDB user creation (after container start) 
+    - name: Wait for MongoDB service to be fully up
+      wait_for:
+        port: 27017 
+        host: 127.0.0.1 
+        timeout: 60
+        delay: 5
+
+    - name: Create MongoDB user for {{ MONGO_DATABASE }}
+      ansible.builtin.shell: |
+        docker exec measure-x-mongo mongosh admin --eval \
+          "db.createUser({ \
+            user: '{{ MONGO_USER }}', \
+            pwd: '{{ MONGO_PASSWORD }}', \
+            roles: [{ role: 'readWrite', db: '{{ MONGO_DATABASE }}' }] \
+          })"
+      args:
+        executable: /bin/bash

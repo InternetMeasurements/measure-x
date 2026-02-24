@@ -6,6 +6,8 @@ This module defines the EnergyCoordinator class, which manages the coordination 
 import json
 import cbor2, base64
 import threading
+from bson import ObjectId
+from datetime import datetime, timezone
 from modules.mongoModule.mongoDB import MongoDB, ErrorModel
 from modules.mqttModule.mqtt_client import Mqtt_Client
 from modules.mongoModule.models.measurement_model_mongo import MeasurementModelMongo
@@ -158,9 +160,18 @@ class EnergyCoordinator:
         byte_tx = result["byte_tx"]
         byte_rx = result["byte_rx"]
 
-        energy_result = EnergyResultModelMongo(msm_id = msm_id, timeseries = timeseries,
-                                               energy=energy, byte_tx=byte_tx, byte_rx=byte_rx,
-                                               duration=duration)
+        
+        raw_timestamp = self.mongo_db.measurements_collection.find_one({"_id": ObjectId(msm_id)})["start_time"]
+        energy_result = EnergyResultModelMongo(
+            msm_id = msm_id, 
+            timeseries = timeseries,
+            energy=energy, 
+            byte_tx=byte_tx, 
+            byte_rx=byte_rx,
+            duration=duration,
+            type = 'energy',
+            timestamp_iso = datetime.fromtimestamp(raw_timestamp, timezone.utc)
+        )
         
         #size_1 = self.get_size(timeseries)
         #size_2 = self.get_size(c_data_b64)

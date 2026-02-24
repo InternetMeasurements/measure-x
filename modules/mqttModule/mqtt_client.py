@@ -20,12 +20,13 @@ class Mqtt_Client(mqtt.Client):
     Handles connection, subscription, message routing, and command publishing to probes.
     """
 
-    def __init__(self, status_handler_callback, results_handler_callback, errors_handler_callback):
+    def __init__(self, status_handler_callback, results_handler_callback, contexts_handler_callback, errors_handler_callback):
         """
         Initialize the MQTT client, load configuration, and set up callbacks.
         Args:
             status_handler_callback (callable): Handler for status messages.
             results_handler_callback (callable): Handler for result messages.
+            contexts_handler_callback (callable): Handler for context messages.
             errors_handler_callback (callable): Handler for error messages.
         """
         self.config = None
@@ -41,6 +42,7 @@ class Mqtt_Client(mqtt.Client):
 
         self.external_results_handler = results_handler_callback
         self.external_status_handler = status_handler_callback
+        self.external_contexts_handler = contexts_handler_callback
         self.external_errors_handler = errors_handler_callback
 
         self.config = cl.config
@@ -106,6 +108,8 @@ class Mqtt_Client(mqtt.Client):
             self.external_results_handler(probe_sender, message.payload.decode('utf-8'))
         elif str(message.topic).endswith("status"):
             self.external_status_handler(probe_sender, message.payload.decode('utf-8'))
+        elif str(message.topic).endswith("contexts"):
+            self.external_contexts_handler(probe_sender, message.payload.decode('utf-8'))
         elif str(message.topic).endswith("errors"):
             self.external_errors_handler(probe_sender, message.payload.decode('utf-8'))
         else:

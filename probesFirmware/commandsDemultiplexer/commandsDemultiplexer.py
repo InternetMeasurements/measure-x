@@ -1,10 +1,12 @@
 import json
 from mqttModule.mqttClient import ProbeMqttClient
+from contextModule.contextController import ContextController
 from shared_resources import SharedState
 
 class CommandsDemultiplexer():
     def __init__(self):
         self.commands_handler_list = {}
+        self.context_module = ContextController()
         # The CommandsDemultiplexer set as a handler for "root_service" commands, an its internal method
         self.registration_handler_request(interested_command="root_service", handler=self.root_service_command_handler)
 
@@ -44,6 +46,13 @@ class CommandsDemultiplexer():
         command = nested_command["command"]
         payload = nested_command["payload"]
         if handler in self.commands_handler_list:
+            # Check for start message -> i've to publish the context
+            if command == "start":
+                print(f"CommandsDemultiplexer: starting context evaluation")
+                context = self.context_module.read_context(payload["msm_id"])
+                self.mqtt_client.publish_on_context_topic(context)
+                print(f"CommandsDemultiplexer: end of context evaluation")
+            # In every case handle the command
             self.commands_handler_list[handler](command, payload)
         else:
             msm_id = payload["msm_id"] if ("msm_id" in payload) else None

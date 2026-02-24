@@ -9,6 +9,7 @@ from pathlib import Path
 import threading, json
 import cbor2, base64
 from bson import ObjectId
+from datetime import datetime, timezone
 from modules.mqttModule.mqtt_client import Mqtt_Client
 from modules.configLoader.config_loader import ConfigLoader, UDPPING_KEY
 from modules.mongoModule.mongoDB import MongoDB, MeasurementModelMongo
@@ -375,9 +376,12 @@ class UDPPing_Coordinator:
         c_udpping = base64.b64decode(c_udpping_b64)
         udpping_result = cbor2.loads(c_udpping)
 
+        raw_timestamp = self.mongo_db.measurements_collection.find_one({"_id": ObjectId(msm_id)})["start_time"]
         mongo_udpping_result = UDPPINGResultModelMongo(
             msm_id = ObjectId(msm_id),
-            udpping_result = udpping_result
+            udpping_result = udpping_result,
+            type = 'udp',
+            timestamp_iso = datetime.fromtimestamp(raw_timestamp, timezone.utc)
         )
 
         result_id = str(self.mongo_db.insert_result(result = mongo_udpping_result))

@@ -1,0 +1,18 @@
+apiVersion: 1
+
+datasources:
+  - name: Measure-X-Mongo
+    type: haohanyang-mongodb-datasource
+    access: proxy
+    isDefault: true
+    editable: true
+  
+    jsonData:
+      host: mongodb                       
+      port: 27017
+      database: {{ MONGO_DATABASE }}      
+      authType: auth-username-password
+      username: {{ MONGO_USER }}         
+    
+    secureJsonData:
+      password: {{ MONGO_PASSWORD }}     

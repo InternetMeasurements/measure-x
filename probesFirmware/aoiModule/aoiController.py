@@ -221,6 +221,7 @@ class AgeOfInformationController:
                 if self.last_packets_rate is None:
                     raise Exception(f"AoIController: wrong packets_rate -> |{self.last_packets_rate}|")
                 print(f"Role client thread -> last_probe_ntp_server_ip: |{self.last_probe_ntp_server_ip}|")
+                # Provare a loggare qui il last_probe_ntp_server_ip
                 result = subprocess.run( ['sudo', 'ntpdate', self.last_probe_ntp_server_ip], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 if result.returncode == 0:
                     print(f"AoIController: clock synced with {self.last_probe_ntp_server_ip}")

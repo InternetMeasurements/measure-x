@@ -2,7 +2,8 @@ class IperfResultModelMongo:
     def __init__(self, 
                  msm_id, repetition_number, start_timestamp,
                  transport_protocol, source_ip, source_port, destination_ip,
-                 destination_port, bytes_received, duration, avg_speed, full_result):
+                 destination_port, bytes_received, duration, avg_speed, full_result,
+                 type, timestamp_iso):
         self._id = None
         self.msm_id = msm_id
         self.repetition_number = repetition_number
@@ -16,6 +17,9 @@ class IperfResultModelMongo:
         self.duration = duration
         self.avg_speed = avg_speed
         self.full_result = full_result
+        self.type = type
+        self.timestamp_iso = timestamp_iso
+
 
     def to_dict(self):
         return {
@@ -28,5 +32,7 @@ class IperfResultModelMongo:
             'destination_port': self.destination_port,
             'duration': self.duration,
             'avg_speed': self.avg_speed,
-            'full_result': self.full_result
+            'full_result': self.full_result,
+            'type': self.type,
+            'timestamp_iso': self.timestamp_iso
         }
